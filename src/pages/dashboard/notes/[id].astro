@@ -1,0 +1,72 @@
+---
+import AppLayout from "@/layouts/AppLayout.astro";
+import NoteForm from "@/components/notes/NoteForm";
+import DeleteNoteButton from "@/components/notes/DeleteNoteButton";
+import { createClient } from "@/lib/supabase";
+import { isNoteId, noteErrorText, noteNoticeText } from "@/lib/notes";
+
+let error = noteErrorText(Astro.url.searchParams.get("error"));
+const notice = noteNoticeText(Astro.url.searchParams.get("notice"));
+
+// A note of another user and an id that does not exist give the same result. RLS returns no row for both.
+const { id } = Astro.params;
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+let note: { id: string; title: string; body: string } | null = null;
+let notFound = false;
+if (!supabase) {
+  error = noteErrorText("not_configured");
+} else if (!isNoteId(id)) {
+  notFound = true;
+} else {
+  const result = await supabase.from("notes").select("id, title, body").eq("id", id).maybeSingle();
+  if (result.error) {
+    Astro.response.status = 500;
+    error = noteErrorText("unknown");
+  } else if (!result.data) {
+    notFound = true;
+  } else {
+    note = result.data;
+  }
+}
+
+if (notFound) {
+  Astro.response.status = 404;
+}
+---
+
+<AppLayout title={note ? note.title : "Note not found"}>
+  {note ? (
+    <>
+      <h1 class="mb-6 font-heading text-3xl font-extrabold sm:text-4xl">Edit note</h1>
+      {notice && (
+        <p data-testid="notes-notice" class="mb-6 rounded-lg bg-success px-3 py-2 text-sm text-success-foreground">
+          {notice}
+        </p>
+      )}
+      <div
+        data-testid="note-edit-form"
+        class="rounded-(--radius) bg-card p-6 text-card-foreground shadow-(--shadow-card)"
+      >
+        <NoteForm
+          action={`/api/notes/${note.id}/update`}
+          initialTitle={note.title}
+          initialBody={note.body}
+          submitLabel="Save note"
+          pendingText="Saving..."
+          serverError={error}
+          client:load
+        />
+      </div>
+      <div class="mt-4">
+        <DeleteNoteButton noteId={note.id} client:load />
+      </div>
+    </>
+  ) : (
+    <>
+      <h1 class="mb-6 font-heading text-3xl font-extrabold sm:text-4xl">{notFound ? "Note not found" : "Note"}</h1>
+      <p class="text-sm text-muted-foreground">
+        {notFound ? "This note does not exist or you cannot open it." : error}
+      </p>
+    </>
+  )}
+</AppLayout>

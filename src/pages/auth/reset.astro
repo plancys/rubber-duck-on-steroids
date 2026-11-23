@@ -1,0 +1,34 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Brand from "@/components/Brand.astro";
+import ResetRequestForm from "@/components/auth/ResetRequestForm";
+import { authErrorText } from "@/lib/auth-errors";
+
+const error = authErrorText(Astro.url.searchParams.get("error"));
+const sent = Astro.url.searchParams.get("sent") === "1";
+---
+
+<Layout title="Reset password">
+  <div class="flex min-h-screen flex-col items-center justify-center gap-6 bg-background p-4 text-foreground">
+    <Brand mark class="text-xl" />
+    <div class="w-full max-w-sm rounded-(--radius) bg-card p-6 text-card-foreground shadow-(--shadow-card) sm:p-8">
+      <h1 class="mb-6 text-center font-heading text-2xl font-extrabold">Reset password</h1>
+      {sent ? (
+        <p data-testid="reset-sent" class="rounded-lg bg-success px-3 py-2 text-sm text-success-foreground">
+          If an account exists for this email, we sent a reset link.
+        </p>
+      ) : (
+        <ResetRequestForm serverError={error} client:load />
+      )}
+      <p class="mt-4 text-center text-sm text-muted-foreground">
+        Remember your password?{" "}
+        <a
+          href="/auth/signin"
+          class="inline-flex min-h-11 min-w-11 items-center font-semibold text-primary hover:underline"
+        >
+          Sign in
+        </a>
+      </p>
+    </div>
+  </div>
+</Layout>

@@ -1,0 +1,227 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx astro sync
+      - run: npm run lint
+      - run: npx astro check
+      - run: npm run build
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
+  smoke:
+    name: smoke (${{ matrix.variant }})
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          # The full run uses the code as it is.
+          - full
+          # BEGIN sample-resource
+          # The without-sample run removes the sample resource first. It shows that the removal keeps the app green.
+          - without-sample
+          # END sample-resource
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # The cache keeps the Chromium download out of most runs. The install step is fast on a cache hit, and it still installs the system packages.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npx playwright install --with-deps chromium
+      # BEGIN sample-resource
+      - name: Remove the sample resource, then lint and check types
+        if: matrix.variant == 'without-sample'
+        run: |
+          node scripts/remove-sample.mjs --yes
+          npx astro sync
+          npm run lint
+          npx astro check
+      # END sample-resource
+      - name: Set up local Supabase and env files
+        run: node scripts/local.mjs --setup-only --exclude=studio,imgproxy,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor
+      # A random test secret for the Send Email Hook steps. The smoke test signs its hook calls with the same value.
+      # ALLOW_LOOK_OVERRIDE lets the phone check select each look with the cookie "look". The deploy job does not set it.
+      # OAUTH_PROVIDERS shows the OAuth buttons for the smoke test and the phone check. The local Supabase needs no provider:
+      # the start route builds the authorize URL without a call to Supabase, and a test code fails the callback in all cases.
+      - name: Write a test Send Email Hook secret, the look override and the OAuth providers
+        run: |
+          secret="v1,whsec_$(openssl rand -base64 32)"
+          echo "::add-mask::$secret"
+          echo "SEND_EMAIL_HOOK_SECRET=$secret" >> .dev.vars
+          echo "ALLOW_LOOK_OVERRIDE=true" >> .dev.vars
+          echo "OAUTH_PROVIDERS=github,google" >> .dev.vars
+          echo "SMOKE_HOOK_SECRET=$secret" >> "$GITHUB_ENV"
+      - name: Run database policy tests
+        run: |
+          if compgen -G "supabase/tests/*.sql" > /dev/null; then
+            npx supabase test db
+          else
+            echo "::notice::supabase/tests has no .sql file. The step does not run npx supabase test db."
+          fi
+      - run: npm run build
+      - name: Run the phone check and the smoke test against production preview
+        run: |
+          npm run preview -- --port 4321 &
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:4321/ && break; sleep 1; done
+          curl -sf -o /dev/null http://localhost:4321/ || { echo "preview did not start"; exit 1; }
+          # The full variant checks every look. The other variants check the active look only.
+          LOOKS="${{ matrix.variant == 'full' && 'all' || '' }}" BASE_URL=http://localhost:4321 npm run phone-check
+          BASE_URL=http://localhost:4321 npm run smoke
+      - if: always()
+        run: npx supabase stop --no-backup
+
+  deploy:
+    needs: [ci, smoke]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+    # A newer merge waits for the running deploy. It does not cancel it.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      # GitHub does not allow secrets in a job-level "if". This step checks them and sets "ready".
+      - name: Check production settings
+        id: settings
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] && [ "$EVENT_NAME" = "push" ]; then
+            echo "::notice::Deploy skipped. CLOUDFLARE_API_TOKEN is not set. See the README section \"Deployment > One-time setup\"."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          missing=""
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SUPABASE_URL SUPABASE_KEY SUPABASE_DB_URL PRODUCTION_URL; do
+            if [ -z "${!name}" ]; then
+              missing="$missing $name"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Deploy cannot start. Set these values in the production environment:$missing"
+            exit 1
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - if: steps.settings.outputs.ready == 'true'
+        uses: actions/checkout@v7
+      - if: steps.settings.outputs.ready == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - if: steps.settings.outputs.ready == 'true'
+        run: npm ci
+      - name: Build with the commit SHA as the version
+        if: steps.settings.outputs.ready == 'true'
+        run: npm run build
+        env:
+          BUILD_VERSION: ${{ github.sha }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          # The build fixes the OAuth buttons. Without the variable, the app shows no OAuth button.
+          OAUTH_PROVIDERS: ${{ vars.OAUTH_PROVIDERS }}
+      # Migrations run before the deploy. A failed migration stops the job before the new code goes live.
+      - name: Apply database migrations
+        if: steps.settings.outputs.ready == 'true'
+        run: npx supabase db push --db-url "$SUPABASE_DB_URL" --yes
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      # The file stays outside the workspace. jq escapes the values. No step prints them.
+      # The email values are optional. The step adds each one only when it is set,
+      # so an empty value never replaces a Worker secret.
+      - name: Write the Worker secrets file
+        if: steps.settings.outputs.ready == 'true'
+        run: |
+          umask 077
+          jq -n \
+            --arg url "$SUPABASE_URL" \
+            --arg key "$SUPABASE_KEY" \
+            --arg resend "$RESEND_API_KEY" \
+            --arg hook "$SEND_EMAIL_HOOK_SECRET" \
+            --arg from "$EMAIL_FROM" \
+            --arg admin "$ADMIN_EMAIL" \
+            --arg percent "$EMAIL_QUOTA_ALERT_PERCENT" \
+            '{SUPABASE_URL:$url,SUPABASE_KEY:$key}
+            + {RESEND_API_KEY:$resend,SEND_EMAIL_HOOK_SECRET:$hook,EMAIL_FROM:$from,ADMIN_EMAIL:$admin,EMAIL_QUOTA_ALERT_PERCENT:$percent}
+              | with_entries(select(.value != ""))' > "$RUNNER_TEMP/secrets.json"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SEND_EMAIL_HOOK_SECRET: ${{ secrets.SEND_EMAIL_HOOK_SECRET }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          ADMIN_EMAIL: ${{ vars.ADMIN_EMAIL }}
+          EMAIL_QUOTA_ALERT_PERCENT: ${{ vars.EMAIL_QUOTA_ALERT_PERCENT }}
+      - name: Deploy the Worker
+        if: steps.settings.outputs.ready == 'true'
+        run: npx wrangler deploy --secrets-file "$RUNNER_TEMP/secrets.json" --message "CI deploy $GITHUB_SHA"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Wait for the new version on /healthcheck
+        if: steps.settings.outputs.ready == 'true'
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: |
+          url="${PRODUCTION_URL%/}/healthcheck"
+          body="$RUNNER_TEMP/healthcheck.json"
+          status=""
+          version=""
+          for i in $(seq 1 12); do
+            rm -f "$body"
+            status=$(curl -s --max-time 10 -o "$body" -w '%{http_code}' "$url" || true)
+            version=$(jq -r '.version // empty' "$body" 2>/dev/null || true)
+            if [ "$version" = "$GITHUB_SHA" ]; then
+              echo "Version $version is live at $url."
+              exit 0
+            fi
+            if [ "$i" -lt 12 ]; then
+              sleep 5
+            fi
+          done
+          echo "::error::Version $GITHUB_SHA is not live after 60 seconds. Last HTTP status: ${status:-none}. Last version: ${version:-none}."
+          exit 1
+      - name: Delete the Worker secrets file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/secrets.json"

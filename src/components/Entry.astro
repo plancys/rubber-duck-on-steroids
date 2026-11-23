@@ -1,0 +1,115 @@
+---
+// One dashboard entry, in the form of the active look. The test id is on the link in every form.
+// Warm soft: a large round card with an icon tile and an "Open" pill.
+// Editorial: a numbered row with a serif title in a ruled list.
+// Calm: a bordered card in a grid.
+// Swiss: a row of a table-like list with the number, the title, the description and an "Open" button.
+// Dock: a large tile with an icon in a grid.
+import { activeLook } from "@/lib/looks";
+
+interface Props {
+  title: string;
+  description: string;
+  href: string;
+  // The test id of the link.
+  testid?: string;
+}
+
+const { title, description, href, testid } = Astro.props;
+const look = activeLook(Astro.cookies);
+// The number of the entry, from the counter that EntryList resets.
+const numberClass = "[counter-increment:entry] before:content-[counter(entry,decimal-leading-zero)]";
+---
+
+{look === "warm" && (
+  <a
+    href={href}
+    data-testid={testid}
+    class="flex items-center gap-3 rounded-(--radius) bg-card p-4 text-card-foreground shadow-(--shadow-card) transition-shadow hover:shadow-md sm:gap-4 sm:p-6"
+  >
+    <span aria-hidden="true" class="inline-flex size-14 flex-none items-center justify-center rounded-sm bg-accent">
+      <svg
+        class="size-6.5 text-accent-foreground"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linejoin="round"
+      >
+        <path d="M6 3h9l3 3v15H6z"></path>
+        <path d="M9 11h6M9 15h6"></path>
+      </svg>
+    </span>
+    <span class="min-w-0 flex-1">
+      <span class="block font-heading text-xl font-extrabold">{title}</span>
+      <span class="block text-muted-foreground">{description}</span>
+    </span>
+    <span class="inline-flex min-h-11 flex-none items-center rounded-full bg-primary px-4 font-bold text-primary-foreground">
+      Open
+    </span>
+  </a>
+)}
+{look === "editorial" && (
+  <li class="border-b border-border">
+    <a href={href} data-testid={testid} class="group flex items-baseline gap-4 py-6 text-foreground sm:gap-6">
+      <span aria-hidden="true" class:list={["font-heading text-xl text-primary", numberClass]}></span>
+      <span class="min-w-0 flex-1">
+        <span class="block font-heading text-3xl group-hover:text-primary">{title}</span>
+        <span class="mt-1 block text-muted-foreground">{description}</span>
+      </span>
+      <span class="flex-none text-sm text-primary">Open →</span>
+    </a>
+  </li>
+)}
+{look === "calm" && (
+  <a
+    href={href}
+    data-testid={testid}
+    class="flex flex-col gap-2 rounded-(--radius) border border-border bg-card p-5 text-card-foreground transition-colors hover:border-input"
+  >
+    <span class="flex items-center justify-between gap-3">
+      <span class="text-base font-semibold">{title}</span>
+      <span class="text-sm text-primary">Open →</span>
+    </span>
+    <span class="text-sm text-muted-foreground">{description}</span>
+  </a>
+)}
+{look === "swiss" && (
+  <a
+    href={href}
+    data-testid={testid}
+    class="group grid grid-cols-[2rem_minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1 border-b border-foreground py-5 text-foreground md:grid-cols-[3rem_minmax(0,14rem)_1fr_auto]"
+  >
+    <span aria-hidden="true" class:list={["pt-1 text-[15px]", numberClass]}></span>
+    <span class="text-2xl font-extrabold group-hover:text-accent-foreground md:text-[28px]">{title}</span>
+    <span class="col-start-2 text-[15px] md:col-start-3 md:row-start-1 md:pt-1">{description}</span>
+    <span class="col-start-3 row-start-1 inline-flex min-h-11 items-center bg-primary px-4 font-extrabold text-primary-foreground md:col-start-4">
+      Open
+    </span>
+  </a>
+)}
+{look === "dock" && (
+  <a
+    href={href}
+    data-testid={testid}
+    class="flex min-h-55 flex-col justify-between gap-6 rounded-(--radius) bg-card p-6 text-card-foreground shadow-(--shadow-card) transition-shadow hover:shadow-md"
+  >
+    <span aria-hidden="true" class="inline-flex size-14 items-center justify-center rounded-2xl bg-accent">
+      <svg
+        class="size-7 text-accent-foreground"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linejoin="round"
+      >
+        <path d="M6 3h9l3 3v15H6z"></path>
+        <path d="M9 11h6M9 15h6"></path>
+      </svg>
+    </span>
+    <span>
+      <span class="block text-2xl font-extrabold">{title}</span>
+      <span class="mt-1 block text-muted-foreground">{description}</span>
+    </span>
+  </a>
+)}

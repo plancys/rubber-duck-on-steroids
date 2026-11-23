@@ -1,0 +1,28 @@
+---
+import { site } from "@/lib/site";
+
+interface Props {
+  class?: string;
+  // Shows a round mark before the name, as in the Warm soft look.
+  mark?: boolean;
+  // Removes the Warm soft style. The caller gives the display, font, size and hover classes in `class`.
+  unstyled?: boolean;
+}
+
+// The default size fits the bar. A page passes its own size class.
+const { class: className = "text-lg", mark = false, unstyled = false } = Astro.props;
+---
+
+{/* min-h-11 min-w-11 gives the link a 44px hit area on a phone. A shell can put its own mark in the slot. */}
+<a
+  href="/"
+  class:list={[
+    "min-h-11 min-w-11 items-center text-foreground",
+    !unstyled && "inline-flex gap-2.5 font-heading font-extrabold tracking-tight transition-colors hover:text-primary",
+    className,
+  ]}
+>
+  {mark && <span aria-hidden="true" class="size-8 shrink-0 rounded-full bg-accent"></span>}
+  <slot />
+  {site.name}
+</a>

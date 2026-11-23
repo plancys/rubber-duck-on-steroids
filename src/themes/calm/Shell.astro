@@ -1,0 +1,93 @@
+---
+// The shell of the Calm dark SaaS look (board 3): a left sidebar from md with the brand, icon links, and the account
+// with Sign out at the bottom. Under md the sidebar folds to one row with the brand and the phone menu.
+import Brand from "@/components/Brand.astro";
+import NavIcon from "@/components/NavIcon.astro";
+import PhoneMenu from "@/components/PhoneMenu.astro";
+import { accountLinks, currentNavHref, navLinks } from "@/lib/nav";
+
+const { user } = Astro.locals;
+const currentHref = currentNavHref(Astro.url.pathname);
+const isCurrent = (href: string) => href === currentHref;
+---
+
+<div class="min-h-screen w-full bg-background text-foreground md:flex">
+  {/* One element is the bar on a phone and the sidebar from md. On a phone it is one row: 44px plus py-2. */}
+  <nav
+    data-testid="shell-nav"
+    aria-label="Main"
+    class="relative flex flex-wrap items-center justify-between gap-x-1 border-b text-sm border-border bg-card px-3 py-2 md:sticky md:top-0 md:h-screen md:w-60 md:flex-none md:flex-col md:flex-nowrap md:items-stretch md:justify-start md:border-r md:border-b-0 md:py-5"
+  >
+    <Brand unstyled class="flex gap-2.5 px-1 text-base font-semibold md:mb-4 md:px-3">
+      <span aria-hidden="true" class="size-6 flex-none rounded-[6px] bg-primary"></span>
+    </Brand>
+    {!user && (
+      <div class="flex items-center gap-1 md:flex-col md:items-stretch">
+        <a
+          href="/auth/signin"
+          class="flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground md:justify-start md:px-3"
+        >
+          Sign in
+        </a>
+        <a
+          href="/auth/signup"
+          class="flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-primary px-2 font-medium text-primary-foreground transition-colors hover:bg-primary/90 md:px-3"
+        >
+          Sign up
+        </a>
+      </div>
+    )}
+    {user && (
+      <>
+        <div class="hidden flex-1 flex-col gap-1 md:flex">
+          {navLinks.map(({ href, label }) => (
+            <a
+              href={href}
+              aria-current={isCurrent(href) ? "page" : undefined}
+              class:list={[
+                "flex min-h-11 min-w-11 items-center gap-2.5 rounded-lg px-3 transition-colors",
+                isCurrent(href)
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+              ]}
+            >
+              <NavIcon href={href} />
+              {label}
+            </a>
+          ))}
+          <div class="mt-auto flex flex-col gap-1 border-t border-border p-3">
+            <span class="truncate text-muted-foreground" title={user.email}>
+              {user.email}
+            </span>
+            {accountLinks.map(({ href, label }) => (
+              <a
+                href={href}
+                aria-current={isCurrent(href) ? "page" : undefined}
+                class:list={[
+                  "flex min-h-11 min-w-11 items-center gap-2 transition-colors",
+                  isCurrent(href) ? "font-medium text-foreground" : "text-primary hover:text-foreground",
+                ]}
+              >
+                <NavIcon href={href} class="size-4" />
+                {label}
+              </a>
+            ))}
+            <form method="POST" action="/api/auth/signout">
+              <button
+                type="submit"
+                class="flex min-h-11 min-w-11 cursor-pointer items-center gap-2 text-primary transition-colors hover:text-foreground"
+              >
+                <NavIcon href="signout" class="size-4" />
+                Sign out
+              </button>
+            </form>
+          </div>
+        </div>
+        <PhoneMenu breakpoint="md" />
+      </>
+    )}
+  </nav>
+  <main data-testid="app-shell" class="min-w-0 flex-1 px-4 py-6 md:px-10 md:py-8">
+    <slot />
+  </main>
+</div>

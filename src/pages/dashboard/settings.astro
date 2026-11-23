@@ -1,0 +1,48 @@
+---
+import AppLayout from "@/layouts/AppLayout.astro";
+import ChangePasswordForm from "@/components/auth/ChangePasswordForm";
+import { authErrorText, authNoticeText } from "@/lib/auth-errors";
+
+const { user } = Astro.locals;
+const error = authErrorText(Astro.url.searchParams.get("error"));
+const notice = authNoticeText(Astro.url.searchParams.get("notice"));
+// A user who signed up with OAuth only has no "email" provider and thus no password to change.
+const providers: unknown = user?.app_metadata.providers;
+const hasPassword = Array.isArray(providers) && providers.includes("email");
+---
+
+<AppLayout title="Settings">
+  <h1 class="mb-2 font-heading text-3xl font-extrabold sm:text-4xl">Settings</h1>
+  <p class="mb-6 text-muted-foreground">
+    Signed in as{" "}
+    <span class="inline-block max-w-[14rem] truncate align-bottom font-semibold text-foreground" title={user?.email}>
+      {user?.email}
+    </span>
+  </p>
+  {notice && (
+    <p data-testid="settings-notice" class="mb-6 rounded-lg bg-success px-3 py-2 text-sm text-success-foreground">
+      {notice}
+    </p>
+  )}
+
+  <section class="max-w-md rounded-(--radius) bg-card p-6 text-card-foreground shadow-(--shadow-card)">
+    <h2 class="mb-3 font-heading text-xl font-extrabold">Change password</h2>
+    {hasPassword ? (
+      <div data-testid="change-password-form">
+        <ChangePasswordForm serverError={error} client:load />
+      </div>
+    ) : (
+      <p data-testid="settings-no-password" class="text-sm text-muted-foreground">
+        Your account has no password. To add one, use{" "}
+        {/* The phone check needs a tap target of 44px for each link, also for a link in a sentence. */}
+        <a
+          href="/auth/reset"
+          class="inline-flex min-h-11 min-w-11 items-center font-semibold text-primary hover:underline"
+        >
+          Forgot password
+        </a>
+        .
+      </p>
+    )}
+  </section>
+</AppLayout>

@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // A new project changes "name" and "ratelimits[0].namespace_id".
+  "name": "rubber-duck-on-steroids",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-05-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+  },
+  "observability": {
+    "enabled": true,
+  },
+  // 10 attempts per key per 60 seconds for the sign-in and sign-up routes.
+  // namespace_id must be unique per Cloudflare account. Give each new project on the same account its own value.
+  "ratelimits": [
+    {
+      "name": "AUTH_RATE_LIMITER",
+      "namespace_id": "718806",
+      "simple": { "limit": 10, "period": 60 },
+    },
+  ],
+  // The email hook records each quota alert here until the Resend quota resets, so it sends one alert per period.
+  // The binding has no id. wrangler deploy creates the namespace on the first deploy and reuses it after that.
+  "kv_namespaces": [{ "binding": "QUOTA_ALERTS" }],
+}

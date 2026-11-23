@@ -1,0 +1,33 @@
+---
+import type { AstroComponentFactory } from "astro/runtime/server/index.js";
+import Layout from "@/layouts/Layout.astro";
+import { activeLook, type Look } from "@/lib/looks";
+import CalmShell from "@/themes/calm/Shell.astro";
+import DockShell from "@/themes/dock/Shell.astro";
+import EditorialShell from "@/themes/editorial/Shell.astro";
+import SwissShell from "@/themes/swiss/Shell.astro";
+import WarmShell from "@/themes/warm/Shell.astro";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+
+// The shell of each look.
+// ESLint cannot read the type of an .astro import, so the map states the component type.
+const shells: Record<Look, AstroComponentFactory> = {
+  warm: WarmShell as AstroComponentFactory,
+  editorial: EditorialShell as AstroComponentFactory,
+  calm: CalmShell as AstroComponentFactory,
+  swiss: SwissShell as AstroComponentFactory,
+  dock: DockShell as AstroComponentFactory,
+};
+const Shell = shells[activeLook(Astro.cookies)];
+---
+
+<Layout title={title}>
+  <Shell>
+    <slot />
+  </Shell>
+</Layout>

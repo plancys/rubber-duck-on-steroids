@@ -1,0 +1,96 @@
+---
+// The shell of the Warm soft look (board 4): a narrow centered column with a header row, a pill navigation and the page.
+// The pill navigation fits a phone, so this shell has no phone menu.
+import Brand from "@/components/Brand.astro";
+import { accountLinks, currentNavHref, navLinks } from "@/lib/nav";
+
+const { user } = Astro.locals;
+const email = user?.email ?? "";
+const initial = email.charAt(0).toUpperCase();
+const currentHref = currentNavHref(Astro.url.pathname);
+const isCurrent = (href: string) => href === currentHref;
+---
+
+<div class="min-h-screen w-full bg-background px-4 pt-8 pb-16 text-foreground">
+  <div class="mx-auto flex w-full max-w-160 flex-col gap-6">
+    {/* For a user the header row stays outside shell-nav, so the bar is only the pill row: 44px links plus 4px padding. */}
+    {/* For a visitor the header row is the bar: the brand, Sign in and Sign up. */}
+    <header class="flex flex-wrap items-center justify-between gap-3">
+      <Brand mark class="text-xl" />
+      {!user && (
+        <nav data-testid="shell-nav" aria-label="Main" class="flex items-center gap-1">
+          <a
+            href="/auth/signin"
+            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full px-3 font-semibold text-foreground transition-colors hover:bg-secondary sm:px-4"
+          >
+            Sign in
+          </a>
+          <a
+            href="/auth/signup"
+            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-primary px-3 font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:px-4"
+          >
+            Sign up
+          </a>
+        </nav>
+      )}
+      {user && (
+        <div class="flex items-center gap-2">
+          <span
+            title={email}
+            class="inline-flex size-9 items-center justify-center rounded-full bg-muted font-extrabold text-foreground"
+          >
+            <span aria-hidden="true">{initial}</span>
+            <span class="sr-only">Signed in as {email}</span>
+          </span>
+          {accountLinks.map(({ href, label }) => (
+            <a
+              href={href}
+              aria-current={isCurrent(href) ? "page" : undefined}
+              class:list={[
+                "inline-flex min-h-11 min-w-11 items-center rounded-full px-4 transition-colors",
+                isCurrent(href)
+                  ? "bg-card font-extrabold text-card-foreground shadow-sm"
+                  : "bg-secondary font-semibold text-secondary-foreground hover:bg-muted",
+              ]}
+            >
+              {label}
+            </a>
+          ))}
+          <form method="POST" action="/api/auth/signout">
+            <button
+              type="submit"
+              class="inline-flex min-h-11 min-w-11 cursor-pointer items-center rounded-full bg-secondary px-4 font-semibold text-secondary-foreground transition-colors hover:bg-muted"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
+      )}
+    </header>
+    {user && (
+      <nav
+        data-testid="shell-nav"
+        aria-label="Main"
+        class="flex max-w-full gap-1 self-center rounded-full bg-secondary p-1"
+      >
+        {navLinks.map(({ href, label }) => (
+          <a
+            href={href}
+            aria-current={isCurrent(href) ? "page" : undefined}
+            class:list={[
+              "inline-flex min-h-11 min-w-11 items-center justify-center rounded-full px-4 transition-colors sm:px-6",
+              isCurrent(href)
+                ? "bg-card font-extrabold text-card-foreground shadow-sm"
+                : "font-semibold text-muted-foreground hover:text-foreground",
+            ]}
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+    )}
+    <main data-testid="app-shell" class="w-full">
+      <slot />
+    </main>
+  </div>
+</div>

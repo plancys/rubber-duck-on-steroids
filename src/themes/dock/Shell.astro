@@ -1,0 +1,95 @@
+---
+// The shell of the Dock look (board 9): a top row with the brand and the account, and a bottom dock with icon links
+// and Sign out. The dock is sticky, not fixed: it stays in view, and at the end of the page it sits below the content.
+// Under sm the dock shows only the icons. Each control keeps its label as text for a screen reader.
+import Brand from "@/components/Brand.astro";
+import NavIcon from "@/components/NavIcon.astro";
+import { accountLinks, currentNavHref, navLinks } from "@/lib/nav";
+
+const { user } = Astro.locals;
+const email = user?.email ?? "";
+const initial = email.charAt(0).toUpperCase();
+const currentHref = currentNavHref(Astro.url.pathname);
+const isCurrent = (href: string) => href === currentHref;
+const dockItem =
+  "inline-flex min-h-12 min-w-12 items-center justify-center gap-2 rounded-full font-semibold transition-colors sm:px-5";
+---
+
+<div class="flex min-h-screen w-full flex-col bg-background text-foreground">
+  <header class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 sm:px-8">
+    <Brand unstyled class="inline-flex text-[17px] font-extrabold transition-colors hover:text-primary" />
+    {!user && (
+      <nav data-testid="shell-nav" aria-label="Main" class="flex items-center gap-1">
+        <a
+          href="/auth/signin"
+          class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full px-3 font-semibold text-foreground transition-colors hover:bg-card sm:px-4"
+        >
+          Sign in
+        </a>
+        <a
+          href="/auth/signup"
+          class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-foreground px-3 font-semibold text-background transition-colors hover:bg-foreground/90 sm:px-4"
+        >
+          Sign up
+        </a>
+      </nav>
+    )}
+    {user && (
+      <span class="flex min-w-0 items-center gap-2.5 text-sm text-muted-foreground">
+        <span
+          title={email}
+          class="inline-flex size-8 flex-none items-center justify-center rounded-full bg-foreground font-extrabold text-background"
+        >
+          <span aria-hidden="true">{initial}</span>
+          <span class="sr-only">Signed in as {email}</span>
+        </span>
+        <span aria-hidden="true" class="hidden max-w-56 truncate sm:block">
+          {email}
+        </span>
+      </span>
+    )}
+  </header>
+  <main data-testid="app-shell" class="mx-auto w-full max-w-240 flex-1 px-4 pt-6 pb-12 sm:px-6 sm:pt-8">
+    <slot />
+  </main>
+  {user && (
+    <nav
+      data-testid="shell-nav"
+      aria-label="Main"
+      class="sticky bottom-4 z-10 mx-4 mb-4 flex gap-1 self-center rounded-full bg-card p-1.5 shadow-lg sm:bottom-6 sm:mb-6"
+    >
+      {navLinks.map(({ href, label }) => (
+        <a
+          href={href}
+          aria-current={isCurrent(href) ? "page" : undefined}
+          class:list={[
+            dockItem,
+            isCurrent(href) ? "bg-foreground text-background" : "text-foreground hover:bg-secondary",
+          ]}
+        >
+          <NavIcon href={href} />
+          <span class="sr-only sm:not-sr-only">{label}</span>
+        </a>
+      ))}
+      {accountLinks.map(({ href, label }) => (
+        <a
+          href={href}
+          aria-current={isCurrent(href) ? "page" : undefined}
+          class:list={[
+            dockItem,
+            isCurrent(href) ? "bg-foreground text-background" : "text-muted-foreground hover:bg-secondary",
+          ]}
+        >
+          <NavIcon href={href} />
+          <span class="sr-only sm:not-sr-only">{label}</span>
+        </a>
+      ))}
+      <form method="POST" action="/api/auth/signout" class="flex">
+        <button type="submit" class:list={[dockItem, "cursor-pointer text-muted-foreground hover:bg-secondary"]}>
+          <NavIcon href="signout" />
+          <span class="sr-only sm:not-sr-only">Sign out</span>
+        </button>
+      </form>
+    </nav>
+  )}
+</div>

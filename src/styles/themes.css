@@ -1,0 +1,149 @@
+/* The token blocks of the looks. Layout.astro sets data-theme on <html> from activeLook(). */
+/* Each block sets the full set of variables. Each text color has a contrast of at least 4.5 to 1 on its ground. */
+
+/* Warm soft: cream ground, terracotta accent, Nunito, large round cards. Board: WarmSoft.dc.html. */
+[data-theme="warm"] {
+  --background: #fbf6ee;
+  --foreground: #3b2f2a;
+  --card: #ffffff;
+  --card-foreground: #3b2f2a;
+  --popover: #ffffff;
+  --popover-foreground: #3b2f2a;
+  --muted: #e8d9c8;
+  --muted-foreground: #6b5a52;
+  --primary: #9a3d1c;
+  --primary-foreground: #ffffff;
+  --secondary: #efe4d6;
+  --secondary-foreground: #3b2f2a;
+  --accent: #fde2d3;
+  --accent-foreground: #9a3d1c;
+  --border: #e0cfbd;
+  --input: #e0cfbd;
+  --ring: #9a3d1c;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --success: #e3f1e0;
+  --success-foreground: #24572b;
+  --radius: 1.75rem;
+  --look-font-heading: var(--font-nunito), system-ui, sans-serif;
+  --look-font-body: var(--font-nunito), system-ui, sans-serif;
+  --look-shadow-card: 0 8px 24px rgb(59 47 42 / 0.08);
+}
+
+/* Editorial light: paper ground, ink text, rust accent, Fraunces headings, ruled lists. Board: Editorial.dc.html. */
+[data-theme="editorial"] {
+  --background: #f6f3ec;
+  --foreground: #1c1917;
+  --card: #fffdf8;
+  --card-foreground: #1c1917;
+  --popover: #fffdf8;
+  --popover-foreground: #1c1917;
+  --muted: #e7e2d8;
+  --muted-foreground: #57534e;
+  --primary: #9a3412;
+  --primary-foreground: #ffffff;
+  --secondary: #ebe5d9;
+  --secondary-foreground: #1c1917;
+  --accent: #f3e1cf;
+  --accent-foreground: #9a3412;
+  --border: #d6d3d1;
+  --input: #a8a29e;
+  --ring: #9a3412;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --success: #e3eedd;
+  --success-foreground: #2b5a2f;
+  --radius: 0.25rem;
+  --look-font-heading: var(--font-fraunces), Georgia, serif;
+  --look-font-body: var(--font-inter), system-ui, sans-serif;
+  --look-shadow-card: 0 0 0 1px #d6d3d1;
+}
+
+/* Calm dark SaaS: near-black ground, indigo accent, Inter, bordered cards, a left sidebar. Board: CalmSaas.dc.html. */
+/* The primary is a light indigo with dark text. The board indigo #6366f1 has only 4.47 to 1 with white text. */
+[data-theme="calm"] {
+  color-scheme: dark;
+  --background: #0b0d10;
+  --foreground: #e6e8eb;
+  --card: #111418;
+  --card-foreground: #e6e8eb;
+  --popover: #111418;
+  --popover-foreground: #e6e8eb;
+  --muted: #1a1f27;
+  --muted-foreground: #9aa4b2;
+  --primary: #818cf8;
+  --primary-foreground: #0b0d10;
+  --secondary: #1a1f27;
+  --secondary-foreground: #e6e8eb;
+  --accent: #1e2240;
+  --accent-foreground: #a5b4fc;
+  --border: #1f242c;
+  --input: #2a313b;
+  --ring: #818cf8;
+  --destructive: #f87171;
+  --destructive-foreground: #0b0d10;
+  --success: #11261a;
+  --success-foreground: #86efac;
+  --radius: 0.75rem;
+  --look-font-heading: var(--font-inter), system-ui, sans-serif;
+  --look-font-body: var(--font-inter), system-ui, sans-serif;
+  --look-shadow-card: 0 0 0 1px #1f242c;
+}
+
+/* Swiss grid: white ground, black rules, one red accent, Archivo, square corners. Board: Swiss.dc.html. */
+[data-theme="swiss"] {
+  --background: #ffffff;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --muted: #f0f0f0;
+  --muted-foreground: #525252;
+  --primary: #111111;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f0f0;
+  --secondary-foreground: #111111;
+  --accent: #fbe7ea;
+  --accent-foreground: #c8102e;
+  --border: #111111;
+  --input: #111111;
+  --ring: #c8102e;
+  --destructive: #b3001b;
+  --destructive-foreground: #ffffff;
+  --success: #e6f2e8;
+  --success-foreground: #14532d;
+  --radius: 0rem;
+  --look-font-heading: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  --look-font-body: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  --look-shadow-card: 0 0 0 2px #111111;
+}
+
+/* Dock: cool gray ground, blue accent, Plus Jakarta Sans, large tiles, a dock at the bottom. Board: Dock.dc.html. */
+[data-theme="dock"] {
+  --background: #eef1f5;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --muted: #dde3ec;
+  --muted-foreground: #475569;
+  --primary: #1d4ed8;
+  --primary-foreground: #ffffff;
+  --secondary: #e2e8f0;
+  --secondary-foreground: #0f172a;
+  --accent: #dbe7ff;
+  --accent-foreground: #1d4ed8;
+  --border: #c5cedb;
+  --input: #c5cedb;
+  --ring: #1d4ed8;
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
+  --success: #dcfce7;
+  --success-foreground: #166534;
+  --radius: 1.5rem;
+  --look-font-heading: var(--font-plus-jakarta-sans), system-ui, sans-serif;
+  --look-font-body: var(--font-plus-jakarta-sans), system-ui, sans-serif;
+  --look-shadow-card: 0 1px 2px rgb(15 23 42 / 0.06);
+}

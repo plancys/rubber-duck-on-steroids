@@ -1,0 +1,60 @@
+---
+import AppLayout from "@/layouts/AppLayout.astro";
+import NoteForm from "@/components/notes/NoteForm";
+import { createClient } from "@/lib/supabase";
+import { noteErrorText, noteNoticeText } from "@/lib/notes";
+
+let error = noteErrorText(Astro.url.searchParams.get("error"));
+const notice = noteNoticeText(Astro.url.searchParams.get("notice"));
+
+// RLS returns only the notes of the signed-in user.
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+let notes: { id: string; title: string; created_at: string }[] = [];
+if (!supabase) {
+  error = noteErrorText("not_configured");
+} else {
+  const result = await supabase.from("notes").select("id, title, created_at").order("created_at", { ascending: false });
+  if (result.error) {
+    error = noteErrorText("unknown");
+  } else {
+    notes = result.data;
+  }
+}
+---
+
+<AppLayout title="Your notes">
+  <h1 class="mb-6 font-heading text-3xl font-extrabold sm:text-4xl">Your notes</h1>
+  {notice && (
+    <p data-testid="notes-notice" class="mb-6 rounded-lg bg-success px-3 py-2 text-sm text-success-foreground">
+      {notice}
+    </p>
+  )}
+
+  <section class="mb-8 rounded-(--radius) bg-card p-6 text-card-foreground shadow-(--shadow-card)">
+    <h2 class="mb-3 font-heading text-xl font-extrabold">New note</h2>
+    <NoteForm action="/api/notes" submitLabel="Create note" pendingText="Creating..." serverError={error} client:load />
+  </section>
+
+  <section>
+    <h2 class="mb-3 font-heading text-xl font-extrabold">All notes</h2>
+    {notes.length === 0 ? (
+      <p data-testid="notes-empty" class="text-sm text-muted-foreground">
+        You have no notes yet.
+      </p>
+    ) : (
+      <ul class="space-y-2">
+        {notes.map((note) => (
+          <li data-testid="note-item">
+            <a
+              href={`/dashboard/notes/${note.id}`}
+              class="block rounded-lg bg-card px-5 py-3 text-card-foreground shadow-(--shadow-card) transition-shadow hover:shadow-md"
+            >
+              <span class="block truncate font-bold">{note.title}</span>
+              <span class="block text-xs text-muted-foreground">{note.created_at.slice(0, 10)}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+</AppLayout>

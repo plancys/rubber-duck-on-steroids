@@ -1,0 +1,29 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Brand from "@/components/Brand.astro";
+import SignUpForm from "@/components/auth/SignUpForm";
+import OAuthButtons from "@/components/auth/OAuthButtons.astro";
+import { authErrorText } from "@/lib/auth-errors";
+
+const error = authErrorText(Astro.url.searchParams.get("error"));
+---
+
+<Layout title="Sign up">
+  <div class="flex min-h-screen flex-col items-center justify-center gap-6 bg-background p-4 text-foreground">
+    <Brand mark class="text-xl" />
+    <div class="w-full max-w-sm rounded-(--radius) bg-card p-6 text-card-foreground shadow-(--shadow-card) sm:p-8">
+      <h1 class="mb-6 text-center font-heading text-2xl font-extrabold">Sign up</h1>
+      <SignUpForm serverError={error} client:load />
+      <OAuthButtons />
+      <p class="mt-4 text-center text-sm text-muted-foreground">
+        Already have an account?{" "}
+        <a
+          href="/auth/signin"
+          class="inline-flex min-h-11 min-w-11 items-center font-semibold text-primary hover:underline"
+        >
+          Sign in
+        </a>
+      </p>
+    </div>
+  </div>
+</Layout>

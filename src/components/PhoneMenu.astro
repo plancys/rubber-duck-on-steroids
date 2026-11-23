@@ -1,0 +1,71 @@
+---
+// The phone menu of a shell that folds under a breakpoint: a details element with the page links, the account, the account links and Sign out.
+// The parent is the shell-nav bar: a relative flex row that wraps, with py-2. The panel takes a full row of its own.
+import { accountLinks, currentNavHref, navLinks } from "@/lib/nav";
+
+interface Props {
+  // The breakpoint from which the shell shows its full navigation. From it, the menu is hidden.
+  breakpoint?: "sm" | "md";
+}
+
+const { breakpoint = "sm" } = Astro.props;
+const { user } = Astro.locals;
+
+// Tailwind finds only full class names, so the map holds each class in full.
+const hiddenFrom = { sm: "sm:hidden", md: "md:hidden" }[breakpoint];
+
+// The phone panel marks the current link with the same rule as the bar of the shell.
+const currentHref = currentNavHref(Astro.url.pathname);
+const isCurrent = (href: string) => href === currentHref;
+---
+
+{user && (
+  <>
+    {/* The summary leaves the flow and sits at the right end of the first row: top-2 and right-1 match the nav padding. */}
+    {/* The closed details has no height, so the closed bar stays one row. The open panel pushes the page down. */}
+    <details class:list={["basis-full", hiddenFrom]}>
+      <summary class="absolute top-2 right-1 flex min-h-11 min-w-11 cursor-pointer list-none items-center px-3 font-semibold text-primary transition-colors hover:underline [&::-webkit-details-marker]:hidden">
+        Menu
+      </summary>
+      <div class="mt-2 flex flex-col gap-1">
+        {navLinks.map(({ href, label }) => (
+          <a
+            href={href}
+            aria-current={isCurrent(href) ? "page" : undefined}
+            class:list={[
+              "flex min-h-11 min-w-11 items-center rounded-md px-3 transition-colors hover:bg-secondary",
+              isCurrent(href) ? "font-bold text-foreground" : "text-muted-foreground",
+            ]}
+          >
+            {label}
+          </a>
+        ))}
+        <p class="flex px-3 py-2 text-muted-foreground">
+          <span class="max-w-[14rem] truncate" title={user.email}>
+            {user.email}
+          </span>
+        </p>
+        {accountLinks.map(({ href, label }) => (
+          <a
+            href={href}
+            aria-current={isCurrent(href) ? "page" : undefined}
+            class:list={[
+              "flex min-h-11 w-full min-w-11 items-center rounded-md px-3 transition-colors hover:bg-secondary",
+              isCurrent(href) ? "font-bold text-foreground" : "font-semibold text-primary",
+            ]}
+          >
+            {label}
+          </a>
+        ))}
+        <form method="POST" action="/api/auth/signout">
+          <button
+            type="submit"
+            class="flex min-h-11 w-full min-w-11 cursor-pointer items-center rounded-md px-3 text-left font-semibold text-primary transition-colors hover:bg-secondary"
+          >
+            Sign out
+          </button>
+        </form>
+      </div>
+    </details>
+  </>
+)}

@@ -1,0 +1,44 @@
+---
+import AppLayout from "@/layouts/AppLayout.astro";
+import { site } from "@/lib/site";
+
+const { user } = Astro.locals;
+
+// Every link is at least 44px high and wide (min-h-11 min-w-11), so a thumb can hit it.
+const ctaClass =
+  "inline-flex min-h-11 min-w-11 items-center justify-center rounded-full px-6 py-3 text-base font-bold transition-colors";
+---
+
+<!-- The landing page uses the shell of the active look, so a visitor and a user see the same header as on every other page. -->
+<AppLayout title={site.name}>
+  <div class="flex flex-col items-center justify-center py-12 text-center sm:py-20">
+    <h1 class="mb-6 font-heading text-5xl leading-tight font-extrabold sm:text-6xl">{site.name}</h1>
+    <p class="mb-4 text-xl font-semibold sm:text-2xl">{site.tagline}</p>
+    <p data-testid="project-description" class="mb-10 text-lg text-muted-foreground sm:text-xl">
+      {site.description}
+    </p>
+    <div class="flex flex-col gap-4 sm:flex-row">
+      {user ? (
+        <a
+          href="/dashboard"
+          data-testid="dashboard-cta"
+          class:list={[ctaClass, "bg-primary text-primary-foreground shadow-(--shadow-card) hover:bg-primary/90"]}
+        >
+          Go to dashboard
+        </a>
+      ) : (
+        <>
+          <a
+            href="/auth/signin"
+            class:list={[ctaClass, "bg-primary text-primary-foreground shadow-(--shadow-card) hover:bg-primary/90"]}
+          >
+            Sign In
+          </a>
+          <a href="/auth/signup" class:list={[ctaClass, "bg-secondary text-secondary-foreground hover:bg-muted"]}>
+            Sign Up
+          </a>
+        </>
+      )}
+    </div>
+  </div>
+</AppLayout>
