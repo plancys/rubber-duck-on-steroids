@@ -42,7 +42,7 @@ A working software engineer learns new technologies through online courses. The 
 | ID   | Change ID                       | Outcome (user can …)                                                                 | Prerequisites | PRD refs              | Status   |
 | ---- | ------------------------------- | ------------------------------------------------------------------------------------ | ------------- | --------------------- | -------- |
 | F-01 | background-work-path            | (foundation) long work runs outside a page request, and the learner sees its progress | —             | FR-002, FR-003        | in-progress |
-| S-01 | load-course-from-url            | load a course from the URL of its web page and see its lessons in order              | F-01          | FR-001, FR-002, US-01 | proposed |
+| S-01 | load-course-from-url            | load a course from the URL of its web page and see its lessons in order              | F-01          | FR-001, FR-002, US-01 | planning |
 | S-02 | course-topic-graph              | see a loaded course as a graph of its topics                                         | S-01          | FR-003                | proposed |
 | S-03 | mark-known-topics               | mark the topics they believe they already know                                       | S-02          | FR-005                | proposed |
 | S-04 | adjusted-lesson-list            | get a lesson list adjusted to their knowledge, with known lessons marked as skipped  | S-03          | FR-008, US-01         | blocked  |
@@ -106,7 +106,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
   - Does the example course site accept the requests of the loader? An automated request got a refusal on 2026-11-23. — Owner: user. Block: no.
   - How long do done and failed jobs stay in the `jobs` table? Nothing removes them yet, and course loading adds real volume. — Owner: user. Block: no.
 - **Risk:** It is the first user-visible step, and every later slice needs a loaded course. Course sites differ, and one URL is not always one course. If the loader cannot read the example site, the parked manual fallback (FR-013) comes back.
-- **Status:** proposed
+- **Status:** planning
 
 ### S-02: Course as a topic graph
 
