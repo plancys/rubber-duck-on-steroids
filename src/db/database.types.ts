@@ -23,6 +23,64 @@ export type Database = {
   };
   public: {
     Tables: {
+      jobs: {
+        Row: {
+          attempts: number;
+          created_at: string;
+          error: string | null;
+          finished_at: string | null;
+          id: string;
+          lease_expires_at: string | null;
+          lease_id: string | null;
+          payload: NonNullable<Json>;
+          result: Json | null;
+          status: string;
+          step_count: number;
+          step_index: number;
+          step_label: string | null;
+          type: string;
+          updated_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          attempts?: number;
+          created_at?: string;
+          error?: string | null;
+          finished_at?: string | null;
+          id?: string;
+          lease_expires_at?: string | null;
+          lease_id?: string | null;
+          payload?: NonNullable<Json>;
+          result?: Json | null;
+          status?: string;
+          step_count?: number;
+          step_index?: number;
+          step_label?: string | null;
+          type: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          attempts?: number;
+          created_at?: string;
+          error?: string | null;
+          finished_at?: string | null;
+          id?: string;
+          lease_expires_at?: string | null;
+          lease_id?: string | null;
+          payload?: NonNullable<Json>;
+          result?: Json | null;
+          status?: string;
+          step_count?: number;
+          step_index?: number;
+          step_label?: string | null;
+          type?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       notes: {
         Row: {
           body: string;
@@ -56,7 +114,48 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      claim_job: {
+        Args: { lease_seconds?: number };
+        Returns: {
+          attempts: number;
+          created_at: string;
+          error: string | null;
+          finished_at: string | null;
+          id: string;
+          lease_expires_at: string | null;
+          lease_id: string | null;
+          payload: NonNullable<Json>;
+          result: Json | null;
+          status: string;
+          step_count: number;
+          step_index: number;
+          step_label: string | null;
+          type: string;
+          updated_at: string;
+          user_id: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "jobs";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
+      complete_job: { Args: { job_id: string; lease: string; result: Json }; Returns: boolean };
+      fail_job: { Args: { job_id: string; lease: string; reason: string }; Returns: boolean };
+      heartbeat_job: {
+        Args: {
+          job_id: string;
+          lease: string;
+          lease_seconds?: number;
+          step_count: number;
+          step_index: number;
+          step_label: string;
+        };
+        Returns: boolean;
+      };
+      release_job: { Args: { job_id: string; lease: string }; Returns: boolean };
+      retry_job: { Args: { job_id: string }; Returns: boolean };
     };
     Enums: {
       [_ in never]: never;

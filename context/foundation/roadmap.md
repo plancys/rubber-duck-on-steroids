@@ -3,7 +3,7 @@ project: "Rubber Duck on Steroids"
 version: 1
 status: draft
 created: 2026-11-23
-updated: 2026-11-23
+updated: 2026-11-24
 prd_version: 1
 main_goal: market-feedback
 top_blocker: time
@@ -41,7 +41,7 @@ A working software engineer learns new technologies through online courses. The 
 
 | ID   | Change ID                       | Outcome (user can …)                                                                 | Prerequisites | PRD refs              | Status   |
 | ---- | ------------------------------- | ------------------------------------------------------------------------------------ | ------------- | --------------------- | -------- |
-| F-01 | background-work-path            | (foundation) long work runs outside a page request, and the learner sees its progress | —             | FR-002, FR-003        | ready    |
+| F-01 | background-work-path            | (foundation) long work runs outside a page request, and the learner sees its progress | —             | FR-002, FR-003        | in-progress |
 | S-01 | load-course-from-url            | load a course from the URL of its web page and see its lessons in order              | F-01          | FR-001, FR-002, US-01 | proposed |
 | S-02 | course-topic-graph              | see a loaded course as a graph of its topics                                         | S-01          | FR-003                | proposed |
 | S-03 | mark-known-topics               | mark the topics they believe they already know                                       | S-02          | FR-005                | proposed |
@@ -90,7 +90,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Where does long work run, with no tight link to one provider and at minimal cost? (Open Roadmap Question 17) — Owner: user. Block: no.
 - **Risk:** It goes first because both S-01 and S-02 need work that outlives a page request. The scope is one trivial job from start to result, not a complete job system. The hosting choice can take more effort than the mechanism.
-- **Status:** ready
+- **Status:** in-progress
 
 ## Slices
 
