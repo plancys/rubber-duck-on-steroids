@@ -23,9 +23,9 @@ test("the demo reports each step and returns the step count", async () => {
   const { steps, result } = runDemo({ steps: 3, stepSeconds: 0 }, 1);
   assert.deepEqual(await result, { steps: 3 });
   assert.deepEqual(steps, [
-    [1, 3, "Step 1 of 3"],
-    [2, 3, "Step 2 of 3"],
-    [3, 3, "Step 3 of 3"],
+    [1, 3, "Demo work"],
+    [2, 3, "Demo work"],
+    [3, 3, "Demo work"],
   ]);
 });
 

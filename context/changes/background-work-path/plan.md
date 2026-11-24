@@ -638,36 +638,36 @@ The section "The pipeline" gets one line for the `deploy-worker` job.
 
 #### Automated
 
-- [x] 2.1 Unit tests pass
-- [x] 2.2 Lint passes
-- [x] 2.3 Type checks pass
-- [x] 2.4 The worker starts and its health address replies
-- [x] 2.5 A wake request with a wrong secret gets 401, and one with the correct secret gets 202
+- [x] 2.1 Unit tests pass — 0e2bb1c
+- [x] 2.2 Lint passes — 0e2bb1c
+- [x] 2.3 Type checks pass — 0e2bb1c
+- [x] 2.4 The worker starts and its health address replies — 0e2bb1c
+- [x] 2.5 A wake request with a wrong secret gets 401, and one with the correct secret gets 202 — 0e2bb1c
 
 #### Manual
 
-- [x] 2.6 A demo job row inserted by hand goes from waiting to done, and its step columns change
-- [x] 2.7 The worker log shows one JSON line for each job event and shows no key and no payload
+- [x] 2.6 A demo job row inserted by hand goes from waiting to done, and its step columns change — 0e2bb1c
+- [x] 2.7 The worker log shows one JSON line for each job event and shows no key and no payload — 0e2bb1c
 
 ### Phase 3: Web app path
 
 #### Automated
 
-- [ ] 3.1 Lint passes
-- [ ] 3.2 Type checks pass
-- [ ] 3.3 The production build passes
-- [ ] 3.4 Unit tests still pass
-- [ ] 3.5 With the switch off, the check page returns 404 for a signed-in user
+- [x] 3.1 Lint passes
+- [x] 3.2 Type checks pass
+- [x] 3.3 The production build passes
+- [x] 3.4 Unit tests still pass
+- [x] 3.5 With the switch off, the check page returns 404 for a signed-in user
 
 #### Manual
 
-- [ ] 3.6 A demo job goes from waiting through the steps to done without a reload
-- [ ] 3.7 The status is still there after the learner closes the page and opens it again
-- [ ] 3.8 A second start while a job is in progress shows the job active message
-- [ ] 3.9 A demo job with failTimes 1 shows attempt 2 of 3 and then done
-- [ ] 3.10 A demo job with failTimes 3 shows failed with a reason, and Try again starts it again
-- [ ] 3.11 With the worker stopped, a new job stays waiting, and it runs after the worker starts
-- [ ] 3.12 The check page obeys the phone rules at 320px in the active look
+- [x] 3.6 A demo job goes from waiting through the steps to done without a reload
+- [x] 3.7 The status is still there after the learner closes the page and opens it again
+- [x] 3.8 A second start while a job is in progress shows the job active message
+- [x] 3.9 A demo job with failTimes 1 shows attempt 2 of 3 and then done
+- [x] 3.10 A demo job with failTimes 3 shows failed with a reason, and Try again starts it again
+- [x] 3.11 With the worker stopped, a new job stays waiting, and it runs after the worker starts
+- [x] 3.12 The check page obeys the phone rules at 320px in the active look
 
 ### Phase 4: Tests in CI
 

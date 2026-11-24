@@ -1,0 +1,133 @@
+---
+import { ENABLE_JOB_CHECK } from "astro:env/server";
+import AppLayout from "@/layouts/AppLayout.astro";
+import JobStatus from "@/components/jobs/JobStatus";
+import { ServerError } from "@/components/auth/ServerError";
+import { createClient } from "@/lib/supabase";
+import { DEMO_LIMITS, JOB_VIEW_COLUMNS, isJobId, jobErrorText, toJobView, type JobView } from "@/lib/jobs";
+
+// The check page for the developer and CI. It has no nav entry and no dashboard entry.
+// Without the switch, the page does not exist. The production build keeps the switch off.
+if (!ENABLE_JOB_CHECK) {
+  Astro.response.status = 404;
+}
+
+let error = jobErrorText(Astro.url.searchParams.get("error"));
+let job: JobView | null = null;
+
+if (ENABLE_JOB_CHECK) {
+  // RLS returns only the jobs of the signed-in user. A job of another user and a bad id give the same result.
+  const requested = Astro.url.searchParams.get("job");
+  const supabase = createClient(Astro.request.headers, Astro.cookies);
+  if (!supabase) {
+    error = jobErrorText("not_configured");
+  } else if (requested !== null && !isJobId(requested)) {
+    error = jobErrorText("not_available");
+  } else {
+    // Show the job in ?job=<id>, or the newest job of the learner.
+    const query = supabase.from("jobs").select(JOB_VIEW_COLUMNS);
+    const result =
+      requested !== null
+        ? await query.eq("id", requested).maybeSingle()
+        : await query.order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (result.error) {
+      error = jobErrorText("unknown");
+    } else if (result.data) {
+      job = toJobView(result.data);
+    } else if (requested !== null) {
+      error = jobErrorText("not_available");
+    }
+  }
+}
+
+// The fields of the demo form. The route puts each value inside its limit again.
+const demoFields = [
+  {
+    name: "steps",
+    label: "Steps",
+    hint: `From ${DEMO_LIMITS.steps.min} to ${DEMO_LIMITS.steps.max}`,
+    limits: DEMO_LIMITS.steps,
+  },
+  {
+    name: "stepSeconds",
+    label: "Seconds per step",
+    hint: `From ${DEMO_LIMITS.stepSeconds.min} to ${DEMO_LIMITS.stepSeconds.max}`,
+    limits: DEMO_LIMITS.stepSeconds,
+  },
+  {
+    name: "failTimes",
+    label: "Failed starts",
+    hint: `Starts that fail on purpose, from ${DEMO_LIMITS.failTimes.min} to ${DEMO_LIMITS.failTimes.max}`,
+    limits: DEMO_LIMITS.failTimes,
+  },
+];
+---
+
+<AppLayout title={ENABLE_JOB_CHECK ? "Job check" : "Page not found"}>
+  {ENABLE_JOB_CHECK ? (
+    <>
+      <h1 class="mb-2 font-heading text-3xl font-extrabold sm:text-4xl">Job check</h1>
+      <p class="mb-6 text-muted-foreground">Start the demo job and watch the worker run it.</p>
+      {error && (
+        <div data-testid="job-error" class="mb-6">
+          <ServerError message={error} />
+        </div>
+      )}
+
+      <section class="mb-8 rounded-(--radius) bg-card p-6 text-card-foreground shadow-(--shadow-card)">
+        <h2 class="mb-3 font-heading text-xl font-extrabold">Start the demo job</h2>
+        <form method="POST" action="/api/jobs" class="space-y-4" data-testid="job-start-form">
+          <input type="hidden" name="type" value="demo" />
+          <div class="grid gap-4 sm:grid-cols-3">
+            {demoFields.map((field) => (
+              <div>
+                <label for={field.name} class="mb-1 block text-sm font-semibold">
+                  {field.label}
+                </label>
+                <input
+                  id={field.name}
+                  name={field.name}
+                  type="number"
+                  inputmode="numeric"
+                  min={field.limits.min}
+                  max={field.limits.max}
+                  step="1"
+                  value={field.limits.fallback}
+                  required
+                  aria-describedby={`${field.name}-hint`}
+                  class="w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                />
+                <p id={`${field.name}-hint`} class="mt-1 text-xs text-muted-foreground">
+                  {field.hint}
+                </p>
+              </div>
+            ))}
+          </div>
+          <button
+            type="submit"
+            data-testid="job-start-button"
+            class="min-h-11 w-full min-w-11 rounded-full bg-primary px-4 py-2 text-base font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Start the demo job
+          </button>
+        </form>
+      </section>
+
+      <section class="rounded-(--radius) bg-card p-6 text-card-foreground shadow-(--shadow-card)">
+        <h2 class="mb-3 font-heading text-xl font-extrabold">{job ? "Job status" : "No job yet"}</h2>
+        {job ? (
+          <JobStatus job={job} client:load />
+        ) : (
+          <p data-testid="job-empty" class="text-sm text-muted-foreground">
+            Start the demo job to see its status here.
+          </p>
+        )}
+      </section>
+    </>
+  ) : (
+    <>
+      <h1 class="mb-6 font-heading text-3xl font-extrabold sm:text-4xl">Page not found</h1>
+      <p class="text-sm text-muted-foreground">This page does not exist.</p>
+    </>
+  )}
+</AppLayout>

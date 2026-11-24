@@ -8,7 +8,8 @@ import { SafeError, type Handler } from "../run.ts";
 export const demo: Handler = async ({ payload, attempt, step, signal }) => {
   const { steps, stepSeconds, failTimes } = demoSettings(payload);
   for (let index = 1; index <= steps; index += 1) {
-    await step(index, steps, `Step ${index} of ${steps}`);
+    // The page shows the step number and the count, then this label.
+    await step(index, steps, "Demo work");
     await delay(stepSeconds * 1_000, undefined, { signal });
   }
   // The first failTimes starts fail on purpose. This shows the retry path.
