@@ -50,6 +50,8 @@ if (!env.SUPABASE_SERVICE_KEY) {
 env.WORKER_WAKE_SECRET ??= "local-wake-secret";
 // A local worker also looks for jobs every 5 seconds, so a lost wake request does not leave a job waiting.
 env.WORKER_POLL_SECONDS ??= "5";
+// A local worker and the CI worker run the demo job of the check page.
+env.WORKER_ALLOW_DEMO ??= "true";
 
 // Start the worker with the same Node binary that runs this script.
 const child = spawn(process.execPath, ["worker/main.ts"], { cwd: root, env, stdio: "inherit" });

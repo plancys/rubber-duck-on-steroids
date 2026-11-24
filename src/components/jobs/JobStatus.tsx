@@ -26,7 +26,7 @@ function statusText(job: JobView): string {
 }
 
 export default function JobStatus({ job: initial }: Props) {
-  const job = useJobStatus(initial.id, initial);
+  const { job, stalled } = useJobStatus(initial.id, initial);
 
   return (
     <div data-testid="job-status" data-status={job.status} className="space-y-3">
@@ -40,6 +40,11 @@ export default function JobStatus({ job: initial }: Props) {
           </p>
         )}
       </div>
+      {stalled && (
+        <p data-testid="job-stalled" className="text-muted-foreground text-sm">
+          The status does not update. Reload the page to try again.
+        </p>
+      )}
       {job.status === "failed" && (
         <>
           <ServerError message={job.error} />

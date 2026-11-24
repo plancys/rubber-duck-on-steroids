@@ -26,5 +26,5 @@ const { class: className = "text-lg", mark = false, unstyled = false, nameClass 
 >
   {mark && <span aria-hidden="true" class="size-8 shrink-0 rounded-full bg-accent"></span>}
   <slot />
-  <span class={nameClass}>{site.name}</span>
+  <span class:list={[nameClass]}>{site.name}</span>
 </a>

@@ -104,6 +104,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:**
   - Does the example course site accept the requests of the loader? An automated request got a refusal on 2026-11-23. — Owner: user. Block: no.
+  - How long do done and failed jobs stay in the `jobs` table? Nothing removes them yet, and course loading adds real volume. — Owner: user. Block: no.
 - **Risk:** It is the first user-visible step, and every later slice needs a loaded course. Course sites differ, and one URL is not always one course. If the loader cannot read the example site, the parked manual fallback (FR-013) comes back.
 - **Status:** proposed
 

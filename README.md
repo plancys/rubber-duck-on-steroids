@@ -469,7 +469,7 @@ The background worker does the long work of a job outside the web app. It is a p
 
 In production, the worker runs on [Google Cloud Run](https://cloud.google.com/run) as the service `rubber-duck-on-steroids-worker`. The `deploy-worker` job in `.github/workflows/ci.yml` deploys it. The service runs at most one instance, and no instance when it has no work. Google bills the time that an instance is on: the job time plus up to 15 idle minutes after the last request.
 
-> **Warning: the Supabase service key passes all access rules.** It skips Row Level Security, so it can read and change the data of every user. It goes only to the worker: the `deploy-worker` job sends it to Cloud Run. Never put it in `.env`, `.dev.vars`, a Cloudflare Worker secret, or a file. Cloud Run shows the environment variables of the service to each account that can view the Google project. Give no other account access to the project.
+> **Warning: the Supabase service key passes all access rules.** It skips Row Level Security, so it can read and change the data of every user. It goes only to the worker: it lives in Google Secret Manager, and Cloud Run reads it from there. Never put it in `.env`, `.dev.vars`, a Cloudflare Worker secret, or a file. Cloud Run shows the environment variables of the service to each account that can view the Google project. Give no other account access to the project.
 
 #### Run the worker on your machine
 
@@ -519,10 +519,10 @@ gcloud config set project <PROJECT_ID>
 gcloud projects describe <PROJECT_ID> --format="value(projectNumber)"
 ```
 
-4. Turn on the services. Cloud Run runs the worker. Cloud Build builds the image. Artifact Registry keeps the image. The IAM Credentials API lets GitHub use the deploy service account.
+4. Turn on the services. Cloud Run runs the worker. Cloud Build builds the image. Artifact Registry keeps the image. The IAM Credentials API lets GitHub use the deploy service account. Secret Manager keeps the two worker secrets.
 
 ```bash
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com iamcredentials.googleapis.com
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com iamcredentials.googleapis.com secretmanager.googleapis.com
 ```
 
 5. Let Cloud Build build for Cloud Run. Cloud Build uses the Compute Engine default service account:
@@ -568,20 +568,33 @@ gcloud iam workload-identity-pools providers describe rubber-duck-on-steroids \
   --location=global --workload-identity-pool=github --format="value(name)"
 ```
 
+9. Store the two worker secrets in Secret Manager, and let the worker read them. The worker runs as the Compute Engine default service account. Use your own wake secret from `openssl rand -hex 32`, and use the same value for the GitHub secret `WORKER_WAKE_SECRET`:
+
+```bash
+printf '%s' '<SUPABASE_SERVICE_KEY>' | gcloud secrets create worker-supabase-service-key --data-file=-
+printf '%s' '<WAKE_SECRET>' | gcloud secrets create worker-wake-secret --data-file=-
+for secret in worker-supabase-service-key worker-wake-secret; do
+  gcloud secrets add-iam-policy-binding "$secret" \
+    --member=serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com \
+    --role=roles/secretmanager.secretAccessor
+done
+```
+
+The service key is the `service_role` key or a secret key (`sb_secret_...`): Supabase project → **Settings → API Keys**. To change a value later, run `gcloud secrets versions add <name> --data-file=-`, then deploy the worker again.
+
 #### Worker secrets and variables
 
 Set these values in **Settings → Environments → production**. `SUPABASE_URL` is already there from the [One-time setup](#one-time-setup).
 
-| Name                             | Type     | Where the value comes from                                                                                                                              |
-| -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Secret   | The provider name from step 8, in the form `projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/github/providers/rubber-duck-on-steroids`. |
-| `GCP_SERVICE_ACCOUNT`            | Secret   | `github-deploy@<PROJECT_ID>.iam.gserviceaccount.com`.                                                                                                   |
-| `SUPABASE_SERVICE_KEY`           | Secret   | The `service_role` key or a secret key (`sb_secret_...`): Supabase project → **Settings → API Keys**. Only the worker gets it.                          |
-| `WORKER_WAKE_SECRET`             | Secret   | A random value: `openssl rand -hex 32`. The `deploy-worker` job sends it to the worker. The `deploy` job sends it to the Cloudflare Worker.             |
-| `GCP_PROJECT_ID`                 | Variable | The Google project ID.                                                                                                                                  |
-| `GCP_REGION`                     | Variable | The Cloud Run region, for example `europe-west3`. Select a region near the Supabase project.                                                            |
-| `WORKER_WAKE_URL`                | Variable | The worker address with `/wake` at the end. Set it after the first worker deploy.                                                                       |
-| `ENABLE_JOB_CHECK`               | Variable | Only for the production check. The value is `true`. Remove it after the check.                                                                          |
+| Name                             | Type     | Where the value comes from                                                                                                                                   |
+| -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Secret   | The provider name from step 8, in the form `projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/github/providers/rubber-duck-on-steroids`.      |
+| `GCP_SERVICE_ACCOUNT`            | Secret   | `github-deploy@<PROJECT_ID>.iam.gserviceaccount.com`.                                                                                                        |
+| `WORKER_WAKE_SECRET`             | Secret   | A random value: `openssl rand -hex 32`. The `deploy` job sends it to the Cloudflare Worker. Use the value of the Secret Manager secret `worker-wake-secret`. |
+| `GCP_PROJECT_ID`                 | Variable | The Google project ID.                                                                                                                                       |
+| `GCP_REGION`                     | Variable | The Cloud Run region, for example `europe-west3`. Select a region near the Supabase project.                                                                 |
+| `WORKER_WAKE_URL`                | Variable | The worker address with `/wake` at the end. Set it after the first worker deploy.                                                                            |
+| `ENABLE_JOB_CHECK`               | Variable | Only for the production check. The value is `true`. Remove it after the check.                                                                               |
 
 #### First deploy of the worker
 
@@ -598,10 +611,10 @@ After the first deploy, a push to `main` deploys the worker only when a file in 
 The check page `/dashboard/job-check` is off in production. Turn it on only for a check:
 
 1. Set the variable `ENABLE_JOB_CHECK` to `true`. Use exactly `true`. Another value, for example `TRUE`, fails the build.
-2. Open **Actions → CI → Run workflow** and select `main`. The build reads the variable.
+2. Open **Actions → CI → Run workflow** and select `main`. The build reads the variable. The manual run also deploys the worker with `WORKER_ALLOW_DEMO=true`, so the worker runs demo jobs.
 3. Sign in to the production app, and open `PRODUCTION_URL/dashboard/job-check`. Start a demo job. Wait until it shows "Done".
 4. Remove the variable `ENABLE_JOB_CHECK`.
-5. Run the workflow again. Open `PRODUCTION_URL/dashboard/job-check`. It answers 404.
+5. Run the workflow again. Open `PRODUCTION_URL/dashboard/job-check`. It answers 404. The worker now refuses demo jobs, also a demo row that a user inserts through the Supabase API.
 6. One day later, read the cost of the project on the Google billing page.
 
 ## Smoke test
