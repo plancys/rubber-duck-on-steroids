@@ -18,7 +18,12 @@ const isCurrent = (href: string) => href === currentHref;
     aria-label="Main"
     class="relative flex flex-wrap items-center justify-between gap-x-1 border-b text-sm border-border bg-card px-3 py-2 md:sticky md:top-0 md:h-screen md:w-60 md:flex-none md:flex-col md:flex-nowrap md:items-stretch md:justify-start md:border-r md:border-b-0 md:py-5"
   >
-    <Brand unstyled class="flex gap-2.5 px-1 text-base font-semibold md:mb-4 md:px-3">
+    {/* Under md the brand takes the free space of the row and shortens a long name, so the bar stays one row. */}
+    <Brand
+      unstyled
+      class="flex flex-1 gap-2.5 px-1 text-base font-semibold md:mb-4 md:flex-none md:px-3"
+      nameClass="min-w-0 truncate md:overflow-visible md:whitespace-normal"
+    >
       <span aria-hidden="true" class="size-6 flex-none rounded-[6px] bg-primary"></span>
     </Brand>
     {!user && (

@@ -673,10 +673,10 @@ The section "The pipeline" gets one line for the `deploy-worker` job.
 
 #### Automated
 
-- [x] 4.1 The smoke test passes with the job steps
-- [x] 4.2 The phone check passes for the check page
-- [x] 4.3 The smoke test still passes without SMOKE_JOB_CHECK, and it skips the job steps
-- [x] 4.4 The sample removal still leaves a green repo
+- [x] 4.1 The smoke test passes with the job steps — 0701797
+- [x] 4.2 The phone check passes for the check page — 0701797
+- [x] 4.3 The smoke test still passes without SMOKE_JOB_CHECK, and it skips the job steps — 0701797
+- [x] 4.4 The sample removal still leaves a green repo — 0701797
 - [ ] 4.5 The pull request shows the ci job and both smoke variants as passed
 
 #### Manual
