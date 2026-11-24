@@ -3,4 +3,13 @@
 import type { Handler } from "../run.ts";
 import { demo } from "./demo.ts";
 
-export const handlers: ReadonlyMap<string, Handler> = new Map([["demo", demo]]);
+export interface HandlerOptions {
+  // The demo job is only for checks. Production keeps it off, so a demo row from the REST API fails at once.
+  allowDemo: boolean;
+}
+
+export function createHandlers(options: HandlerOptions): ReadonlyMap<string, Handler> {
+  const entries: [string, Handler][] = [];
+  if (options.allowDemo) entries.push(["demo", demo]);
+  return new Map(entries);
+}

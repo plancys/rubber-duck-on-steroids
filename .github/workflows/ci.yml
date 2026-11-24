@@ -281,8 +281,6 @@ jobs:
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
           GCP_REGION: ${{ vars.GCP_REGION }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          WORKER_WAKE_SECRET: ${{ secrets.WORKER_WAKE_SECRET }}
         run: |
           if [ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ] && [ "$EVENT_NAME" = "push" ]; then
             echo "::notice::Worker deploy skipped. GCP_WORKLOAD_IDENTITY_PROVIDER is not set. See the README section \"Deployment > Background worker\"."
@@ -290,7 +288,7 @@ jobs:
             exit 0
           fi
           missing=""
-          for name in GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT GCP_PROJECT_ID GCP_REGION SUPABASE_URL SUPABASE_SERVICE_KEY WORKER_WAKE_SECRET; do
+          for name in GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT GCP_PROJECT_ID GCP_REGION SUPABASE_URL; do
             if [ -z "${!name}" ]; then
               missing="$missing $name"
             fi
@@ -339,7 +337,7 @@ jobs:
       # Cloud Build builds the image from worker/Dockerfile. The service runs at most one instance and none when idle.
       # --no-cpu-throttling keeps the CPU on after the reply to the wake request, so a job runs to its end.
       # --no-invoker-iam-check makes the address public. The wake secret protects POST /wake.
-      # The Supabase service key goes only to this service. It never goes to the Cloudflare Worker.
+      # The Supabase service key goes only to this service, from Secret Manager. It never goes to the Cloudflare Worker.
       - name: Deploy the worker to Cloud Run
         id: deploy
         if: steps.changes.outputs.deploy == 'true'
@@ -352,8 +350,11 @@ jobs:
           flags: --no-cpu-throttling --no-invoker-iam-check --min-instances=0 --max-instances=1 --cpu=1 --memory=512Mi
           env_vars: |-
             SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}
-            WORKER_WAKE_SECRET=${{ secrets.WORKER_WAKE_SECRET }}
+            WORKER_ALLOW_DEMO=${{ vars.ENABLE_JOB_CHECK }}
+          # The two secret values come from Google Secret Manager, so the Cloud Run console does not show them.
+          secrets: |-
+            SUPABASE_SERVICE_KEY=worker-supabase-service-key:latest
+            WORKER_WAKE_SECRET=worker-wake-secret:latest
       # The first deploy needs this address for the variable WORKER_WAKE_URL.
       - name: Show the worker address
         if: steps.changes.outputs.deploy == 'true'

@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(47);
+select plan(48);
 
 -- Create four users as the superuser.
 insert into auth.users (id, email)
@@ -421,6 +421,17 @@ select results_eq(
      where id = 'aaaaaaaa-0000-0000-0000-000000000002' $$,
   $$ values ('waiting'::text, 0, true, 0, 0, true, true, true, true) $$,
   'retry_job returns the job to waiting with no attempts, no error, no progress and no lease'
+);
+
+-- The payload size check rejects a payload over 4096 bytes.
+reset role;
+select throws_ok(
+  $$ insert into public.jobs (user_id, type, payload)
+     values ('11111111-1111-1111-1111-111111111111', 'demo',
+             jsonb_build_object('pad', (select string_agg(md5(i::text), '') from generate_series(1, 200) as i))) $$,
+  '23514',
+  null,
+  'a payload over 4096 bytes is rejected'
 );
 
 select * from finish();

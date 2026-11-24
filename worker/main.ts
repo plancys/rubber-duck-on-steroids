@@ -4,7 +4,7 @@
 // The service key and the wake secret stay in memory. The worker never writes them to the log.
 
 import { createServer, type ServerResponse } from "node:http";
-import { handlers } from "./handlers/index.ts";
+import { createHandlers } from "./handlers/index.ts";
 import { createQueue } from "./queue.ts";
 import { isWakeAuthorized } from "./rules.ts";
 import { createRunner } from "./run.ts";
@@ -51,6 +51,8 @@ const wakeSecret = required("WORKER_WAKE_SECRET");
 if (!URL.canParse(supabaseUrl)) exitWith("SUPABASE_URL must be a URL.");
 const port = readPort();
 const pollSeconds = readPollSeconds();
+// The demo job runs only when WORKER_ALLOW_DEMO is "true". Production keeps it off unless a check needs it.
+const handlers = createHandlers({ allowDemo: process.env.WORKER_ALLOW_DEMO === "true" });
 
 const runner = createRunner({ queue: createQueue({ url: supabaseUrl, key: serviceKey }), handlers, log: writeLog });
 

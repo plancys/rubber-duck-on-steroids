@@ -28,6 +28,7 @@ export interface HandlerContext {
 }
 
 // A handler does the work of one job type and returns the result as JSON.
+// It must stop when `signal` aborts. The loop does not wait for it, so a handler that ignores the signal runs on beside the next job.
 export type Handler = (context: HandlerContext) => Promise<Json>;
 
 interface JobIds {
@@ -224,8 +225,9 @@ export function createRunner(options: RunnerOptions): Runner {
         const reason = outcome.error instanceof SafeError ? outcome.error.message : GENERIC_REASON;
         log({ event: "failed", ...ids, reason, error: errorText(outcome.error) });
         // Wait before the job goes back to the queue. A stop signal or a lost lease ends the wait early.
+        // After a stop the failure still counts, so frequent restarts cannot give a failing job more than 3 starts.
         await pause(waitMs(job.attempts), signal);
-        if (!signal.aborted) {
+        if (!control.lost) {
           await end("fail_job", ids, () => queue.failJob(job.id, job.lease_id, reason));
           return;
         }

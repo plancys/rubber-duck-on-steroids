@@ -198,3 +198,31 @@ test("a stop releases the current job and takes no new job", async () => {
   assert.deepEqual(run.endCalls(), [{ name: "releaseJob", args: ["job-1", "lease-1"] }]);
   assert.deepEqual(run.events(), ["claimed", "released"]);
 });
+
+test("a stop during the wait after a failed start still records the failure", async () => {
+  const queue = fakeQueue([job({ id: "job-1" })], true);
+  const waiting = Promise.withResolvers<undefined>();
+  const runner = createRunner({
+    queue,
+    handlers: new Map<string, Handler>([["test", () => Promise.reject(new SafeError("Planned failure."))]]),
+    log: () => undefined,
+    // The wait ends only on the stop signal.
+    sleep: (_ms, signal) =>
+      new Promise<void>((resolve) => {
+        waiting.resolve(undefined);
+        signal.addEventListener(
+          "abort",
+          () => {
+            resolve();
+          },
+          { once: true },
+        );
+      }),
+  });
+  const loop = runner.wake();
+  await waiting.promise;
+  await runner.stop();
+  await loop;
+  const ends = queue.calls.filter((call) => call.name !== "claimJob" && call.name !== "heartbeatJob");
+  assert.deepEqual(ends, [{ name: "failJob", args: ["job-1", "lease-1", "Planned failure."] }]);
+});
