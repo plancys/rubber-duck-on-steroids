@@ -423,8 +423,10 @@ On each push to `main`, the workflow runs these jobs:
 1. `ci` and `smoke` run in parallel.
 2. When both pass, `deploy` starts. It builds the app with the commit SHA as `BUILD_VERSION`.
 3. `deploy` applies the pending migrations with `npx supabase db push`. A failed migration stops the job before the new code goes live.
-4. `deploy` runs `npx wrangler deploy`. It sends `SUPABASE_URL` and `SUPABASE_KEY` to the Worker as secrets. It also sends `RESEND_API_KEY`, `SEND_EMAIL_HOOK_SECRET`, `EMAIL_FROM`, `ADMIN_EMAIL`, and `EMAIL_QUOTA_ALERT_PERCENT` when they are set.
+4. `deploy` runs `npx wrangler deploy`. It sends `SUPABASE_URL` and `SUPABASE_KEY` to the Worker as secrets. It also sends `RESEND_API_KEY`, `SEND_EMAIL_HOOK_SECRET`, `EMAIL_FROM`, `ADMIN_EMAIL`, `EMAIL_QUOTA_ALERT_PERCENT`, `WORKER_WAKE_URL`, and `WORKER_WAKE_SECRET` when they are set.
 5. `deploy` reads `PRODUCTION_URL/healthcheck` every 5 seconds for up to 60 seconds. The job passes when the `version` field equals the commit SHA.
+
+When `ci` and `smoke` pass, `deploy-worker` also starts, next to `deploy`. It deploys the background worker to Google Cloud Run when a file in `worker/` changed, and on each manual run. See [Background worker](#background-worker).
 
 A newer merge waits for a running deploy. It does not cancel it.
 
@@ -460,6 +462,147 @@ A rollback reverts only the Worker. Supabase migrations do not roll back with th
 - `ratelimits[0].namespace_id`: a value that is unique in the Cloudflare account.
 
 The KV binding `QUOTA_ALERTS` has no `id`. The first deploy creates the namespace in the new account, so a new project changes nothing for it.
+
+### Background worker
+
+The background worker does the long work of a job outside the web app. It is a plain Node process in `worker/`, with no dependency. It takes jobs from the `jobs` table through the Supabase REST API, one job at a time. The web app sends `POST /wake` to the worker after it creates a job. `GET /health` answers `ok` while the worker runs.
+
+In production, the worker runs on [Google Cloud Run](https://cloud.google.com/run) as the service `rubber-duck-on-steroids-worker`. The `deploy-worker` job in `.github/workflows/ci.yml` deploys it. The service runs at most one instance, and no instance when it has no work. Google bills the time that an instance is on: the job time plus up to 15 idle minutes after the last request.
+
+> **Warning: the Supabase service key passes all access rules.** It skips Row Level Security, so it can read and change the data of every user. It goes only to the worker: the `deploy-worker` job sends it to Cloud Run. Never put it in `.env`, `.dev.vars`, a Cloudflare Worker secret, or a file. Cloud Run shows the environment variables of the service to each account that can view the Google project. Give no other account access to the project.
+
+#### Run the worker on your machine
+
+1. Start the local Supabase and the app with `npm start`.
+2. In `.dev.vars`, set these values, then restart `npm start`:
+
+```
+ENABLE_JOB_CHECK=true
+WORKER_WAKE_URL=http://localhost:8788/wake
+WORKER_WAKE_SECRET=local-wake-secret
+```
+
+3. In a second terminal, start the worker:
+
+```bash
+npm run worker
+```
+
+The script reads the local service key into memory and starts the worker on port 8788. Ctrl+C releases the current job and stops the worker.
+
+4. Sign in, open `http://localhost:4321/dashboard/job-check`, and start a demo job.
+
+To check the container image, build it and run it against the local Supabase. `npx supabase status -o env` shows the local service key as `SERVICE_ROLE_KEY`. Use only the local key on your machine.
+
+```bash
+docker build -t rubber-duck-worker worker/
+docker run --rm -p 8788:8788 --add-host=host.docker.internal:host-gateway \
+  -e SUPABASE_URL=http://host.docker.internal:54321 \
+  -e SUPABASE_SERVICE_KEY=<local service key> \
+  -e WORKER_WAKE_SECRET=local-wake-secret \
+  rubber-duck-worker
+```
+
+Then open `http://localhost:8788/health`. It answers `ok`.
+
+#### One-time Google setup
+
+A human does these steps. An agent does not. You need a Google account with a payment card and the [gcloud CLI](https://cloud.google.com/sdk/docs/install). Replace `<PROJECT_ID>`, `<PROJECT_NUMBER>`, and `<OWNER>/<REPO>` with your values, for example `plancys/rubber-duck-on-steroids`.
+
+1. Create a Google Cloud project, and link a billing account to it.
+2. Set a budget alert: **Billing → Budgets & alerts → Create budget**. Select the project, set a small amount, for example 5 USD, and keep the email alerts on. The alert sends an email. It does not stop the service.
+3. Log in, and select the project. The second command shows the project number:
+
+```bash
+gcloud auth login
+gcloud config set project <PROJECT_ID>
+gcloud projects describe <PROJECT_ID> --format="value(projectNumber)"
+```
+
+4. Turn on the services. Cloud Run runs the worker. Cloud Build builds the image. Artifact Registry keeps the image. The IAM Credentials API lets GitHub use the deploy service account.
+
+```bash
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com iamcredentials.googleapis.com
+```
+
+5. Let Cloud Build build for Cloud Run. Cloud Build uses the Compute Engine default service account:
+
+```bash
+gcloud projects add-iam-policy-binding <PROJECT_ID> \
+  --member=serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com \
+  --role=roles/run.builder
+```
+
+6. Create the service account for the deploy, and give it the deploy roles. The deploy turns off the invoker IAM check, so the account needs `roles/run.admin`. The last command lets the account start the service with the default runtime account.
+
+```bash
+gcloud iam service-accounts create github-deploy --display-name="GitHub deploy of the worker"
+for role in roles/run.sourceDeveloper roles/run.admin roles/serviceusage.serviceUsageConsumer; do
+  gcloud projects add-iam-policy-binding <PROJECT_ID> \
+    --member=serviceAccount:github-deploy@<PROJECT_ID>.iam.gserviceaccount.com \
+    --role="$role"
+done
+gcloud iam service-accounts add-iam-policy-binding <PROJECT_NUMBER>-compute@developer.gserviceaccount.com \
+  --member=serviceAccount:github-deploy@<PROJECT_ID>.iam.gserviceaccount.com \
+  --role=roles/iam.serviceAccountUser
+```
+
+7. Set up Workload Identity Federation for this repository. GitHub then signs in with a short-lived token, and no Google key leaves Google. The condition accepts only this repository.
+
+```bash
+gcloud iam workload-identity-pools create github --location=global --display-name="GitHub Actions"
+gcloud iam workload-identity-pools providers create-oidc rubber-duck-on-steroids \
+  --location=global --workload-identity-pool=github \
+  --issuer-uri=https://token.actions.githubusercontent.com \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --attribute-condition="assertion.repository == '<OWNER>/<REPO>'"
+gcloud iam service-accounts add-iam-policy-binding github-deploy@<PROJECT_ID>.iam.gserviceaccount.com \
+  --role=roles/iam.workloadIdentityUser \
+  --member="principalSet://iam.googleapis.com/projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/github/attribute.repository/<OWNER>/<REPO>"
+```
+
+8. Show the provider name. It is the value of `GCP_WORKLOAD_IDENTITY_PROVIDER`:
+
+```bash
+gcloud iam workload-identity-pools providers describe rubber-duck-on-steroids \
+  --location=global --workload-identity-pool=github --format="value(name)"
+```
+
+#### Worker secrets and variables
+
+Set these values in **Settings → Environments → production**. `SUPABASE_URL` is already there from the [One-time setup](#one-time-setup).
+
+| Name                             | Type     | Where the value comes from                                                                                                                              |
+| -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Secret   | The provider name from step 8, in the form `projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/github/providers/rubber-duck-on-steroids`. |
+| `GCP_SERVICE_ACCOUNT`            | Secret   | `github-deploy@<PROJECT_ID>.iam.gserviceaccount.com`.                                                                                                   |
+| `SUPABASE_SERVICE_KEY`           | Secret   | The `service_role` key or a secret key (`sb_secret_...`): Supabase project → **Settings → API Keys**. Only the worker gets it.                          |
+| `WORKER_WAKE_SECRET`             | Secret   | A random value: `openssl rand -hex 32`. The `deploy-worker` job sends it to the worker. The `deploy` job sends it to the Cloudflare Worker.             |
+| `GCP_PROJECT_ID`                 | Variable | The Google project ID.                                                                                                                                  |
+| `GCP_REGION`                     | Variable | The Cloud Run region, for example `europe-west3`. Select a region near the Supabase project.                                                            |
+| `WORKER_WAKE_URL`                | Variable | The worker address with `/wake` at the end. Set it after the first worker deploy.                                                                       |
+| `ENABLE_JOB_CHECK`               | Variable | Only for the production check. The value is `true`. Remove it after the check.                                                                          |
+
+#### First deploy of the worker
+
+1. Set the values of the table above, but not `WORKER_WAKE_URL` and `ENABLE_JOB_CHECK`.
+2. Open **Actions → CI → Run workflow** and select `main`. A manual run always deploys the worker. The `deploy-worker` job shows the worker address in a notice.
+3. Open the worker address with `/health` at the end. It answers `ok`.
+4. Set the variable `WORKER_WAKE_URL` to the worker address with `/wake` at the end.
+5. Run the workflow again. The `deploy` job sends `WORKER_WAKE_URL` and `WORKER_WAKE_SECRET` to the Cloudflare Worker.
+
+After the first deploy, a push to `main` deploys the worker only when a file in `worker/` changed. Before the Google setup, a push skips the worker deploy and shows a notice. The job stays green. A manual run fails the `deploy-worker` job when a value is missing, and the error names each missing value. The `deploy` job does not depend on `deploy-worker`.
+
+#### Production check
+
+The check page `/dashboard/job-check` is off in production. Turn it on only for a check:
+
+1. Set the variable `ENABLE_JOB_CHECK` to `true`. Use exactly `true`. Another value, for example `TRUE`, fails the build.
+2. Open **Actions → CI → Run workflow** and select `main`. The build reads the variable.
+3. Sign in to the production app, and open `PRODUCTION_URL/dashboard/job-check`. Start a demo job. Wait until it shows "Done".
+4. Remove the variable `ENABLE_JOB_CHECK`.
+5. Run the workflow again. Open `PRODUCTION_URL/dashboard/job-check`. It answers 404.
+6. One day later, read the cost of the project on the Google billing page.
 
 ## Smoke test
 

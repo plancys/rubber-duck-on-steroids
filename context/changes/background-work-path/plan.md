@@ -677,19 +677,19 @@ The section "The pipeline" gets one line for the `deploy-worker` job.
 - [x] 4.2 The phone check passes for the check page — 0701797
 - [x] 4.3 The smoke test still passes without SMOKE_JOB_CHECK, and it skips the job steps — 0701797
 - [x] 4.4 The sample removal still leaves a green repo — 0701797
-- [ ] 4.5 The pull request shows the ci job and both smoke variants as passed
+- [x] 4.5 The pull request shows the ci job and both smoke variants as passed — 7c6b045
 
 #### Manual
 
-- [ ] 4.6 The log of the CI smoke job shows the unit test step and the worker start step, and shows no key
+- [x] 4.6 The log of the CI smoke job shows the unit test step and the worker start step, and shows no key — 7c6b045
 
 ### Phase 5: Production home
 
 #### Automated
 
-- [ ] 5.1 The container builds
-- [ ] 5.2 The container runs against the local Supabase, and its health address replies
-- [ ] 5.3 Lint passes
+- [x] 5.1 The container builds
+- [x] 5.2 The container runs against the local Supabase, and its health address replies
+- [x] 5.3 Lint passes
 - [ ] 5.4 The pull request shows the ci job and both smoke variants as passed
 
 #### Manual
