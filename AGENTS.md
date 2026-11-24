@@ -16,7 +16,9 @@ An MVP baseline web app: Astro 7 server-rendered pages with React 19 islands, Ty
 - `npm start`: the full local run via `scripts/local.mjs`. It checks Docker, starts local Supabase, applies pending migrations, writes `.env` and `.dev.vars` only when missing, then runs `astro dev`. `--setup-only` stops before `astro dev`. It skips Docker and Supabase when an env file has a cloud `SUPABASE_URL`. Ctrl+C stops only `astro dev`. `npx supabase stop` stops Supabase.
 - In an agent session, Astro starts `astro dev` in the background and `npm start` exits 0. The port can differ from 4321. Stop the server with `npx astro dev stop`.
 - `npm run dev`: dev server on the Cloudflare workerd runtime. `npm run build`: production SSR build.
+- `npm run worker`: `scripts/worker.mjs` starts the background worker on port 8788 with the local Supabase values. It reads the service key into memory only and never prints it. Ctrl+C releases the current job and stops the worker. The check page needs `ENABLE_JOB_CHECK=true`, and the wake request needs `WORKER_WAKE_URL` and `WORKER_WAKE_SECRET`, in `.dev.vars`, as in @.env.example.
 - `npm run lint`, `npm run lint:fix`, `npm run format`: ESLint with type-checked rules, then Prettier. `npx astro check`: types. CI runs both.
+- `npm run test:unit`: the worker unit tests, `worker/**/*.test.ts`, with `node --test`. No server and no database. CI runs them in the `smoke` job.
 - `npm run smoke`: auth-flow smoke test against a running server, `BASE_URL` default `http://localhost:4321`.
 - `npm run phone-check`: `scripts/phone-check.mjs` opens every page at 375px and 320px in headless Chromium and checks the phone rules. Same `BASE_URL` default. One-time setup: `npx playwright install chromium`. CI runs it in the `smoke` job, before the smoke test.
 - `npx supabase start`: local Supabase, needs Docker. Node version: @.nvmrc.
@@ -42,6 +44,8 @@ An MVP baseline web app: Astro 7 server-rendered pages with React 19 islands, Ty
 - `src/components/`: Astro for static content, React only for interactivity. `src/components/ui/`: shadcn components.
 - `src/lib/`: Supabase client, `cn()` helper, services. `src/middleware.ts`: session lookup and `PROTECTED_ROUTES`.
 - `supabase/`: local config and migrations. `supabase/tests/`: pgTAP policy tests. `src/db/`: generated database types. `scripts/smoke.mjs`: the smoke test. `context/`: foundation docs and change logs.
+- `worker/`: the background worker, plain Node TypeScript with zero dependencies. `main.ts`: the HTTP server with `POST /wake` and `GET /health`. `queue.ts`: the only module that calls the job functions of the database, through the Supabase REST API with the service key. `run.ts`: the job loop. `rules.ts`: the pure rules. `handlers/`: one handler for each job type. A new job type adds one entry to `handlers/index.ts` and its name to the type check of the `jobs` table. The web app must not import from `worker/`, because the worker uses Node APIs and the web app runs on workerd.
+- Jobs in the web app: `src/lib/jobs.ts`: the job view, the demo limits, the error texts and `wakeWorker()`. `src/pages/api/jobs/`: start, read and retry a job. `src/components/jobs/JobStatus.tsx` and `src/components/hooks/useJobStatus.ts`: the status, which refreshes every 3 seconds. `src/pages/dashboard/job-check.astro`: the check page. It answers 404 unless `ENABLE_JOB_CHECK` is true, and it has no nav entry. A learner can start and read only their own jobs, and can retry a failed job through `retry_job`. Every other change to a job goes through the worker functions of the database.
 
 <!-- BEGIN sample-resource -->
 
@@ -59,7 +63,8 @@ An MVP baseline web app: Astro 7 server-rendered pages with React 19 islands, Ty
 
 ## Testing
 
-- No unit test runner yet. The smoke script and the phone check are the only automated tests. CI runs both against the production preview with a local Supabase.
+- The unit test runner is `node --test`, for the worker only: `npm run test:unit`. The tests use `node:test` and `node:assert`, and sit next to their module as `*.test.ts`. The web app has no unit tests. The smoke script and the phone check test it. CI runs the unit tests, then both scripts against the production preview with a local Supabase and a running worker.
+- `SMOKE_JOB_CHECK=1 npm run smoke` adds the job steps: demo jobs to `done` and to `failed`, a retry, and the access checks. They need `ENABLE_JOB_CHECK=true` on the server and `npm run worker`. Without the variable, the smoke test skips them.
 - `npm run phone-check` checks the phone rules on every page. No sideways scroll at 320px, and no element reaches past the right edge. The bar (`data-testid="shell-nav"`) is at most 64px high. Every link and button is at least 44px high and wide. Every input has a font size of at least 16px. A new link or button uses `min-h-11 min-w-11`.
 
 ## Commit and pull request guidelines

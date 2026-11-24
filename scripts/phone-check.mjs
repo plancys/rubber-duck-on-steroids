@@ -227,6 +227,9 @@ async function checkSignedInPages(page, width) {
   }
   const settings = "/dashboard/settings";
   await guarded(settings, width, () => checkPage(page, settings, width, { expectBar: true }));
+  // The job check page. Without ENABLE_JOB_CHECK on the server, it answers 404 and the check skips it.
+  const jobCheck = "/dashboard/job-check";
+  await guarded(jobCheck, width, () => checkPage(page, jobCheck, width, { expectBar: true }));
   // BEGIN sample-resource
   // The notes pages. After the removal of the sample, the list page answers 404 and the check skips it.
   const notes = "/dashboard/notes";

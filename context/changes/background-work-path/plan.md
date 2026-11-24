@@ -653,30 +653,30 @@ The section "The pipeline" gets one line for the `deploy-worker` job.
 
 #### Automated
 
-- [x] 3.1 Lint passes
-- [x] 3.2 Type checks pass
-- [x] 3.3 The production build passes
-- [x] 3.4 Unit tests still pass
-- [x] 3.5 With the switch off, the check page returns 404 for a signed-in user
+- [x] 3.1 Lint passes — 4406b39
+- [x] 3.2 Type checks pass — 4406b39
+- [x] 3.3 The production build passes — 4406b39
+- [x] 3.4 Unit tests still pass — 4406b39
+- [x] 3.5 With the switch off, the check page returns 404 for a signed-in user — 4406b39
 
 #### Manual
 
-- [x] 3.6 A demo job goes from waiting through the steps to done without a reload
-- [x] 3.7 The status is still there after the learner closes the page and opens it again
-- [x] 3.8 A second start while a job is in progress shows the job active message
-- [x] 3.9 A demo job with failTimes 1 shows attempt 2 of 3 and then done
-- [x] 3.10 A demo job with failTimes 3 shows failed with a reason, and Try again starts it again
-- [x] 3.11 With the worker stopped, a new job stays waiting, and it runs after the worker starts
-- [x] 3.12 The check page obeys the phone rules at 320px in the active look
+- [x] 3.6 A demo job goes from waiting through the steps to done without a reload — 4406b39
+- [x] 3.7 The status is still there after the learner closes the page and opens it again — 4406b39
+- [x] 3.8 A second start while a job is in progress shows the job active message — 4406b39
+- [x] 3.9 A demo job with failTimes 1 shows attempt 2 of 3 and then done — 4406b39
+- [x] 3.10 A demo job with failTimes 3 shows failed with a reason, and Try again starts it again — 4406b39
+- [x] 3.11 With the worker stopped, a new job stays waiting, and it runs after the worker starts — 4406b39
+- [x] 3.12 The check page obeys the phone rules at 320px in the active look — 4406b39
 
 ### Phase 4: Tests in CI
 
 #### Automated
 
-- [ ] 4.1 The smoke test passes with the job steps
-- [ ] 4.2 The phone check passes for the check page
-- [ ] 4.3 The smoke test still passes without SMOKE_JOB_CHECK, and it skips the job steps
-- [ ] 4.4 The sample removal still leaves a green repo
+- [x] 4.1 The smoke test passes with the job steps
+- [x] 4.2 The phone check passes for the check page
+- [x] 4.3 The smoke test still passes without SMOKE_JOB_CHECK, and it skips the job steps
+- [x] 4.4 The sample removal still leaves a green repo
 - [ ] 4.5 The pull request shows the ci job and both smoke variants as passed
 
 #### Manual
