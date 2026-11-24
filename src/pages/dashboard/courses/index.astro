@@ -1,0 +1,118 @@
+---
+import AppLayout from "@/layouts/AppLayout.astro";
+import { ServerError } from "@/components/auth/ServerError";
+import { createClient } from "@/lib/supabase";
+import { COURSE_URL_MAX_LENGTH, courseErrorText, courseName, courseNoticeText, courseStatusText } from "@/lib/courses";
+
+let error = courseErrorText(Astro.url.searchParams.get("error"));
+const notice = courseNoticeText(Astro.url.searchParams.get("notice"));
+
+interface CourseItem {
+  id: string;
+  name: string;
+  status: string;
+  fromExtension: boolean;
+  lessonCount: number;
+  date: string;
+}
+
+// RLS returns only the courses and the lessons of the signed-in learner.
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+let courses: CourseItem[] = [];
+if (!supabase) {
+  error = courseErrorText("not_configured");
+} else {
+  const result = await supabase
+    .from("courses")
+    .select("id, title, source_url, source_kind, status, loaded_at, created_at, lessons(count)")
+    .order("created_at", { ascending: false });
+  if (result.error) {
+    error = courseErrorText("unknown");
+  } else {
+    courses = result.data.map((course) => ({
+      id: course.id,
+      name: courseName(course),
+      status: course.status,
+      fromExtension: course.source_kind === "extension",
+      lessonCount: course.lessons[0]?.count ?? 0,
+      date: (course.loaded_at ?? course.created_at).slice(0, 10),
+    }));
+  }
+}
+---
+
+<AppLayout title="Your courses">
+  <h1 class="mb-2 font-heading text-3xl font-extrabold sm:text-4xl">Your courses</h1>
+  <p class="mb-6 text-muted-foreground">Load a course from the URL of its start page, and read its lessons in order.</p>
+  {notice && (
+    <p data-testid="courses-notice" class="mb-6 rounded-lg bg-success px-3 py-2 text-sm text-success-foreground">
+      {notice}
+    </p>
+  )}
+  {error && (
+    <div data-testid="courses-error" class="mb-6">
+      <ServerError message={error} />
+    </div>
+  )}
+
+  <section class="mb-8 rounded-(--radius) bg-card p-6 text-card-foreground shadow-(--shadow-card)">
+    <h2 class="mb-3 font-heading text-xl font-extrabold">Load a course</h2>
+    <form method="POST" action="/api/courses" class="space-y-4" data-testid="course-load-form">
+      <div>
+        <label for="url" class="mb-1 block text-sm font-semibold">
+          URL of the course start page
+        </label>
+        <input
+          id="url"
+          name="url"
+          type="url"
+          inputmode="url"
+          autocomplete="url"
+          placeholder="https://example.com/course"
+          maxlength={COURSE_URL_MAX_LENGTH}
+          required
+          aria-describedby="url-hint"
+          data-testid="course-url-input"
+          class="w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+        />
+        <p id="url-hint" class="mt-1 text-xs text-muted-foreground">
+          The site must allow automated reads. A second load of the same URL replaces the lessons.
+        </p>
+      </div>
+      <button
+        type="submit"
+        data-testid="course-load-button"
+        class="min-h-11 w-full min-w-11 rounded-full bg-primary px-4 py-2 text-base font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+      >
+        Load the course
+      </button>
+    </form>
+  </section>
+
+  <section>
+    <h2 class="mb-3 font-heading text-xl font-extrabold">All courses</h2>
+    {courses.length === 0 ? (
+      <p data-testid="courses-empty" class="text-sm text-muted-foreground">
+        You have no courses yet.
+      </p>
+    ) : (
+      <ul class="space-y-2">
+        {courses.map((course) => (
+          <li data-testid="course-item" data-status={course.status}>
+            <a
+              href={`/dashboard/courses/${course.id}`}
+              class="block min-h-11 rounded-lg bg-card px-5 py-3 text-card-foreground shadow-(--shadow-card) transition-shadow hover:shadow-md"
+            >
+              <span class="block truncate font-bold">{course.name}</span>
+              <span class="block text-xs text-muted-foreground">
+                {courseStatusText(course.status)} · {course.lessonCount}{" "}
+                {course.lessonCount === 1 ? "lesson" : "lessons"} · {course.date}
+                {course.fromExtension && " · From the extension"}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+</AppLayout>

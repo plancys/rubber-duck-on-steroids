@@ -503,18 +503,18 @@ This phase makes CI protect both paths and gives the worker its model key in pro
 
 #### Automated
 
-- [ ] 3.1 Lint passes
-- [ ] 3.2 Type checks pass
-- [ ] 3.3 The production build passes
-- [ ] 3.4 Unit tests still pass
+- [x] 3.1 Lint passes
+- [x] 3.2 Type checks pass
+- [x] 3.3 The production build passes
+- [x] 3.4 Unit tests still pass
 
 #### Manual
 
-- [ ] 3.5 A docs section load shows the progress, then the lessons in course order
-- [ ] 3.6 A second load of the same URL replaces the lessons and keeps one course
-- [ ] 3.7 A load of the blocked example course shows the reason with the extension hint
-- [ ] 3.8 A localhost or non-http URL shows an error and starts no job
-- [ ] 3.9 The course pages obey the phone rules at 320px
+- [x] 3.5 A docs section load shows the progress, then the lessons in course order
+- [x] 3.6 A second load of the same URL replaces the lessons and keeps one course
+- [x] 3.7 A load of the blocked example course shows the reason with the extension hint
+- [x] 3.8 A localhost or non-http URL shows an error and starts no job
+- [x] 3.9 The course pages obey the phone rules at 320px
 
 ### Phase 4: Tokens and the extension
 
