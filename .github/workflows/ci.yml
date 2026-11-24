@@ -182,6 +182,8 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           # The build fixes the OAuth buttons. Without the variable, the app shows no OAuth button.
           OAUTH_PROVIDERS: ${{ vars.OAUTH_PROVIDERS }}
+          # The build fixes the job check page. Without the variable, the page answers 404. Set it only for a check.
+          ENABLE_JOB_CHECK: ${{ vars.ENABLE_JOB_CHECK }}
       # Migrations run before the deploy. A failed migration stops the job before the new code goes live.
       - name: Apply database migrations
         if: steps.settings.outputs.ready == 'true'
@@ -189,7 +191,7 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       # The file stays outside the workspace. jq escapes the values. No step prints them.
-      # The email values are optional. The step adds each one only when it is set,
+      # The email values and the wake values are optional. The step adds each one only when it is set,
       # so an empty value never replaces a Worker secret.
       - name: Write the Worker secrets file
         if: steps.settings.outputs.ready == 'true'
@@ -203,8 +205,11 @@ jobs:
             --arg from "$EMAIL_FROM" \
             --arg admin "$ADMIN_EMAIL" \
             --arg percent "$EMAIL_QUOTA_ALERT_PERCENT" \
+            --arg wake_url "$WORKER_WAKE_URL" \
+            --arg wake_secret "$WORKER_WAKE_SECRET" \
             '{SUPABASE_URL:$url,SUPABASE_KEY:$key}
             + {RESEND_API_KEY:$resend,SEND_EMAIL_HOOK_SECRET:$hook,EMAIL_FROM:$from,ADMIN_EMAIL:$admin,EMAIL_QUOTA_ALERT_PERCENT:$percent}
+            + {WORKER_WAKE_URL:$wake_url,WORKER_WAKE_SECRET:$wake_secret}
               | with_entries(select(.value != ""))' > "$RUNNER_TEMP/secrets.json"
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -214,6 +219,9 @@ jobs:
           EMAIL_FROM: ${{ vars.EMAIL_FROM }}
           ADMIN_EMAIL: ${{ vars.ADMIN_EMAIL }}
           EMAIL_QUOTA_ALERT_PERCENT: ${{ vars.EMAIL_QUOTA_ALERT_PERCENT }}
+          # The wake request of the web app. WORKER_WAKE_URL is the worker address with /wake at the end.
+          WORKER_WAKE_URL: ${{ vars.WORKER_WAKE_URL }}
+          WORKER_WAKE_SECRET: ${{ secrets.WORKER_WAKE_SECRET }}
       - name: Deploy the Worker
         if: steps.settings.outputs.ready == 'true'
         run: npx wrangler deploy --secrets-file "$RUNNER_TEMP/secrets.json" --message "CI deploy $GITHUB_SHA"
@@ -246,3 +254,109 @@ jobs:
       - name: Delete the Worker secrets file
         if: always()
         run: rm -f "$RUNNER_TEMP/secrets.json"
+
+  # The background worker in worker/ runs on Google Cloud Run. This job deploys it. The deploy job does not wait for it.
+  deploy-worker:
+    needs: [ci, smoke]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    permissions:
+      contents: read
+      # Workload Identity Federation signs in to Google with the GitHub token of the job. The repo holds no Google key.
+      id-token: write
+    # A newer merge waits for the running worker deploy. It does not cancel it.
+    concurrency:
+      group: deploy-worker-production
+      cancel-in-progress: false
+    steps:
+      # GitHub does not allow secrets in a job-level "if". This step checks them and sets "ready".
+      - name: Check worker settings
+        id: settings
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          WORKER_WAKE_SECRET: ${{ secrets.WORKER_WAKE_SECRET }}
+        run: |
+          if [ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ] && [ "$EVENT_NAME" = "push" ]; then
+            echo "::notice::Worker deploy skipped. GCP_WORKLOAD_IDENTITY_PROVIDER is not set. See the README section \"Deployment > Background worker\"."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          missing=""
+          for name in GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT GCP_PROJECT_ID GCP_REGION SUPABASE_URL SUPABASE_SERVICE_KEY WORKER_WAKE_SECRET; do
+            if [ -z "${!name}" ]; then
+              missing="$missing $name"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Worker deploy cannot start. Set these values in the production environment:$missing"
+            exit 1
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      # The full history lets the next step compare the commit before the push with the new commit.
+      - if: steps.settings.outputs.ready == 'true'
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # A manual run always deploys. A push deploys only when a file in worker/ changed.
+      # When the commit before the push is not known (a new branch, or a commit that the clone does not have), the job deploys.
+      - name: Check for worker changes
+        id: changes
+        if: steps.settings.outputs.ready == 'true'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" != "push" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$BEFORE" ] || [[ "$BEFORE" =~ ^0+$ ]] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "::notice::The commit before the push is not known. The job deploys the worker."
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # git diff --quiet exits 0 when nothing changed. A change or an error deploys.
+          if git diff --quiet "$BEFORE" "$GITHUB_SHA" -- worker/; then
+            echo "::notice::Worker deploy skipped. No file in worker/ changed in this push."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Sign in to Google Cloud
+        if: steps.changes.outputs.deploy == 'true'
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      # Cloud Build builds the image from worker/Dockerfile. The service runs at most one instance and none when idle.
+      # --no-cpu-throttling keeps the CPU on after the reply to the wake request, so a job runs to its end.
+      # --no-invoker-iam-check makes the address public. The wake secret protects POST /wake.
+      # The Supabase service key goes only to this service. It never goes to the Cloudflare Worker.
+      - name: Deploy the worker to Cloud Run
+        id: deploy
+        if: steps.changes.outputs.deploy == 'true'
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          service: rubber-duck-on-steroids-worker
+          source: worker
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          region: ${{ vars.GCP_REGION }}
+          flags: --no-cpu-throttling --no-invoker-iam-check --min-instances=0 --max-instances=1 --cpu=1 --memory=512Mi
+          env_vars: |-
+            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}
+            WORKER_WAKE_SECRET=${{ secrets.WORKER_WAKE_SECRET }}
+      # The first deploy needs this address for the variable WORKER_WAKE_URL.
+      - name: Show the worker address
+        if: steps.changes.outputs.deploy == 'true'
+        env:
+          SERVICE_URL: ${{ steps.deploy.outputs.url }}
+        run: echo "::notice::The worker is live at $SERVICE_URL. Set WORKER_WAKE_URL to $SERVICE_URL/wake."

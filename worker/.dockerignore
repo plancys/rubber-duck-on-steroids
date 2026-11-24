@@ -1,0 +1,4 @@
+# The image holds only the files that the worker runs. The tests stay out.
+**/*.test.ts
+Dockerfile
+.dockerignore

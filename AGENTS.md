@@ -80,3 +80,5 @@ An MVP baseline web app: Astro 7 server-rendered pages with React 19 islands, Ty
 - Human actions only: `npx wrangler rollback`, the Cloudflare API token, and the production secrets. The README "Deployment" section has the steps.
 - A human registers the GitHub and Google OAuth apps and enters their client secrets in `npm run setup:prod`.
 - The human runs `npm run setup:prod`. An agent does not run it. `SUPABASE_ACCESS_TOKEN` goes only in the env of that one command. It never goes to CI, to a GitHub secret, or to a file.
+- `SUPABASE_SERVICE_KEY` passes all access rules. It lives only in the worker environment: Cloud Run, through the `deploy-worker` job, and the memory of `npm run worker`. It never goes to the web app, to `.env`, to `.dev.vars`, or to a file.
+- The human does the Google setup and sets the Google settings in GitHub: `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `GCP_PROJECT_ID`, `GCP_REGION`, `SUPABASE_SERVICE_KEY`, `WORKER_WAKE_SECRET`, and `WORKER_WAKE_URL`. The `deploy-worker` job deploys the worker. An agent does not run `gcloud run deploy`. The README section "Deployment > Background worker" has the steps.
