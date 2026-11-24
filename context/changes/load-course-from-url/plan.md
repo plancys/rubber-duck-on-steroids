@@ -489,15 +489,15 @@ This phase makes CI protect both paths and gives the worker its model key in pro
 
 #### Automated
 
-- [ ] 2.1 Unit tests pass
-- [ ] 2.2 Lint passes
-- [ ] 2.3 Type checks pass
-- [ ] 2.4 The worker image builds
+- [x] 2.1 Unit tests pass
+- [x] 2.2 Lint passes
+- [x] 2.3 Type checks pass
+- [x] 2.4 The worker image builds
 
 #### Manual
 
-- [ ] 2.5 A clickhouse.com/docs course ends ready with its lessons in order and readable Markdown
-- [ ] 2.6 The blocked example course ends failed with the extension reason
+- [x] 2.5 A clickhouse.com/docs course ends ready with its lessons in order and readable Markdown
+- [x] 2.6 The blocked example course ends failed with the extension reason
 
 ### Phase 3: Courses in the web app
 

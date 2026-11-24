@@ -1,4 +1,7 @@
-# The image holds only the files that the worker runs. The tests stay out.
+# The image holds only the files that the worker runs. The tests and their fixtures stay out.
+# The image installs its own packages with npm ci, so the local node_modules stays out too.
+node_modules
 **/*.test.ts
+**/fixtures
 Dockerfile
 .dockerignore

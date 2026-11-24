@@ -4,11 +4,18 @@
 // To use another Supabase project, set SUPABASE_URL and SUPABASE_SERVICE_KEY in the environment.
 
 import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
 const useShell = process.platform === "win32";
 const env = { ...process.env };
+
+// The worker has its own packages in worker/node_modules. npm install in the repo root installs them.
+if (!existsSync(resolve(root, "worker", "node_modules"))) {
+  console.error("The worker packages are missing. Run npm install in the repo root, then run npm run worker.");
+  process.exit(1);
+}
 
 function stripQuotes(value) {
   if (value.length >= 2 && (value[0] === '"' || value[0] === "'") && value.at(-1) === value[0]) {

@@ -267,7 +267,7 @@ export type Database = {
       };
       extension_start_course: { Args: { source_url: string; title: string; token: string }; Returns: string };
       fail_course_load: { Args: { course_id: string; reason: string }; Returns: boolean };
-      fail_job: { Args: { job_id: string; lease: string; reason: string }; Returns: boolean };
+      fail_job: { Args: { job_id: string; lease: string; reason: string; retry?: boolean }; Returns: boolean };
       finish_course_load: { Args: { course_id: string; lessons: Json; title: string }; Returns: boolean };
       heartbeat_job: {
         Args: {

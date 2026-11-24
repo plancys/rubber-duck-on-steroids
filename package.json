@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "astro dev",
     "start": "node scripts/local.mjs",
+    "postinstall": "npm ci --prefix worker --no-audit --no-fund",
     "worker": "node scripts/worker.mjs",
     "build": "astro build",
     "preview": "astro preview",
