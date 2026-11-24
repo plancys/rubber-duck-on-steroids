@@ -475,15 +475,15 @@ This phase makes CI protect both paths and gives the worker its model key in pro
 
 #### Automated
 
-- [ ] 1.1 The migrations apply to a clean local database
-- [ ] 1.2 The policy and rule tests pass
-- [ ] 1.3 The generated types are current
-- [ ] 1.4 Lint passes
-- [ ] 1.5 Type checks pass
+- [x] 1.1 The migrations apply to a clean local database
+- [x] 1.2 The policy and rule tests pass
+- [x] 1.3 The generated types are current
+- [x] 1.4 Lint passes
+- [x] 1.5 Type checks pass
 
 #### Manual
 
-- [ ] 1.6 courses, lessons and access_tokens show row level security as on
+- [x] 1.6 courses, lessons and access_tokens show row level security as on
 
 ### Phase 2: Crawl job in the worker
 

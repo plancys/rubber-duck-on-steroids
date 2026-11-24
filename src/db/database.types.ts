@@ -23,6 +23,77 @@ export type Database = {
   };
   public: {
     Tables: {
+      access_tokens: {
+        Row: {
+          created_at: string;
+          id: string;
+          last_used_at: string | null;
+          name: string;
+          revoked_at: string | null;
+          token_hash: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          id?: string;
+          last_used_at?: string | null;
+          name: string;
+          revoked_at?: string | null;
+          token_hash: string;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          last_used_at?: string | null;
+          name?: string;
+          revoked_at?: string | null;
+          token_hash?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      courses: {
+        Row: {
+          created_at: string;
+          error: string | null;
+          id: string;
+          loaded_at: string | null;
+          source_kind: string;
+          source_url: string;
+          status: string;
+          title: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          loaded_at?: string | null;
+          source_kind: string;
+          source_url: string;
+          status?: string;
+          title?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          loaded_at?: string | null;
+          source_kind?: string;
+          source_url?: string;
+          status?: string;
+          title?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       jobs: {
         Row: {
           attempts: number;
@@ -80,6 +151,54 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
+      };
+      lessons: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          error: string | null;
+          id: string;
+          markdown: string | null;
+          position: number;
+          status: string;
+          title: string | null;
+          url: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          markdown?: string | null;
+          position: number;
+          status: string;
+          title?: string | null;
+          url: string;
+          user_id: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          markdown?: string | null;
+          position?: number;
+          status?: string;
+          title?: string | null;
+          url?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lessons_course_fkey";
+            columns: ["course_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
       };
       notes: {
         Row: {
@@ -142,7 +261,14 @@ export type Database = {
         };
       };
       complete_job: { Args: { job_id: string; lease: string; result: Json }; Returns: boolean };
+      extension_save_page: {
+        Args: { course_id: string; markdown: string; title: string; token: string; url: string };
+        Returns: number;
+      };
+      extension_start_course: { Args: { source_url: string; title: string; token: string }; Returns: string };
+      fail_course_load: { Args: { course_id: string; reason: string }; Returns: boolean };
       fail_job: { Args: { job_id: string; lease: string; reason: string }; Returns: boolean };
+      finish_course_load: { Args: { course_id: string; lessons: Json; title: string }; Returns: boolean };
       heartbeat_job: {
         Args: {
           job_id: string;
@@ -155,7 +281,31 @@ export type Database = {
         Returns: boolean;
       };
       release_job: { Args: { job_id: string; lease: string }; Returns: boolean };
+      reload_course: { Args: { course_id: string }; Returns: boolean };
       retry_job: { Args: { job_id: string }; Returns: boolean };
+      revoke_access_token: { Args: { id: string }; Returns: boolean };
+      start_course_load: {
+        Args: { course_id: string };
+        Returns: {
+          created_at: string;
+          error: string | null;
+          id: string;
+          loaded_at: string | null;
+          source_kind: string;
+          source_url: string;
+          status: string;
+          title: string | null;
+          updated_at: string;
+          user_id: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "courses";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
+      use_access_token: { Args: { token: string }; Returns: string };
     };
     Enums: {
       [_ in never]: never;
