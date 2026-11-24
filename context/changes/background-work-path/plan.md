@@ -624,30 +624,30 @@ The section "The pipeline" gets one line for the `deploy-worker` job.
 
 #### Automated
 
-- [x] 1.1 The migration applies to a clean local database
-- [x] 1.2 The policy and rule tests pass
-- [x] 1.3 The generated types are current
-- [x] 1.4 Lint passes
-- [x] 1.5 Type checks pass
+- [x] 1.1 The migration applies to a clean local database — 52a8708
+- [x] 1.2 The policy and rule tests pass — 52a8708
+- [x] 1.3 The generated types are current — 52a8708
+- [x] 1.4 Lint passes — 52a8708
+- [x] 1.5 Type checks pass — 52a8708
 
 #### Manual
 
-- [x] 1.6 The jobs table shows row level security as on, with one select policy and one insert policy
+- [x] 1.6 The jobs table shows row level security as on, with one select policy and one insert policy — 52a8708
 
 ### Phase 2: Worker
 
 #### Automated
 
-- [ ] 2.1 Unit tests pass
-- [ ] 2.2 Lint passes
-- [ ] 2.3 Type checks pass
-- [ ] 2.4 The worker starts and its health address replies
-- [ ] 2.5 A wake request with a wrong secret gets 401, and one with the correct secret gets 202
+- [x] 2.1 Unit tests pass
+- [x] 2.2 Lint passes
+- [x] 2.3 Type checks pass
+- [x] 2.4 The worker starts and its health address replies
+- [x] 2.5 A wake request with a wrong secret gets 401, and one with the correct secret gets 202
 
 #### Manual
 
-- [ ] 2.6 A demo job row inserted by hand goes from waiting to done, and its step columns change
-- [ ] 2.7 The worker log shows one JSON line for each job event and shows no key and no payload
+- [x] 2.6 A demo job row inserted by hand goes from waiting to done, and its step columns change
+- [x] 2.7 The worker log shows one JSON line for each job event and shows no key and no payload
 
 ### Phase 3: Web app path
 

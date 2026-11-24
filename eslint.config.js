@@ -77,6 +77,33 @@ const scriptsConfig = defineConfig({
   rules: { "no-console": "off" },
 });
 
+// The worker is TypeScript that runs on Node. The strict type-checked rules stay on.
+// node:test runs each test() call and reports its result, so the promise of test() can float.
+const workerConfig = defineConfig({
+  files: ["worker/**/*.ts"],
+  languageOptions: {
+    globals: {
+      process: true,
+      Buffer: true,
+      fetch: true,
+      URL: true,
+      AbortController: true,
+      AbortSignal: true,
+      setTimeout: true,
+      setInterval: true,
+      clearInterval: true,
+    },
+  },
+  rules: {
+    "@typescript-eslint/no-floating-promises": [
+      "error",
+      {
+        allowForKnownSafeCalls: [{ from: "package", name: ["describe", "it", "suite", "test"], package: "node:test" }],
+      },
+    ],
+  },
+});
+
 export default defineConfig(
   includeIgnoreFile(gitignorePath),
   // Agent toolkit files are not app code and sit outside tsconfig.json.
@@ -89,5 +116,6 @@ export default defineConfig(
   eslintPluginAstro.configs["flat/jsx-a11y-recommended"],
   astroConfig,
   scriptsConfig,
+  workerConfig,
   eslintPluginPrettier,
 );
