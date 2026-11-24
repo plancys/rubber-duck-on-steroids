@@ -687,14 +687,14 @@ The section "The pipeline" gets one line for the `deploy-worker` job.
 
 #### Automated
 
-- [x] 5.1 The container builds
-- [x] 5.2 The container runs against the local Supabase, and its health address replies
-- [x] 5.3 Lint passes
-- [ ] 5.4 The pull request shows the ci job and both smoke variants as passed
+- [x] 5.1 The container builds — 433e8d8
+- [x] 5.2 The container runs against the local Supabase, and its health address replies — 433e8d8
+- [x] 5.3 Lint passes — 433e8d8
+- [x] 5.4 The pull request shows the ci job and both smoke variants as passed — 433e8d8
 
 #### Manual
 
-- [ ] 5.5 Before the Google settings exist, the deploy-worker job passes with the skip notice
+- [x] 5.5 Before the Google settings exist, the deploy-worker job passes with the skip notice — 433e8d8
 - [ ] 5.6 After the Google setup, the deploy-worker job deploys the worker, and the health address replies
 - [ ] 5.7 With the switch on in production, a demo job reaches done
 - [ ] 5.8 A demo job that starts after the worker instance stopped also reaches done
