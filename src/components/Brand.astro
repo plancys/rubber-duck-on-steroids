@@ -7,10 +7,12 @@ interface Props {
   mark?: boolean;
   // Removes the Warm soft style. The caller gives the display, font, size and hover classes in `class`.
   unstyled?: boolean;
+  // Classes for the name. A shell uses them to shorten a long name with an ellipsis in a narrow bar.
+  nameClass?: string;
 }
 
 // The default size fits the bar. A page passes its own size class.
-const { class: className = "text-lg", mark = false, unstyled = false } = Astro.props;
+const { class: className = "text-lg", mark = false, unstyled = false, nameClass } = Astro.props;
 ---
 
 {/* min-h-11 min-w-11 gives the link a 44px hit area on a phone. A shell can put its own mark in the slot. */}
@@ -24,5 +26,5 @@ const { class: className = "text-lg", mark = false, unstyled = false } = Astro.p
 >
   {mark && <span aria-hidden="true" class="size-8 shrink-0 rounded-full bg-accent"></span>}
   <slot />
-  {site.name}
+  <span class={nameClass}>{site.name}</span>
 </a>

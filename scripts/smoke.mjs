@@ -2,6 +2,7 @@
 // Zero dependencies on purpose. Run against a live server: BASE_URL=http://localhost:4321 node scripts/smoke.mjs
 // The reset steps read the email from Mailpit. MAILPIT_URL overrides the default address.
 // The Send Email Hook steps run only when SMOKE_HOOK_SECRET holds the SEND_EMAIL_HOOK_SECRET value of the server.
+// The job steps run only when SMOKE_JOB_CHECK is set. They need ENABLE_JOB_CHECK=true on the server and a running worker.
 
 import { Buffer } from "node:buffer";
 import { createHmac, randomUUID } from "node:crypto";
@@ -11,6 +12,7 @@ import { URL } from "node:url";
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:4321";
 const MAILPIT_URL = process.env.MAILPIT_URL ?? "http://127.0.0.1:54324";
 const HOOK_SECRET = process.env.SMOKE_HOOK_SECRET ?? "";
+const JOB_CHECK = Boolean(process.env.SMOKE_JOB_CHECK);
 const email = `smoke-${Date.now()}@example.com`;
 const password = "Smoke-Test-Passw0rd!";
 const newPassword = "Smoke-Test-Passw0rd!-New";
@@ -32,6 +34,12 @@ const updatedTitle = `${noteTitle} updated`;
 const jarB = new Map();
 let noteId = null;
 // END sample-resource
+// The second user of the job steps proves that one user cannot read the job of another user.
+// The notes steps have a second user too, but the sample removal deletes it.
+const jobEmail = `smoke-job-${Date.now()}@example.com`;
+const jobJar = new Map();
+// The id of the newest job that the main smoke user started.
+let jobId = null;
 
 function cookieHeader(cookies) {
   return [...cookies.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
@@ -167,6 +175,125 @@ const hookSteps = HOOK_SECRET
       ],
       ["send email hook rejects an old timestamp", () => hookRequest("signup", { ageSeconds: 600 }), { status: 401 }],
       ["send email hook rejects an unknown email type", () => hookRequest("magiclink"), { status: 400 }],
+    ]
+  : [];
+
+const JOB_LINK = /^\/dashboard\/job-check\?job=([0-9a-f-]{36})$/;
+
+// Starts a demo job for the main smoke user and keeps its id. A failed start clears the id,
+// so that a later step cannot use the job of an earlier step.
+async function startJob(fields) {
+  const result = await request("/api/jobs", { method: "POST", form: { type: "demo", ...fields } });
+  jobId = result.location.match(JOB_LINK)?.[1] ?? null;
+  return result;
+}
+
+// Runs `run` with the id of the newest job. Without an id the step fails, so it cannot pass by accident.
+function withJob(run) {
+  if (jobId) return run(jobId);
+  return { status: 0, location: "no job id from the start route", retryAfter: null, body: "" };
+}
+
+// Returns the status of the job view in the body, or null when the body is not a job view.
+function jobStatus(result) {
+  try {
+    return JSON.parse(result.body).status ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Asks for the job about once a second until it is done or failed, or until `seconds` pass. Returns the last answer.
+async function waitForJob(id, seconds) {
+  const deadline = Date.now() + seconds * 1000;
+  for (;;) {
+    const result = await request(`/api/jobs/${id}`);
+    const status = jobStatus(result);
+    if (result.status !== 200 || status === "done" || status === "failed" || Date.now() >= deadline) return result;
+    await sleep(1000);
+  }
+}
+
+// Starts a demo job and waits for its end. A failed start gives the answer of the start route.
+async function runJob(fields, seconds) {
+  const start = await startJob(fields);
+  return jobId ? waitForJob(jobId, seconds) : start;
+}
+
+// The job steps. The main smoke user has the session of the settings steps.
+// A user can have one job in progress. Each step that starts a job runs after the earlier job is done or failed.
+// Only "second job start is refused" starts a job while one is in progress, on purpose.
+// The worker waits attempt x 5 seconds after a failed start, so 3 failed starts take about 30 seconds.
+const jobSteps = JOB_CHECK
+  ? [
+      [
+        "job check page renders",
+        () => request("/dashboard/job-check"),
+        { status: 200, bodyIncludes: 'data-testid="job-start-form"' },
+      ],
+      [
+        "job start redirects to the job",
+        () => startJob({ steps: "2", stepSeconds: "1", failTimes: "0" }),
+        { status: 302, location: "/dashboard/job-check?job=" },
+      ],
+      // The job of the step before takes at least 2 seconds, so it still waits or runs.
+      [
+        "second job start is refused",
+        () =>
+          request("/api/jobs", {
+            method: "POST",
+            form: { type: "demo", steps: "1", stepSeconds: "0", failTimes: "0" },
+          }),
+        { status: 302, location: "/dashboard/job-check?error=job_active", exact: true },
+      ],
+      [
+        "job ends done",
+        () => withJob((id) => waitForJob(id, 60)),
+        { status: 200, json: { status: "done", stepCount: 2 } },
+      ],
+      [
+        "second job user signs up",
+        () => request("/api/auth/signup", { method: "POST", form: { email: jobEmail, password }, cookies: jobJar }),
+        { status: 302, location: "/auth/confirm-email" },
+      ],
+      [
+        "second job user cannot read the job",
+        () => withJob((id) => request(`/api/jobs/${id}`, { cookies: jobJar })),
+        { status: 404, json: { error: "not_found" } },
+      ],
+      [
+        "job without session returns 401",
+        () => withJob((id) => request(`/api/jobs/${id}`, { cookies: new Map() })),
+        { status: 401 },
+      ],
+      [
+        "job with 1 failed start ends done on attempt 2",
+        () => runJob({ steps: "1", stepSeconds: "0", failTimes: "1" }, 60),
+        { status: 200, json: { status: "done", attempts: 2 } },
+      ],
+      [
+        "job with 3 failed starts ends failed",
+        () => runJob({ steps: "1", stepSeconds: "0", failTimes: "3" }, 90),
+        { status: 200, json: { status: "failed", attempts: 3 } },
+      ],
+      [
+        "job retry redirects to the job",
+        () => withJob((id) => request(`/api/jobs/${id}/retry`, { method: "POST" })),
+        // A getter, because the id is known only after the step before.
+        {
+          status: 302,
+          exact: true,
+          get location() {
+            return `/dashboard/job-check?job=${jobId}`;
+          },
+        },
+      ],
+      // The retry sets attempts to 0. The worker can take the job at once, so the status can be running with attempt 1.
+      [
+        "retried job is in progress again",
+        () => withJob((id) => request(`/api/jobs/${id}`)),
+        { status: 200, json: { status: ["waiting", "running"], attempts: [0, 1] } },
+      ],
     ]
   : [];
 
@@ -498,6 +625,9 @@ const steps = [
     { status: 200, bodyIncludes: '"status":"ok"' },
   ],
   ...hookSteps,
+  // The job steps send no sign-in call. They take about a minute, so the sign-in limit can reset before the last step.
+  // Then the last step needs 11 calls, and it allows 12.
+  ...jobSteps,
   // Keep this step last. It uses up the sign-in limit for about 60 seconds,
   // so a second smoke run in that window fails on its sign-in steps.
   ["signin rate limit returns 429", () => signinUntilLimited(12), { status: 429, retryAfter: true }],
@@ -509,8 +639,24 @@ function locationMatches(actual, expected) {
   return expected.exact ? actual.location === expected.location : actual.location.startsWith(expected.location);
 }
 
+// Returns one text for each field of the JSON body that differs from `expected`. An array lists the values that pass.
+function jsonMismatches(body, expected) {
+  let actual;
+  try {
+    actual = JSON.parse(body);
+  } catch {
+    return ["the body is not JSON"];
+  }
+  return Object.entries(expected)
+    .filter(([key, value]) => (Array.isArray(value) ? !value.includes(actual?.[key]) : actual?.[key] !== value))
+    .map(([key, value]) => `${key} is ${JSON.stringify(actual?.[key])}, expected ${JSON.stringify(value)}`);
+}
+
 if (!HOOK_SECRET) {
   console.log("SKIP  send email hook steps  -> SMOKE_HOOK_SECRET is not set");
+}
+if (!JOB_CHECK) {
+  console.log("SKIP  job steps  -> SMOKE_JOB_CHECK is not set");
 }
 
 let failed = 0;
@@ -523,6 +669,7 @@ for (const [name, run, expected] of steps) {
     (expected.bodyIncludes === undefined || actual.body.includes(expected.bodyIncludes)) &&
     (expected.bodyMatches === undefined || expected.bodyMatches.test(actual.body)) &&
     (expected.bodyExcludes === undefined || !actual.body.includes(expected.bodyExcludes)) &&
+    (expected.json === undefined || jsonMismatches(actual.body, expected.json).length === 0) &&
     (expected.setCookieMatches === undefined || actual.setCookieNames.some((n) => expected.setCookieMatches.test(n)));
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}  -> ${actual.status} ${actual.location}`);
   if (!ok) {
@@ -536,6 +683,9 @@ for (const [name, run, expected] of steps) {
     }
     if (expected.bodyExcludes !== undefined && actual.body.includes(expected.bodyExcludes)) {
       console.log(`      unexpected marker in body: ${expected.bodyExcludes}`);
+    }
+    if (expected.json !== undefined) {
+      for (const mismatch of jsonMismatches(actual.body, expected.json)) console.log(`      ${mismatch}`);
     }
   }
 }

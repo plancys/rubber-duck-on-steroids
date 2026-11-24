@@ -72,6 +72,13 @@ export default defineConfig({
       // The OAuth providers that the sign-in and sign-up pages show, as a comma-separated list: "github,google".
       // The build writes the value into the server code. Without it, the pages show no OAuth button.
       OAUTH_PROVIDERS: envField.string({ context: "server", access: "public", optional: true }),
+      // When true, /dashboard/job-check starts the demo job and shows its state. CI and a local .dev.vars set it.
+      // The build writes the value into the server code. The production build keeps it off.
+      ENABLE_JOB_CHECK: envField.boolean({ context: "server", access: "public", default: false }),
+      // The wake request that tells the worker to look for jobs. Both are optional, so a build without them passes.
+      // Without them, the app sends no wake request, and a job waits until the worker looks for jobs by itself.
+      WORKER_WAKE_URL: envField.string({ context: "server", access: "secret", optional: true }),
+      WORKER_WAKE_SECRET: envField.string({ context: "server", access: "secret", optional: true }),
     },
   },
 });

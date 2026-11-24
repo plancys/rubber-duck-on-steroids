@@ -21,8 +21,13 @@ const rowLink = "inline-flex min-h-11 min-w-11 items-center transition-colors ho
       aria-label="Main"
       class="relative flex flex-wrap items-center justify-between gap-x-3 py-2 sm:block sm:py-0"
     >
-      <div class="flex flex-wrap items-baseline justify-between gap-3 sm:border-b-[3px] sm:border-double sm:border-foreground sm:pb-4">
-        <Brand unstyled class="inline-flex font-heading text-xl font-semibold tracking-tight sm:text-[40px]" />
+      {/* Under sm this row takes the free space of the bar and the brand shortens a long name, so the bar stays one row. */}
+      <div class="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-3 sm:border-b-[3px] sm:border-double sm:border-foreground sm:pb-4">
+        <Brand
+          unstyled
+          class="inline-flex font-heading text-xl font-semibold tracking-tight sm:text-[40px]"
+          nameClass="min-w-0 truncate sm:overflow-visible sm:whitespace-normal"
+        />
         <span class="hidden text-[13px] tracking-[0.08em] text-muted-foreground uppercase sm:inline">
           Your workspace
         </span>
