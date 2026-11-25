@@ -3,7 +3,7 @@ project: "Rubber Duck on Steroids"
 version: 1
 status: draft
 created: 2026-11-23
-updated: 2026-11-24
+updated: 2026-11-25
 prd_version: 1
 main_goal: market-feedback
 top_blocker: time
@@ -42,7 +42,7 @@ A working software engineer learns new technologies through online courses. The 
 | ID   | Change ID                       | Outcome (user can …)                                                                 | Prerequisites | PRD refs              | Status   |
 | ---- | ------------------------------- | ------------------------------------------------------------------------------------ | ------------- | --------------------- | -------- |
 | F-01 | background-work-path            | (foundation) long work runs outside a page request, and the learner sees its progress | —             | FR-002, FR-003        | in-progress |
-| S-01 | load-course-from-url            | load a course from the URL of its web page and see its lessons in order              | F-01          | FR-001, FR-002, US-01 | in-progress |
+| S-01 | load-course-from-url            | load a course from the URL of its web page and see its lessons in order              | F-01          | FR-001, FR-002, US-01 | done |
 | S-02 | course-topic-graph              | see a loaded course as a graph of its topics                                         | S-01          | FR-003                | proposed |
 | S-03 | mark-known-topics               | mark the topics they believe they already know                                       | S-02          | FR-005                | proposed |
 | S-04 | adjusted-lesson-list            | get a lesson list adjusted to their knowledge, with known lessons marked as skipped  | S-03          | FR-008, US-01         | blocked  |
@@ -106,7 +106,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
   - Does the example course site accept the requests of the loader? An automated request got a refusal on 2026-11-23. — Owner: user. Block: no.
   - How long do done and failed jobs stay in the `jobs` table? Nothing removes them yet, and course loading adds real volume. — Owner: user. Block: no.
 - **Risk:** It is the first user-visible step, and every later slice needs a loaded course. Course sites differ, and one URL is not always one course. If the loader cannot read the example site, the parked manual fallback (FR-013) comes back.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-02: Course as a topic graph
 
@@ -279,3 +279,5 @@ Questions 1 to 16 are a copy of the open questions of the PRD. Questions 17 to 1
 ## Done
 
 (Empty on first generation. `/10x-archive` appends an entry here when it archives a change whose `Change ID` matches an item.)
+
+- **S-01: Learner can load a course by giving the URL of its web page, and see its lessons in the order of the course.** — Archived 2026-11-25 → `context/archive/2026-11-24-load-course-from-url/`. Lesson: —.
