@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Rubber Duck on Steroids</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <h1>Rubber Duck on Steroids</h1>
+
+    <section id="course-section">
+      <h2>Course</h2>
+      <div id="course-idle">
+        <p class="hint">Open the start page of a course, then start the course here.</p>
+        <button type="button" id="start-button">Start a course on this page</button>
+      </div>
+      <div id="course-running" hidden>
+        <p id="course-name" class="name"></p>
+        <p id="course-count"></p>
+        <p class="hint">Open each lesson page of the course. The extension saves each page once.</p>
+        <button type="button" id="stop-button" class="secondary">Stop</button>
+      </div>
+      <p id="course-message" class="message" role="status"></p>
+    </section>
+
+    <section>
+      <h2>Settings</h2>
+      <form id="settings-form">
+        <label for="base-url">Product address</label>
+        <input id="base-url" name="baseUrl" type="url" placeholder="https://example.com" autocomplete="url" required />
+        <label for="token">Token</label>
+        <input id="token" name="token" type="password" autocomplete="off" required />
+        <p class="hint">Create a token in the product, on the Settings page.</p>
+        <button type="submit">Save settings</button>
+      </form>
+      <p id="settings-message" class="message" role="status"></p>
+    </section>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

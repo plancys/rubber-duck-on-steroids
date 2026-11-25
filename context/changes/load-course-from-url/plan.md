@@ -520,18 +520,18 @@ This phase makes CI protect both paths and gives the worker its model key in pro
 
 #### Automated
 
-- [ ] 4.1 The extension builds
-- [ ] 4.2 Unit tests pass
-- [ ] 4.3 Lint passes
-- [ ] 4.4 Type checks pass
-- [ ] 4.5 The production build passes
+- [x] 4.1 The extension builds
+- [x] 4.2 Unit tests pass
+- [x] 4.3 Lint passes
+- [x] 4.4 Type checks pass
+- [x] 4.5 The production build passes
 
 #### Manual
 
-- [ ] 4.6 A token shows once, and Revoke ends its use
-- [ ] 4.7 The extension saves each lesson page that you open on the example course, in that order
-- [ ] 4.8 The course page lists the saved lessons
-- [ ] 4.9 A revoked token makes the extension show a sign-in error
+- [x] 4.6 A token shows once, and Revoke ends its use
+- [x] 4.7 The extension saves each lesson page that you open on the example course, in that order
+- [x] 4.8 The course page lists the saved lessons
+- [x] 4.9 A revoked token makes the extension show a sign-in error
 
 ### Phase 5: CI and production
 

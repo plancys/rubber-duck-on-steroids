@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 2: Ducks in tables</title>
+  </head>
+  <body>
+    <header>
+      <nav>
+        <a href="/course">Course home</a>
+        <a href="/course/lesson-1">Previous lesson</a>
+        <a href="/course/lesson-3">Next lesson</a>
+      </nav>
+    </header>
+    <main>
+      <article>
+        <h1>Ducks in tables</h1>
+        <p>
+          A table keeps the ducks in rows. Each row holds one duck, and each column holds one fact about the duck. This
+          lesson shows how to create the table and how to read it back.
+        </p>
+        <h2><a href="#create"></a>Create the table</h2>
+        <p>
+          Run the statement below in the console. It creates a table with a name column and a weight column. The engine
+          stores each column on its own, so a query that reads one column reads less data.
+        </p>
+        <pre><code class="language-sql">CREATE TABLE ducks (name String, weight Float32)
+ORDER BY name;</code></pre>
+        <h2>What you learn</h2>
+        <ul>
+          <li>How a table keeps rows</li>
+          <li>How a column store reads data</li>
+        </ul>
+        <p>
+          Read <a href="https://docs.example/docs/ducks">the duck docs</a> for more facts. The next lesson adds data to
+          the table and counts the ducks by weight.
+        </p>
+      </article>
+    </main>
+    <footer>
+      <p>Copyright Example Course</p>
+    </footer>
+  </body>
+</html>
