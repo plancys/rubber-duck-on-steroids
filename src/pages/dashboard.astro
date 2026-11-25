@@ -17,6 +17,12 @@ const { user } = Astro.locals;
   </div>
   <Entries.EntryList>
     {/* A new signed-in page adds one Entries.Entry here. The comment also keeps the list open after remove:sample. */}
+    <Entries.Entry
+      title="Courses"
+      description="Load a course from its URL and read its lessons in order."
+      href="/dashboard/courses"
+      testid="courses-link"
+    />
     {/* BEGIN sample-resource */}
     <Entries.Entry
       title="Notes"

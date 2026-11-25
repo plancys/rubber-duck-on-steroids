@@ -77,7 +77,9 @@ jobs:
       # the start route builds the authorize URL without a call to Supabase, and a test code fails the callback in all cases.
       # ENABLE_JOB_CHECK turns on the job check page for the phone check and the job steps of the smoke test.
       # The wake values are the local defaults of npm run worker. SMOKE_JOB_CHECK turns on the job steps.
-      - name: Write a test Send Email Hook secret, the look override, the OAuth providers and the job check
+      # ALLOW_PRIVATE_COURSE_URLS lets the app accept the localhost URL of the fixture course site. Production keeps it off.
+      # SMOKE_COURSES turns on the course steps and the extension steps of the smoke test.
+      - name: Write a test Send Email Hook secret, the look override, the OAuth providers, the job check and the courses
         run: |
           secret="v1,whsec_$(openssl rand -base64 32)"
           echo "::add-mask::$secret"
@@ -85,10 +87,12 @@ jobs:
           echo "ALLOW_LOOK_OVERRIDE=true" >> .dev.vars
           echo "OAUTH_PROVIDERS=github,google" >> .dev.vars
           echo "ENABLE_JOB_CHECK=true" >> .dev.vars
+          echo "ALLOW_PRIVATE_COURSE_URLS=true" >> .dev.vars
           echo "WORKER_WAKE_URL=http://localhost:8788/wake" >> .dev.vars
           echo "WORKER_WAKE_SECRET=local-wake-secret" >> .dev.vars
           echo "SMOKE_HOOK_SECRET=$secret" >> "$GITHUB_ENV"
           echo "SMOKE_JOB_CHECK=1" >> "$GITHUB_ENV"
+          echo "SMOKE_COURSES=1" >> "$GITHUB_ENV"
       - name: Run database policy tests
         run: |
           if compgen -G "supabase/tests/*.sql" > /dev/null; then
@@ -96,12 +100,26 @@ jobs:
           else
             echo "::notice::supabase/tests has no .sql file. The step does not run npx supabase test db."
           fi
-      - name: Run the worker unit tests
+      - name: Run the worker and extension unit tests
         run: npm run test:unit
+      - name: Build the extension
+        run: npm run build:extension
       - run: npm run build
+      # The fixture course site starts before the worker, so the first course load finds it.
+      # Its log shows each request of the crawl with its status and user agent. The last step shows the file.
+      - name: Start the fixture course site
+        run: |
+          nohup node scripts/fixture-server.mjs > "$RUNNER_TEMP/fixture.log" 2>&1 < /dev/null &
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:8799/robots.txt && break; sleep 1; done
+          curl -sf -o /dev/null http://localhost:8799/robots.txt || { echo "fixture site did not start"; cat "$RUNNER_TEMP/fixture.log"; exit 1; }
       # The worker reads the local Supabase values into memory and never prints the key.
+      # The job sets no ANTHROPIC_API_KEY, so the lesson finder uses its rule and the course steps need no model call.
+      # ALLOW_PRIVATE_COURSE_URLS turns off the address check of the crawl, so the worker reads the fixture site on localhost.
+      # The deploy-worker job does not set it.
       # Its output goes to a file, so the step does not hold the output stream open. The last step shows the file.
       - name: Start the worker
+        env:
+          ALLOW_PRIVATE_COURSE_URLS: "true"
         run: |
           nohup npm run worker > "$RUNNER_TEMP/worker.log" 2>&1 < /dev/null &
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8788/health && break; sleep 1; done
@@ -119,6 +137,11 @@ jobs:
           if [ -f "$RUNNER_TEMP/worker.log" ]; then
             echo "::group::Worker log"
             cat "$RUNNER_TEMP/worker.log"
+            echo "::endgroup::"
+          fi
+          if [ -f "$RUNNER_TEMP/fixture.log" ]; then
+            echo "::group::Fixture course site log"
+            cat "$RUNNER_TEMP/fixture.log"
             echo "::endgroup::"
           fi
           npx supabase stop --no-backup
@@ -338,6 +361,7 @@ jobs:
       # --no-cpu-throttling keeps the CPU on after the reply to the wake request, so a job runs to its end.
       # --no-invoker-iam-check makes the address public. The wake secret protects POST /wake.
       # The Supabase service key goes only to this service, from Secret Manager. It never goes to the Cloudflare Worker.
+      # The Anthropic key also comes from Secret Manager. The lesson finder uses it to pick the lessons of a course.
       - name: Deploy the worker to Cloud Run
         id: deploy
         if: steps.changes.outputs.deploy == 'true'
@@ -351,10 +375,11 @@ jobs:
           env_vars: |-
             SUPABASE_URL=${{ secrets.SUPABASE_URL }}
             WORKER_ALLOW_DEMO=${{ vars.ENABLE_JOB_CHECK }}
-          # The two secret values come from Google Secret Manager, so the Cloud Run console does not show them.
+          # The secret values come from Google Secret Manager, so the Cloud Run console does not show them.
           secrets: |-
             SUPABASE_SERVICE_KEY=worker-supabase-service-key:latest
             WORKER_WAKE_SECRET=worker-wake-secret:latest
+            ANTHROPIC_API_KEY=worker-anthropic-api-key:latest
       # The first deploy needs this address for the variable WORKER_WAKE_URL.
       - name: Show the worker address
         if: steps.changes.outputs.deploy == 'true'

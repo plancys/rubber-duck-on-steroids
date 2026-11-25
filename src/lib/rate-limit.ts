@@ -1,11 +1,12 @@
 import { env } from "cloudflare:workers";
 
-export type AuthRoute = "signin" | "signup" | "reset" | "password" | "oauth";
+// "extension" limits the extension routes, which take a token instead of a session.
+export type AuthRoute = "signin" | "signup" | "reset" | "password" | "oauth" | "extension";
 
-// The form of each auth route. The password change form is on the settings page.
+// The form of each auth route. The password change form and the tokens are on the settings page.
 // The OAuth buttons are on the sign-in page. The other forms are under /auth.
 function formPathFor(route: AuthRoute): string {
-  if (route === "password") return "/dashboard/settings";
+  if (route === "password" || route === "extension") return "/dashboard/settings";
   if (route === "oauth") return "/auth/signin";
   return `/auth/${route}`;
 }

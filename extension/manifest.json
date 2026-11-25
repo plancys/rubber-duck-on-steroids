@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Rubber Duck on Steroids",
+  "version": "0.1.0",
+  "description": "Saves the course pages that you open to Rubber Duck on Steroids.",
+  "minimum_chrome_version": "120",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Rubber Duck on Steroids",
+    "default_popup": "popup.html"
+  }
+}

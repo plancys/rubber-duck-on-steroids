@@ -1,0 +1,21 @@
+{
+  "name": "rubber-duck-worker",
+  "private": true,
+  "type": "module",
+  "description": "The background worker. Node runs the TypeScript files directly: node main.ts",
+  "engines": {
+    "node": ">=26"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.13.0",
+    "@crawlee/http": "3.18.2",
+    "@crawlee/utils": "3.18.2",
+    "@mozilla/readability": "0.6.0",
+    "jsdom": "26.1.0",
+    "turndown": "7.2.5"
+  },
+  "devDependencies": {
+    "@types/jsdom": "21.1.7",
+    "@types/turndown": "5.0.6"
+  }
+}

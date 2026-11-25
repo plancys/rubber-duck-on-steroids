@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "astro dev",
     "start": "node scripts/local.mjs",
+    "postinstall": "npm ci --prefix worker --no-audit --no-fund && npm ci --prefix extension --no-audit --no-fund",
     "worker": "node scripts/worker.mjs",
     "build": "astro build",
     "preview": "astro preview",
@@ -13,7 +14,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "smoke": "node scripts/smoke.mjs",
-    "test:unit": "node --test \"worker/**/*.test.ts\"",
+    "test:unit": "node --test \"worker/**/*.test.ts\" \"extension/**/*.test.ts\" \"scripts/**/*.test.mjs\"",
+    "build:extension": "node extension/build.mjs",
     "phone-check": "node scripts/phone-check.mjs",
     "setup:prod": "node scripts/setup-prod.mjs",
     "remove:sample": "node scripts/remove-sample.mjs",

@@ -71,7 +71,7 @@ const astroConfig = defineConfig({
 });
 
 const scriptsConfig = defineConfig({
-  files: ["scripts/**/*.mjs"],
+  files: ["scripts/**/*.mjs", "extension/build.mjs"],
   extends: [tseslint.configs.disableTypeChecked],
   languageOptions: { globals: { console: true, process: true, fetch: true, URLSearchParams: true } },
   rules: { "no-console": "off" },
@@ -104,6 +104,19 @@ const workerConfig = defineConfig({
   },
 });
 
+// The browser extension is TypeScript that esbuild bundles for Chrome. Its unit tests run on Node with node:test.
+const extensionConfig = defineConfig({
+  files: ["extension/**/*.ts"],
+  rules: {
+    "@typescript-eslint/no-floating-promises": [
+      "error",
+      {
+        allowForKnownSafeCalls: [{ from: "package", name: ["describe", "it", "suite", "test"], package: "node:test" }],
+      },
+    ],
+  },
+});
+
 export default defineConfig(
   includeIgnoreFile(gitignorePath),
   // Agent toolkit files are not app code and sit outside tsconfig.json.
@@ -117,5 +130,6 @@ export default defineConfig(
   astroConfig,
   scriptsConfig,
   workerConfig,
+  extensionConfig,
   eslintPluginPrettier,
 );

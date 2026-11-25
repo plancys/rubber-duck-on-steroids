@@ -67,3 +67,5 @@ pnpm-debug.log*
 .wrangler/
 # macOS-specific files
 # jetbrains setting folder
+# Playwright MCP output: screenshots and snapshots of a browser session. Never commit it.
+.playwright-mcp/

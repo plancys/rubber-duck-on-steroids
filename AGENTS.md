@@ -10,6 +10,8 @@ An MVP baseline web app: Astro 7 server-rendered pages with React 19 islands, Ty
 - Business logic must not change auth, deploy, or pipeline files.
 - API routes export uppercase `GET` and `POST` and set `export const prerender = false`.
 - Work on a branch. Do not commit on `main`.
+- The worker never passes a bot check by deception. It sends its own user agent `RubberDuckBot`, respects `robots.txt`, and stops on 401, 403 or 429. No browser-like headers, no headless browser, no stealth plugin. A blocked site goes through the browser extension.
+- Never commit `.playwright-mcp/`. It holds the screenshots and snapshots of a browser session, and `.gitignore` lists it.
 
 ## Build, test, and development commands
 
@@ -18,13 +20,15 @@ An MVP baseline web app: Astro 7 server-rendered pages with React 19 islands, Ty
 - `npm run dev`: dev server on the Cloudflare workerd runtime. `npm run build`: production SSR build.
 - `npm run worker`: `scripts/worker.mjs` starts the background worker on port 8788 with the local Supabase values. It reads the service key into memory only and never prints it. Ctrl+C releases the current job and stops the worker. The check page needs `ENABLE_JOB_CHECK=true`, and the wake request needs `WORKER_WAKE_URL` and `WORKER_WAKE_SECRET`, in `.dev.vars`, as in @.env.example.
 - `npm run lint`, `npm run lint:fix`, `npm run format`: ESLint with type-checked rules, then Prettier. `npx astro check`: types. CI runs both.
-- `npm run test:unit`: the worker unit tests, `worker/**/*.test.ts`, with `node --test`. No server and no database. CI runs them in the `smoke` job.
+- `npm run test:unit`: the worker and extension unit tests, `worker/**/*.test.ts` and `extension/**/*.test.ts`, with `node --test`. No server and no database. CI runs them in the `smoke` job.
+- `npm run build:extension`: `extension/build.mjs` bundles the browser extension with esbuild into `extension/dist`, which is gitignored. CI runs it in the `smoke` job.
+- `node scripts/fixture-server.mjs`: serves the fixture course site of `scripts/fixtures/course/` on port 8799, with zero dependencies. The start page is `http://localhost:8799/duck-basics`. CI starts it before the worker.
 - `npm run smoke`: auth-flow smoke test against a running server, `BASE_URL` default `http://localhost:4321`.
 - `npm run phone-check`: `scripts/phone-check.mjs` opens every page at 375px and 320px in headless Chromium and checks the phone rules. Same `BASE_URL` default. One-time setup: `npx playwright install chromium`. CI runs it in the `smoke` job, before the smoke test.
 - `npx supabase start`: local Supabase, needs Docker. Node version: @.nvmrc.
 - `npx supabase test db`: pgTAP policy tests in `supabase/tests/`. CI runs them in the `smoke` job.
 - `npm run db:types`: writes `src/db/database.types.ts` from the local schema. Run it after each schema change.
-- `npm run setup:prod`: `scripts/setup-prod.mjs`, the production setup. It creates or reuses the Supabase project, sets the `production` environment secrets and variables in GitHub, and applies the Supabase auth settings and the Send Email Hook. It asks before it replaces a value. A human runs it. The README "Deployment > One-time setup" section has the manual steps.
+- `npm run setup:prod`: `scripts/setup-prod.mjs`, the production setup. It creates or reuses the Supabase project, sets up the background worker in Google Cloud (`scripts/setup-google.mjs`, with unit tests), sets the `production` environment secrets and variables in GitHub, and applies the Supabase auth settings and the Send Email Hook. It asks before it replaces a value. A human runs it. The README "Deployment > One-time setup" section has the manual steps.
 
 <!-- BEGIN sample-resource -->
 
@@ -44,8 +48,10 @@ An MVP baseline web app: Astro 7 server-rendered pages with React 19 islands, Ty
 - `src/components/`: Astro for static content, React only for interactivity. `src/components/ui/`: shadcn components.
 - `src/lib/`: Supabase client, `cn()` helper, services. `src/middleware.ts`: session lookup and `PROTECTED_ROUTES`.
 - `supabase/`: local config and migrations. `supabase/tests/`: pgTAP policy tests. `src/db/`: generated database types. `scripts/smoke.mjs`: the smoke test. `context/`: foundation docs and change logs.
-- `worker/`: the background worker, plain Node TypeScript with zero dependencies. `main.ts`: the HTTP server with `POST /wake` and `GET /health`. `queue.ts`: the only module that calls the job functions of the database, through the Supabase REST API with the service key. `run.ts`: the job loop. `rules.ts`: the pure rules. `handlers/`: one handler for each job type. A new job type adds one entry to `handlers/index.ts` and its name to the type check of the `jobs` table. The web app must not import from `worker/`, because the worker uses Node APIs and the web app runs on workerd.
+- `worker/`: the background worker, plain Node TypeScript. Its dependencies are in `worker/package.json`: `@crawlee/http`, `@crawlee/utils`, `jsdom`, `@mozilla/readability`, `turndown`, and `@anthropic-ai/sdk`, at pinned versions. The root `postinstall` installs them, and the Docker image runs `npm ci --omit=dev`. `main.ts`: the HTTP server with `POST /wake` and `GET /health`. `queue.ts`: the only module that calls the job functions of the database, through the Supabase REST API with the service key. `run.ts`: the job loop. `rules.ts`: the pure rules. `handlers/`: one handler for each job type. A new job type adds one entry to `handlers/index.ts` and its name to the type check of the `jobs` table. The web app must not import from `worker/`, because the worker uses Node APIs and the web app runs on workerd.
 - Jobs in the web app: `src/lib/jobs.ts`: the job view, the demo limits, the error texts and `wakeWorker()`. `src/pages/api/jobs/`: start, read and retry a job. `src/components/jobs/JobStatus.tsx` and `src/components/hooks/useJobStatus.ts`: the status, which refreshes every 3 seconds. `src/pages/dashboard/job-check.astro`: the check page. It answers 404 unless `ENABLE_JOB_CHECK` is true, and it has no nav entry. A learner can start and read only their own jobs, and can retry a failed job through `retry_job`. Every other change to a job goes through the worker functions of the database.
+- Courses: `worker/courses/` crawls an open course site in the `load_course` job, and `worker/llm.ts` picks the lessons with one model call. Without `ANTHROPIC_API_KEY`, the lesson finder uses its rule: the links under the path of the start page. `src/lib/courses.ts`, `src/pages/api/courses/` and `src/pages/dashboard/courses/`: the load, the reload and the lesson list.
+- `extension/`: the browser extension for a site that blocks automated reads. It has its own `package.json`, which the root `postinstall` installs. `extension/src/`: the popup, the background script, the page conversion (Readability, then Turndown), and its unit tests. It saves only the pages that the learner opens, and it sends them with a personal access token to `src/pages/api/extension/`. `src/pages/api/tokens/` and the Settings page create and revoke the tokens.
 
 <!-- BEGIN sample-resource -->
 
@@ -63,8 +69,10 @@ An MVP baseline web app: Astro 7 server-rendered pages with React 19 islands, Ty
 
 ## Testing
 
-- The unit test runner is `node --test`, for the worker only: `npm run test:unit`. The tests use `node:test` and `node:assert`, and sit next to their module as `*.test.ts`. The web app has no unit tests. The smoke script and the phone check test it. CI runs the unit tests, then both scripts against the production preview with a local Supabase and a running worker.
+- The unit test runner is `node --test`, for the worker and the extension: `npm run test:unit`. The tests use `node:test` and `node:assert`, and sit next to their module as `*.test.ts`. The web app has no unit tests. The smoke script and the phone check test it. CI runs the unit tests, then both scripts against the production preview with a local Supabase and a running worker.
 - `SMOKE_JOB_CHECK=1 npm run smoke` adds the job steps: demo jobs to `done` and to `failed`, a retry, and the access checks. They need `ENABLE_JOB_CHECK=true` on the server and `npm run worker`. Without the variable, the smoke test skips them.
+- `SMOKE_COURSES=1 npm run smoke` adds the course steps: a load of the fixture course, a second load of the same URL, the access check, and the extension routes with a token and a revoked token. They need `ALLOW_PRIVATE_COURSE_URLS=true` on the server, `node scripts/fixture-server.mjs`, and `ALLOW_PRIVATE_COURSE_URLS=true npm run worker` without `ANTHROPIC_API_KEY`. The extension routes allow 10 calls per minute, so the smoke test sends only 3.
+- `npm run phone-check` also loads one course and checks `/dashboard/courses` and the course page. The load needs `ALLOW_PRIVATE_COURSE_URLS=true` on the server and on the worker. Without it, the check skips the course page.
 - `npm run phone-check` checks the phone rules on every page. No sideways scroll at 320px, and no element reaches past the right edge. The bar (`data-testid="shell-nav"`) is at most 64px high. Every link and button is at least 44px high and wide. Every input has a font size of at least 16px. A new link or button uses `min-h-11 min-w-11`.
 
 ## Commit and pull request guidelines
@@ -81,4 +89,6 @@ An MVP baseline web app: Astro 7 server-rendered pages with React 19 islands, Ty
 - A human registers the GitHub and Google OAuth apps and enters their client secrets in `npm run setup:prod`.
 - The human runs `npm run setup:prod`. An agent does not run it. `SUPABASE_ACCESS_TOKEN` goes only in the env of that one command. It never goes to CI, to a GitHub secret, or to a file.
 - `SUPABASE_SERVICE_KEY` passes all access rules. It lives only in Google Secret Manager (`worker-supabase-service-key`), which Cloud Run reads, and in the memory of `npm run worker`. It never goes to the web app, to `.env`, to `.dev.vars`, or to a file.
-- The human does the Google setup and sets the Google settings in GitHub: `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `GCP_PROJECT_ID`, `GCP_REGION`, `WORKER_WAKE_SECRET`, and `WORKER_WAKE_URL`, and the two Secret Manager secrets. The `deploy-worker` job deploys the worker. An agent does not run `gcloud run deploy`. The README section "Deployment > Background worker" has the steps.
+- `ALLOW_PRIVATE_COURSE_URLS` is for a local run and CI only. Production never sets it, on the web app or on the worker. On the worker it turns off the address check of the crawl, so the worker can read a private address. The `deploy-worker` job does not set it.
+- `ANTHROPIC_API_KEY` goes only to the worker. In production it lives in Google Secret Manager (`worker-anthropic-api-key`). Locally it goes only in the env of `npm run worker`. It never goes to the web app, to `.env`, to `.dev.vars`, to CI, or to a file. The human sets the spend limit in the Anthropic Console.
+- The human does the Google setup and sets the Google settings in GitHub: `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `GCP_PROJECT_ID`, `GCP_REGION`, `WORKER_WAKE_SECRET`, and `WORKER_WAKE_URL`, and the three Secret Manager secrets. The `deploy-worker` job deploys the worker. An agent does not run `gcloud run deploy`. The README section "Deployment > Background worker" has the steps.

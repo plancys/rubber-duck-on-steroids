@@ -75,6 +75,9 @@ export default defineConfig({
       // When true, /dashboard/job-check starts the demo job and shows its state. CI and a local .dev.vars set it.
       // The build writes the value into the server code. The production build keeps it off.
       ENABLE_JOB_CHECK: envField.boolean({ context: "server", access: "public", default: false }),
+      // When true, a course URL can name a private address, such as localhost. CI sets it for the local fixture site.
+      // The build writes the value into the server code. The production build keeps it off.
+      ALLOW_PRIVATE_COURSE_URLS: envField.boolean({ context: "server", access: "public", default: false }),
       // The wake request that tells the worker to look for jobs. Both are optional, so a build without them passes.
       // Without them, the app sends no wake request, and a job waits until the worker looks for jobs by itself.
       WORKER_WAKE_URL: envField.string({ context: "server", access: "secret", optional: true }),

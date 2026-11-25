@@ -10,13 +10,27 @@ export const UNKNOWN_TYPE_REASON = "This kind of work is not available.";
 // The reason for each handler error that is not a SafeError.
 export const GENERIC_REASON = "The work did not finish.";
 
+export interface SafeErrorOptions extends ErrorOptions {
+  // False when a new start gives the same failure, for example a site that blocks the bot. The default is true.
+  retry?: boolean;
+}
+
 // A handler throws a SafeError when its message is safe to show to the learner.
 // The message goes to the error column of the job. Each other error goes only to the worker log.
+// A SafeError with retry false is final: the job fails at once, at any attempt. Each other error can get a new start.
 export class SafeError extends Error {
   name = "SafeError";
+  readonly retry: boolean;
+
+  constructor(message: string, options: SafeErrorOptions = {}) {
+    super(message, options);
+    this.retry = options.retry ?? true;
+  }
 }
 
 export interface HandlerContext {
+  // The id of the job. A handler puts it in its own log lines.
+  jobId: string;
   // The payload of the job, as the web app wrote it. Check each value before use.
   payload: Json;
   // The number of this start: 1, 2 or 3.
@@ -44,6 +58,8 @@ export interface LogLine extends Partial<JobIds> {
   count?: number;
   // The short reason that goes to the error column.
   reason?: string;
+  // False when the failure is final and the job gets no new start.
+  retry?: boolean;
   // The raw error. It goes only to the log.
   error?: string;
   // The database function of a call that failed.
@@ -175,7 +191,7 @@ export function createRunner(options: RunnerOptions): Runner {
     const handler = handlers.get(job.type);
     if (!handler) {
       log({ event: "failed", ...ids, reason: UNKNOWN_TYPE_REASON, error: `No handler for the type ${job.type}.` });
-      await end("fail_job", ids, () => queue.failJob(job.id, job.lease_id, UNKNOWN_TYPE_REASON));
+      await end("fail_job", ids, () => queue.failJob(job.id, job.lease_id, UNKNOWN_TYPE_REASON, true));
       return;
     }
     await runHandler(job, ids, handler);
@@ -215,20 +231,29 @@ export function createRunner(options: RunnerOptions): Runner {
     }, heartbeatMs);
 
     try {
-      const outcome = await settle(handler, { payload: job.payload, attempt: job.attempts, step, signal });
+      const outcome = await settle(handler, {
+        jobId: job.id,
+        payload: job.payload,
+        attempt: job.attempts,
+        step,
+        signal,
+      });
       if (outcome.kind === "done" && !control.lost) {
         // The work is done. Store the result, also when a stop signal came after the handler ended.
         await end("complete_job", ids, () => queue.completeJob(job.id, job.lease_id, outcome.result), "done");
         return;
       }
       if (outcome.kind === "error") {
-        const reason = outcome.error instanceof SafeError ? outcome.error.message : GENERIC_REASON;
-        log({ event: "failed", ...ids, reason, error: errorText(outcome.error) });
+        const safe = outcome.error instanceof SafeError ? outcome.error : null;
+        const reason = safe ? safe.message : GENERIC_REASON;
+        const retry = safe ? safe.retry : true;
+        log({ event: "failed", ...ids, reason, retry, error: errorText(outcome.error) });
         // Wait before the job goes back to the queue. A stop signal or a lost lease ends the wait early.
         // After a stop the failure still counts, so frequent restarts cannot give a failing job more than 3 starts.
-        await pause(waitMs(job.attempts), signal);
+        // A final failure does not go back to the queue, so it does not wait.
+        if (retry) await pause(waitMs(job.attempts), signal);
         if (!control.lost) {
-          await end("fail_job", ids, () => queue.failJob(job.id, job.lease_id, reason));
+          await end("fail_job", ids, () => queue.failJob(job.id, job.lease_id, reason, retry));
           return;
         }
       }

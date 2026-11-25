@@ -8,6 +8,7 @@ import { demo } from "./demo.ts";
 function runDemo(payload: Json, attempt: number) {
   const steps: [number, number, string][] = [];
   const result = demo({
+    jobId: "job-1",
     payload,
     attempt,
     signal: new AbortController().signal,

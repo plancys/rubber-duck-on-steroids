@@ -1,7 +1,12 @@
 ---
 import AppLayout from "@/layouts/AppLayout.astro";
 import ChangePasswordForm from "@/components/auth/ChangePasswordForm";
+import CreateTokenForm from "@/components/tokens/CreateTokenForm";
+import RevokeTokenButton from "@/components/tokens/RevokeTokenButton";
+import { ServerError } from "@/components/auth/ServerError";
 import { authErrorText, authNoticeText } from "@/lib/auth-errors";
+import { createClient } from "@/lib/supabase";
+import { MAX_LIVE_TOKENS, tokenErrorText, tokenNoticeText } from "@/lib/tokens";
 
 const { user } = Astro.locals;
 const error = authErrorText(Astro.url.searchParams.get("error"));
@@ -9,6 +14,40 @@ const notice = authNoticeText(Astro.url.searchParams.get("notice"));
 // A user who signed up with OAuth only has no "email" provider and thus no password to change.
 const providers: unknown = user?.app_metadata.providers;
 const hasPassword = Array.isArray(providers) && providers.includes("email");
+
+// The access tokens of the browser extension. The tokens have their own URL keys, so the password form keeps its own.
+let tokenError = tokenErrorText(Astro.url.searchParams.get("token_error"));
+const tokenNotice = tokenNoticeText(Astro.url.searchParams.get("token_notice"));
+
+interface TokenItem {
+  id: string;
+  name: string;
+  created: string;
+  lastUsed: string | null;
+}
+
+// RLS returns only the tokens of the signed-in learner. The page never reads the hash.
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+let tokens: TokenItem[] = [];
+if (!supabase) {
+  tokenError = tokenErrorText("not_configured");
+} else {
+  const result = await supabase
+    .from("access_tokens")
+    .select("id, name, created_at, last_used_at")
+    .is("revoked_at", null)
+    .order("created_at", { ascending: false });
+  if (result.error) {
+    tokenError = tokenErrorText("unknown");
+  } else {
+    tokens = result.data.map((token) => ({
+      id: token.id,
+      name: token.name,
+      created: token.created_at.slice(0, 10),
+      lastUsed: token.last_used_at?.slice(0, 10) ?? null,
+    }));
+  }
+}
 ---
 
 <AppLayout title="Settings">
@@ -44,5 +83,48 @@ const hasPassword = Array.isArray(providers) && providers.includes("email");
         .
       </p>
     )}
+  </section>
+
+  <section
+    id="tokens"
+    data-testid="tokens-section"
+    class="mt-8 max-w-md rounded-(--radius) bg-card p-6 text-card-foreground shadow-(--shadow-card)"
+  >
+    <h2 class="mb-3 font-heading text-xl font-extrabold">Access tokens</h2>
+    <p class="mb-4 text-sm text-muted-foreground">
+      The browser extension uses a token to save course pages for you. Create one token for each browser.
+    </p>
+    {tokenNotice && (
+      <p data-testid="tokens-notice" class="mb-4 rounded-lg bg-success px-3 py-2 text-sm text-success-foreground">
+        {tokenNotice}
+      </p>
+    )}
+    {tokenError && (
+      <div data-testid="tokens-error" class="mb-4">
+        <ServerError message={tokenError} />
+      </div>
+    )}
+
+    {tokens.length === 0 ? (
+      <p data-testid="tokens-empty" class="mb-4 text-sm text-muted-foreground">
+        You have no tokens.
+      </p>
+    ) : (
+      <ul class="mb-6 space-y-3">
+        {tokens.map((token) => (
+          <li data-testid="token-item" class="rounded-lg border border-border p-3">
+            <span class="block truncate font-semibold" title={token.name}>
+              {token.name}
+            </span>
+            <span class="mb-2 block text-xs text-muted-foreground">
+              Created {token.created} · {token.lastUsed ? `Last used ${token.lastUsed}` : "Not used yet"}
+            </span>
+            <RevokeTokenButton tokenId={token.id} tokenName={token.name} client:load />
+          </li>
+        ))}
+      </ul>
+    )}
+
+    <CreateTokenForm atLimit={tokens.length >= MAX_LIVE_TOKENS} client:load />
   </section>
 </AppLayout>

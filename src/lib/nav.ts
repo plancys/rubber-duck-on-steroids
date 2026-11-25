@@ -2,6 +2,7 @@
 export const navLinks: { href: string; label: string }[] = [
   // A new signed-in page adds one entry here. The comment also keeps the list on several lines after remove:sample.
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/dashboard/courses", label: "Courses" },
   // BEGIN sample-resource
   { href: "/dashboard/notes", label: "Notes" },
   // END sample-resource

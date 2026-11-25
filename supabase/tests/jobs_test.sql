@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(48);
+select plan(52);
 
 -- Create four users as the superuser.
 insert into auth.users (id, email)
@@ -145,6 +145,14 @@ select throws_ok(
 );
 
 select throws_ok(
+  $$ select public.fail_job(
+       '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'Reason', false) $$,
+  '42501',
+  null,
+  'a learner cannot execute fail_job with the retry argument'
+);
+
+select throws_ok(
   $$ select public.release_job(
        '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000') $$,
   '42501',
@@ -273,6 +281,7 @@ select results_eq(
 );
 
 -- fail_job returns job 2 to the queue twice and marks it failed at attempt 3.
+-- These calls send no retry argument, so the attempt rule applies.
 select ok(
   public.fail_job(
     'aaaaaaaa-0000-0000-0000-000000000002',
@@ -286,7 +295,7 @@ select results_eq(
      from public.jobs
      where id = 'aaaaaaaa-0000-0000-0000-000000000002' $$,
   $$ values ('waiting'::text, 1, true, true) $$,
-  'fail_job returns the job to waiting at attempt 1 and clears the lease'
+  'fail_job without the retry argument returns the job to waiting at attempt 1 and clears the lease'
 );
 
 select results_eq(
@@ -384,6 +393,28 @@ select results_eq(
   'release_job returns the job to waiting and gives the attempt back'
 );
 
+-- Job 5 runs its first attempt. A final failure ends it at once.
+reset role;
+insert into public.jobs (id, user_id, type, status, attempts, lease_id, lease_expires_at)
+values
+  ('aaaaaaaa-0000-0000-0000-000000000005', '33333333-3333-3333-3333-333333333333', 'demo', 'running', 1,
+   'bbbbbbbb-0000-0000-0000-000000000005', now() + interval '1 minute');
+
+set local role service_role;
+
+select ok(
+  public.fail_job('aaaaaaaa-0000-0000-0000-000000000005', 'bbbbbbbb-0000-0000-0000-000000000005', 'Blocked', false),
+  'fail_job with retry false returns true for the lease of the job'
+);
+
+select results_eq(
+  $$ select status, attempts, error, finished_at is not null
+     from public.jobs
+     where id = 'aaaaaaaa-0000-0000-0000-000000000005' $$,
+  $$ values ('failed'::text, 1, 'Blocked'::text, true) $$,
+  'fail_job with retry false sets failed, the error and finished_at at attempt 1'
+);
+
 -- Give job 2 some progress as the superuser, so the retry test can see it cleared.
 reset role;
 update public.jobs
@@ -432,6 +463,15 @@ select throws_ok(
   '23514',
   null,
   'a payload over 4096 bytes is rejected'
+);
+
+-- The course page and the load quota read the jobs of a learner by time.
+select has_index(
+  'public',
+  'jobs',
+  'jobs_user_created_idx',
+  array['user_id', 'created_at'],
+  'jobs has an index on the owner and the creation time'
 );
 
 select * from finish();

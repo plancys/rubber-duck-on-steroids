@@ -6,6 +6,11 @@
 // Run it against a live server: BASE_URL=http://localhost:4321 node scripts/phone-check.mjs
 // LOOKS selects the looks: empty means one pass with no look cookie, "all" means every look, and "calm,dock" means those looks.
 // For a look, the check sets the cookie "look". The server uses the cookie only when ALLOW_LOOK_OVERRIDE is true.
+// The course pages: the check loads one course once, then checks /dashboard/courses and the page of that course.
+// The load needs ALLOW_PRIVATE_COURSE_URLS=true on the server, because the course is the local fixture site.
+// Without the setting, the check skips the course page. FIXTURE_COURSE_URL overrides the start page of the course.
+// Run scripts/fixture-server.mjs and the worker to get a course with lessons. Without them, the course does not load,
+// but its page still renders.
 /* global document, window */
 
 import { setTimeout as sleep } from "node:timers/promises";
@@ -26,6 +31,12 @@ const RULES = { maxBarHeight: 64, minTapSize: 44, minFontSize: 16 };
 const NAV = '[data-testid="shell-nav"]';
 // The looks of the app. This list is a copy of LOOKS in src/lib/looks.ts. Change both together.
 const ALL_LOOKS = ["warm", "editorial", "calm", "swiss", "dock"];
+const COURSES = "/dashboard/courses";
+// The start page of the course that the check loads. CI serves it with scripts/fixture-server.mjs.
+const FIXTURE_COURSE_URL = process.env.FIXTURE_COURSE_URL ?? "http://localhost:8799/duck-basics";
+const COURSE_LINK = /^\/dashboard\/courses\/([0-9a-f-]{36})\?job=([0-9a-f-]{36})$/;
+// The course page path after the one load of the run. Undefined before the load, null after a failed or skipped load.
+let coursePath;
 
 // Returns the looks to check. The value null means one pass with no look cookie.
 function selectedLooks(value = "") {
@@ -183,8 +194,11 @@ async function checkPage(page, path, width, { expectBar = false } = {}) {
 }
 
 // Fills the form that posts to `action`, submits it and expects a redirect to `expected`.
+// `expected` is the exact path and query, or a RegExp for a redirect with an id in it.
+// `skip` names a redirect that means a server setting is off. Then the step counts as skipped, not failed.
 // On a 429 answer it waits for Retry-After or 60 seconds and tries once more.
-async function submitForm(page, { name, path, action, fields, expected, width }) {
+async function submitForm(page, { name, path, action, fields, expected, width, skip }) {
+  const matches = (value) => (expected instanceof RegExp ? expected.test(value) : value === expected);
   for (let attempt = 1; attempt <= 2; attempt++) {
     await page.goto(BASE_URL + path);
     await waitForIslands(page);
@@ -201,13 +215,52 @@ async function submitForm(page, { name, path, action, fields, expected, width })
       continue;
     }
     const location = response.headers().location ?? "";
-    const ok = status === 302 && location === expected;
+    if (skip && status === 302 && location === skip.location) {
+      report("SKIP", name, width, skip.reason);
+      return false;
+    }
+    const ok = status === 302 && matches(location);
     if (!ok) failed++;
     report(ok ? "PASS" : "FAIL", name, width, `-> ${status} ${location}`);
-    if (ok) await page.waitForURL((url) => url.pathname + url.search === expected);
+    if (ok) await page.waitForURL((url) => matches(url.pathname + url.search));
     return ok;
   }
   return false;
+}
+
+// Waits until the job `jobId` is done or failed, at most `seconds`. Returns false when the time runs out.
+// The course page reloads itself when its load job ends, so a check during the load can lose its page.
+async function waitForJobEnd(page, jobId, seconds) {
+  const deadline = Date.now() + seconds * 1000;
+  while (Date.now() < deadline) {
+    const response = await page.request.get(`${BASE_URL}/api/jobs/${jobId}`);
+    const job = response.ok() ? await response.json() : null;
+    if (job?.status === "done" || job?.status === "failed") return true;
+    await sleep(1000);
+  }
+  return false;
+}
+
+// Loads the fixture course through the form and waits for the end of its load job.
+// Returns the path of the course page, or null when the load did not start.
+async function loadCourse(page, width) {
+  const started = await submitForm(page, {
+    name: "load course",
+    path: COURSES,
+    action: "/api/courses",
+    fields: { url: FIXTURE_COURSE_URL },
+    expected: COURSE_LINK,
+    width,
+    skip: { location: `${COURSES}?error=url_private`, reason: "ALLOW_PRIVATE_COURSE_URLS is not true on the server" },
+  });
+  if (!started) return null;
+  const landed = new URL(page.url());
+  const [, , jobId] = COURSE_LINK.exec(landed.pathname + landed.search) ?? [];
+  // Without a worker the job never ends. Then the page does not reload, and the check can measure it anyway.
+  if (jobId && !(await waitForJobEnd(page, jobId, 60))) {
+    report("WAIT", "load course", width, "the load job did not end in 60s, check the page anyway");
+  }
+  return landed.pathname;
 }
 
 // The signed-in pages. The dashboard check also opens the phone menu and measures the open panel.
@@ -230,6 +283,15 @@ async function checkSignedInPages(page, width) {
   // The job check page. Without ENABLE_JOB_CHECK on the server, it answers 404 and the check skips it.
   const jobCheck = "/dashboard/job-check";
   await guarded(jobCheck, width, () => checkPage(page, jobCheck, width, { expectBar: true }));
+  // The course pages. The first pass loads one course, and every pass checks the list and the page of that course.
+  if (await guarded(COURSES, width, () => checkPage(page, COURSES, width, { expectBar: true }))) {
+    if (coursePath === undefined) {
+      coursePath = (await guarded("load course", width, () => loadCourse(page, width))) || null;
+    }
+    if (coursePath) {
+      await guarded(coursePath, width, () => checkPage(page, coursePath, width, { expectBar: true }));
+    }
+  }
   // BEGIN sample-resource
   // The notes pages. After the removal of the sample, the list page answers 404 and the check skips it.
   const notes = "/dashboard/notes";

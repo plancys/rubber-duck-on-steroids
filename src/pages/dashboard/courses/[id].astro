@@ -1,0 +1,204 @@
+---
+import { RotateCcw } from "lucide-react";
+import AppLayout from "@/layouts/AppLayout.astro";
+import JobStatus from "@/components/jobs/JobStatus";
+import DeleteCourseButton from "@/components/courses/DeleteCourseButton";
+import { ServerError } from "@/components/auth/ServerError";
+import { createClient } from "@/lib/supabase";
+import { JOB_VIEW_COLUMNS, toJobView, type JobView } from "@/lib/jobs";
+import { courseErrorText, courseName, courseStatusText, isCourseId } from "@/lib/courses";
+import type { Tables } from "@/db/database.types";
+
+let error = courseErrorText(Astro.url.searchParams.get("error"));
+
+type Course = Pick<
+  Tables<"courses">,
+  "id" | "title" | "source_url" | "source_kind" | "status" | "error" | "loaded_at" | "created_at"
+>;
+type Lesson = Pick<Tables<"lessons">, "id" | "position" | "title" | "url" | "status" | "error">;
+
+// A course of another learner and an id that does not exist give the same result. RLS returns no row for both.
+const { id } = Astro.params;
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+let course: Course | null = null;
+let lessons: Lesson[] = [];
+let job: JobView | null = null;
+let notFound = false;
+if (!supabase) {
+  error = courseErrorText("not_configured");
+} else if (!isCourseId(id)) {
+  notFound = true;
+} else {
+  const courseResult = await supabase
+    .from("courses")
+    .select("id, title, source_url, source_kind, status, error, loaded_at, created_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (courseResult.error) {
+    Astro.response.status = 500;
+    error = courseErrorText("unknown");
+  } else if (!courseResult.data) {
+    notFound = true;
+  } else {
+    course = courseResult.data;
+    // The lesson text stays in the database. This page shows the list only.
+    // A course holds at most 500 lessons. The limit keeps the read small, also for a course that breaks that rule.
+    const [lessonResult, jobResult] = await Promise.all([
+      supabase
+        .from("lessons")
+        .select("id, position, title, url, status, error")
+        .eq("course_id", id)
+        .order("position", { ascending: true })
+        .limit(500),
+      // The newest load job of the course. A course from the extension has no load job.
+      supabase
+        .from("jobs")
+        .select(JOB_VIEW_COLUMNS)
+        .eq("type", "load_course")
+        .eq("payload->>courseId", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    if (lessonResult.error || jobResult.error) {
+      Astro.response.status = 500;
+      error = courseErrorText("unknown");
+    } else {
+      lessons = lessonResult.data;
+      job = jobResult.data ? toJobView(jobResult.data) : null;
+    }
+  }
+}
+
+if (notFound) {
+  Astro.response.status = 404;
+}
+
+// A failed attempt marks the course failed, and the job waits for its next start. So the job state also counts.
+const jobInProgress = job !== null && (job.status === "waiting" || job.status === "running");
+const loads = course !== null && (course.status === "loading" || jobInProgress);
+// A course in "loading" without a job in progress does not change any more.
+const stuck = course !== null && course.status === "loading" && !jobInProgress;
+const canReload = course !== null && course.source_kind === "crawl" && !loads;
+const loadedCount = lessons.filter((lesson) => lesson.status === "loaded").length;
+---
+
+<AppLayout title={course ? courseName(course) : "Course not found"}>
+  {course ? (
+    <>
+      <p class="mb-2 text-sm">
+        <a
+          href="/dashboard/courses"
+          class="inline-flex min-h-11 min-w-11 items-center font-semibold text-muted-foreground hover:text-foreground"
+        >
+          All courses
+        </a>
+      </p>
+      <h1 class="mb-2 font-heading text-3xl font-extrabold [overflow-wrap:anywhere] sm:text-4xl">
+        {courseName(course)}
+      </h1>
+      <p class="mb-6 text-sm">
+        <a
+          href={course.source_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-testid="course-source-link"
+          class="inline-flex min-h-11 min-w-11 items-center break-all text-primary underline underline-offset-2"
+        >
+          {course.source_url}
+        </a>
+      </p>
+      {error && (
+        <div data-testid="course-error" class="mb-6">
+          <ServerError message={error} />
+        </div>
+      )}
+
+      <section
+        data-testid="course-state"
+        data-status={jobInProgress ? "loading" : course.status}
+        class="mb-8 space-y-3 rounded-(--radius) bg-card p-6 text-card-foreground shadow-(--shadow-card)"
+      >
+        <h2 class="font-heading text-xl font-extrabold">
+          {courseStatusText(jobInProgress ? "loading" : course.status)}
+        </h2>
+        {course.source_kind === "extension" && (
+          <p class="text-sm text-muted-foreground">
+            This course comes from the browser extension. Open a lesson page with the extension on to add it.
+          </p>
+        )}
+        {jobInProgress && job && <JobStatus job={job} retry={false} reloadOnEnd client:load />}
+        {stuck && (
+          <p data-testid="course-stuck" class="text-sm text-muted-foreground">
+            The load stopped. Delete the course and load it again.
+          </p>
+        )}
+        {!loads && course.status === "failed" && <ServerError message={course.error ?? "The course did not load."} />}
+        {!loads && course.status === "ready" && (
+          <p class="text-sm text-muted-foreground">
+            {loadedCount} of {lessons.length} {lessons.length === 1 ? "lesson" : "lessons"} loaded
+            {course.loaded_at && ` on ${course.loaded_at.slice(0, 10)}`}.
+          </p>
+        )}
+        <div class="grid gap-3 sm:grid-cols-2">
+          {canReload && (
+            <form method="POST" action={`/api/courses/${course.id}/reload`}>
+              <button
+                type="submit"
+                data-testid="course-reload-button"
+                class="flex min-h-11 w-full min-w-11 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <RotateCcw className="size-4" aria-hidden="true" />
+                Reload course
+              </button>
+            </form>
+          )}
+          <DeleteCourseButton courseId={course.id} client:load />
+        </div>
+      </section>
+
+      <section>
+        <h2 class="mb-3 font-heading text-xl font-extrabold">Lessons</h2>
+        {lessons.length === 0 ? (
+          <p data-testid="lessons-empty" class="text-sm text-muted-foreground">
+            {loads ? "The lessons show here when the load ends." : "This course has no lessons yet."}
+          </p>
+        ) : (
+          <ol class="space-y-2">
+            {lessons.map((lesson) => (
+              <li
+                data-testid="lesson-item"
+                data-status={lesson.status}
+                class="flex items-start gap-3 rounded-lg bg-card px-4 py-2 text-card-foreground shadow-(--shadow-card)"
+              >
+                <span class="flex min-h-11 min-w-8 flex-none items-center font-heading font-extrabold text-muted-foreground">
+                  {lesson.position}
+                </span>
+                <div class="min-w-0 flex-1">
+                  <a
+                    href={lesson.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="block min-h-11 min-w-11 py-2.5 font-bold [overflow-wrap:anywhere] hover:underline"
+                  >
+                    {lesson.title?.trim() ? lesson.title : lesson.url}
+                  </a>
+                  {lesson.status === "failed" && (
+                    <p data-testid="lesson-failed" class="pb-2 text-sm text-destructive">
+                      Could not load{lesson.error ? `: ${lesson.error}` : ""}
+                    </p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    </>
+  ) : (
+    <>
+      <h1 class="mb-6 font-heading text-3xl font-extrabold sm:text-4xl">{notFound ? "Course not found" : "Course"}</h1>
+      <p class="text-sm text-muted-foreground">{notFound ? courseErrorText("not_found") : error}</p>
+    </>
+  )}
+</AppLayout>

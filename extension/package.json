@@ -1,0 +1,17 @@
+{
+  "name": "rubber-duck-extension",
+  "private": true,
+  "type": "module",
+  "description": "The browser extension that saves the course pages a learner opens. npm run build:extension in the repo root builds it into dist/.",
+  "dependencies": {
+    "@mozilla/readability": "0.6.0",
+    "turndown": "7.2.5"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.3.8",
+    "@types/jsdom": "30.0.0",
+    "@types/turndown": "5.0.6",
+    "esbuild": "0.28.2",
+    "jsdom": "31.0.1"
+  }
+}

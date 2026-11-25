@@ -1,11 +1,12 @@
 // The worker process. It takes jobs from the jobs table one at a time and runs the handler of each job type.
-// Zero dependencies on purpose. It runs the same way on a laptop, in CI and in a container: node main.ts
+// It runs the same way on a laptop, in CI and in a container: node main.ts, after npm ci in worker/.
 // The web app sends POST /wake after it inserts a job. GET /health shows that the process runs.
-// The service key and the wake secret stay in memory. The worker never writes them to the log.
+// The service key, the wake secret and the Anthropic key stay in memory. The worker never writes them to the log.
 
 import { createServer, type ServerResponse } from "node:http";
 import { createHandlers } from "./handlers/index.ts";
-import { createQueue } from "./queue.ts";
+import { createLessonPicker } from "./llm.ts";
+import { createCourseStore, createQueue } from "./queue.ts";
 import { isWakeAuthorized } from "./rules.ts";
 import { createRunner } from "./run.ts";
 
@@ -51,10 +52,23 @@ const wakeSecret = required("WORKER_WAKE_SECRET");
 if (!URL.canParse(supabaseUrl)) exitWith("SUPABASE_URL must be a URL.");
 const port = readPort();
 const pollSeconds = readPollSeconds();
+const database = { url: supabaseUrl, key: serviceKey };
+// Without ANTHROPIC_API_KEY the lesson finder uses its rule: the links under the path of the start page.
+const picker = createLessonPicker(process.env.ANTHROPIC_API_KEY);
 // The demo job runs only when WORKER_ALLOW_DEMO is "true". Production keeps it off unless a check needs it.
-const handlers = createHandlers({ allowDemo: process.env.WORKER_ALLOW_DEMO === "true" });
+// ALLOW_PRIVATE_COURSE_URLS "true" lets the crawl read a private address, such as the fixture site on localhost.
+// It is for a local run and CI only. Production never sets it.
+const handlers = createHandlers({
+  allowDemo: process.env.WORKER_ALLOW_DEMO === "true",
+  loadCourse: {
+    courses: createCourseStore(database),
+    picker,
+    log: writeLog,
+    allowPrivateAddresses: process.env.ALLOW_PRIVATE_COURSE_URLS === "true",
+  },
+});
 
-const runner = createRunner({ queue: createQueue({ url: supabaseUrl, key: serviceKey }), handlers, log: writeLog });
+const runner = createRunner({ queue: createQueue(database), handlers, log: writeLog });
 
 function reply(response: ServerResponse, status: number, text: string): void {
   response.writeHead(status, { "content-type": "text/plain; charset=utf-8" });
@@ -85,7 +99,12 @@ server.on("error", (error) => {
 });
 
 server.listen(port, () => {
-  writeLog({ event: "listening", port });
+  writeLog({
+    event: "listening",
+    port,
+    lessonFinder: picker ? "model" : "rule",
+    privateCourseUrls: process.env.ALLOW_PRIVATE_COURSE_URLS === "true",
+  });
   // Look for jobs once at the start. A job can wait from a time when no worker ran.
   void runner.wake();
 });

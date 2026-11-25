@@ -1,4 +1,5 @@
 // Production setup: does each provider step that a script can do safely, in a fixed order.
+// Step 5d (scripts/setup-google.mjs) sets up the background worker in Google Cloud. It needs the gcloud CLI.
 // Zero dependencies on purpose. Run with: SUPABASE_ACCESS_TOKEN=<token> npm run setup:prod
 // The script is safe to run again. Each step reads the current state first and asks before it changes a value.
 // A human runs this script. It never writes a file, and it never prints a key, token or password,
@@ -10,11 +11,12 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { setTimeout as sleep } from "node:timers/promises";
+import { setUpGoogle } from "./setup-google.mjs";
 
 const USAGE = `Usage: SUPABASE_ACCESS_TOKEN=<token> node scripts/setup-prod.mjs [--help]
 
-Sets up the production Supabase project, the GitHub "production" environment,
-and the Supabase auth settings. The README section "Deployment > One-time setup" has the full manual.`;
+Sets up the production Supabase project, the background worker in Google Cloud,
+the GitHub "production" environment, and the Supabase auth settings. The README section "Deployment > One-time setup" has the full manual.`;
 
 const SUPABASE_API = "https://api.supabase.com";
 const ENVIRONMENT = "production";
@@ -32,8 +34,20 @@ const SECRET_NAMES = [
   "SUPABASE_DB_URL",
   "RESEND_API_KEY",
   "SEND_EMAIL_HOOK_SECRET",
+  "GCP_WORKLOAD_IDENTITY_PROVIDER",
+  "GCP_SERVICE_ACCOUNT",
+  "WORKER_WAKE_SECRET",
 ];
-const VARIABLE_NAMES = ["SUPABASE_PROJECT_REF", "PRODUCTION_URL", "EMAIL_FROM", "ADMIN_EMAIL", "OAUTH_PROVIDERS"];
+const VARIABLE_NAMES = [
+  "SUPABASE_PROJECT_REF",
+  "PRODUCTION_URL",
+  "EMAIL_FROM",
+  "ADMIN_EMAIL",
+  "OAUTH_PROVIDERS",
+  "GCP_PROJECT_ID",
+  "GCP_REGION",
+  "WORKER_WAKE_URL",
+];
 // The OAuth providers that the app knows. The ids match src/lib/oauth.ts and the Supabase auth config fields.
 const OAUTH_PROVIDERS = [
   { id: "github", label: "GitHub" },
@@ -139,12 +153,15 @@ function askHidden(question) {
 // ---------- Commands ----------
 
 // Run a command and return its result. The value in "input" goes to stdin, never to the command line.
+// On Windows, npx and gcloud are .cmd files that need a shell. The shell then gets each argument in quotes.
 function run(command, args, { input } = {}) {
-  const result = spawnSync(command, args, {
+  const shell = (command === "npx" || command === "gcloud") && useShell;
+  const shellArgs = shell ? args.map((arg) => `"${arg.replaceAll('"', '\\"')}"`) : args;
+  const result = spawnSync(command, shellArgs, {
     input,
     encoding: "utf8",
     stdio: ["pipe", "pipe", "pipe"],
-    shell: command === "npx" && useShell,
+    shell,
   });
   return {
     ok: !result.error && result.status === 0,
@@ -574,6 +591,42 @@ async function readEmailValues() {
   return hookSecretIsNew;
 }
 
+// The Supabase service key for the worker: a secret key (sb_secret_...) first, else the service_role key.
+// The value goes only to Google Secret Manager. Returns null when the API does not show the key.
+async function readServiceKey(ref) {
+  const keys = await supabaseApi("GET", `/v1/projects/${ref}/api-keys?reveal=true`, undefined, { allowFail: true });
+  if (!Array.isArray(keys)) return null;
+  // A hidden key has mask characters. Use only a full key.
+  const isFull = (key) => typeof key.api_key === "string" && /^[A-Za-z0-9._-]{20,}$/.test(key.api_key);
+  const key =
+    keys.find((item) => item.type === "secret" && isFull(item) && item.api_key.startsWith("sb_secret_")) ??
+    keys.find((item) => item.name === "service_role" && isFull(item));
+  return key ? key.api_key : null;
+}
+
+// Step 5d: the background worker in Google Cloud. A failure here does not stop the Supabase and GitHub steps.
+async function setUpWorker(ref) {
+  step("Step 5d: Google Cloud worker");
+  const google = await setUpGoogle({
+    gcloud: (args, options) => run("gcloud", args, options),
+    ask,
+    confirm,
+    askHidden,
+    log: (message) => console.log(message),
+    wait: (ms) => sleep(ms),
+    readServiceKey: () => readServiceKey(ref),
+    repo,
+    workerName,
+    github,
+  });
+  Object.assign(secrets, google.secrets);
+  Object.assign(variables, google.variables);
+  openSteps.push(...google.openSteps);
+  // The script made the wake secret, and Secret Manager holds it. GitHub gets it without a "Replace?" question.
+  if (google.secrets.WORKER_WAKE_SECRET !== undefined) decided.set("WORKER_WAKE_SECRET", true);
+  record("Google Cloud worker", google.outcome, google.note);
+}
+
 // Step 6: the GitHub environment, the secrets, and the variables.
 async function writeGitHub() {
   step("Step 6: GitHub");
@@ -837,6 +890,7 @@ try {
   const hookSecretIsNew = await readEmailValues();
   if (hookSecretIsNew) await storeHookSecret(project.ref);
   await setOAuthProviders(project.ref);
+  await setUpWorker(project.ref);
   await writeGitHub();
   await setAuthSettings(project.ref);
   await setEmailHook(project.ref, hookSecretIsNew);
