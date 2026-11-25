@@ -3,6 +3,9 @@
 // The reset steps read the email from Mailpit. MAILPIT_URL overrides the default address.
 // The Send Email Hook steps run only when SMOKE_HOOK_SECRET holds the SEND_EMAIL_HOOK_SECRET value of the server.
 // The job steps run only when SMOKE_JOB_CHECK is set. They need ENABLE_JOB_CHECK=true on the server and a running worker.
+// The course steps run only when SMOKE_COURSES is set. They need ALLOW_PRIVATE_COURSE_URLS=true on the server,
+// a running worker without ANTHROPIC_API_KEY, and the fixture course site of scripts/fixture-server.mjs.
+// FIXTURE_COURSE_URL overrides the start page of the fixture course.
 
 import { Buffer } from "node:buffer";
 import { createHmac, randomUUID } from "node:crypto";
@@ -40,6 +43,20 @@ const jobEmail = `smoke-job-${Date.now()}@example.com`;
 const jobJar = new Map();
 // The id of the newest job that the main smoke user started.
 let jobId = null;
+// The course steps. The course learner has its own jar, so its load jobs never block the job steps of the main user.
+// The main smoke user is the second learner, who must not see the course.
+const COURSES = Boolean(process.env.SMOKE_COURSES);
+const FIXTURE_COURSE_URL = process.env.FIXTURE_COURSE_URL ?? "http://localhost:8799/duck-basics";
+const courseEmail = `smoke-course-${Date.now()}@example.com`;
+const courseJar = new Map();
+// The course of the fixture site and the newest load job of that course.
+let courseId = null;
+let courseJobId = null;
+// The access token of the course learner. The script never prints it.
+let accessToken = null;
+let accessTokenId = null;
+// The course that the extension routes create for the course learner.
+let extensionCourseId = null;
 
 function cookieHeader(cookies) {
   return [...cookies.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
@@ -204,10 +221,11 @@ function jobStatus(result) {
 }
 
 // Asks for the job about once a second until it is done or failed, or until `seconds` pass. Returns the last answer.
-async function waitForJob(id, seconds) {
+// `cookies` is the jar of the user who started the job.
+async function waitForJob(id, seconds, cookies = jar) {
   const deadline = Date.now() + seconds * 1000;
   for (;;) {
-    const result = await request(`/api/jobs/${id}`);
+    const result = await request(`/api/jobs/${id}`, { cookies });
     const status = jobStatus(result);
     if (result.status !== 200 || status === "done" || status === "failed" || Date.now() >= deadline) return result;
     await sleep(1000);
@@ -293,6 +311,230 @@ const jobSteps = JOB_CHECK
         "retried job is in progress again",
         () => withJob((id) => request(`/api/jobs/${id}`)),
         { status: 200, json: { status: ["waiting", "running"], attempts: [0, 1] } },
+      ],
+    ]
+  : [];
+
+const COURSE_LINK = /^\/dashboard\/courses\/([0-9a-f-]{36})\?job=([0-9a-f-]{36})$/;
+// One lesson row of the course page: its status, then the link to the original page.
+const LESSON_ITEM = /data-testid="lesson-item" data-status="(\w+)"[\s\S]*?href="([^"]+)"/g;
+// The path of the fixture course. The lesson paths come from the files in scripts/fixtures/course.
+const FIXTURE_COURSE_PATH = new URL(FIXTURE_COURSE_URL).pathname.replace(/\/+$/, "");
+// The extension routes accept only an extension origin. The smoke test acts as the extension.
+const EXTENSION_ORIGIN = "chrome-extension://smoke-test";
+// The course that the extension steps start. The extension never reads it, so any public URL works.
+const EXTENSION_COURSE_URL = "https://example.com/smoke-extension-course";
+const EXTENSION_PAGE_URL = `${EXTENSION_COURSE_URL}/lesson-1`;
+
+// Runs `run` with `value`. Without a value the step fails with `missing`, so it cannot pass by accident.
+function withValue(value, missing, run) {
+  if (value) return run(value);
+  return { status: 0, location: missing, retryAfter: null, body: "" };
+}
+
+// Starts a load of the fixture course for the course learner and keeps the id of its job.
+// A failed start clears the job id, so that a later step cannot wait for the job of an earlier step.
+async function loadFixtureCourse() {
+  const result = await request("/api/courses", {
+    method: "POST",
+    form: { url: FIXTURE_COURSE_URL },
+    cookies: courseJar,
+  });
+  const match = COURSE_LINK.exec(result.location);
+  courseJobId = match?.[2] ?? null;
+  return { result, linkedCourseId: match?.[1] ?? null };
+}
+
+// Puts a JSON summary in place of the HTML body, so that the json check can compare it. Status and location stay.
+function summarize(result, summary) {
+  return { ...result, body: JSON.stringify(summary(result.body)) };
+}
+
+// The state of the course page and its lessons in order, as "status path" pairs.
+function courseSummary(body) {
+  const state = /data-testid="course-state" data-status="(\w+)"/.exec(body)?.[1] ?? null;
+  const lessons = [...body.matchAll(LESSON_ITEM)].map(([, status, href]) => {
+    try {
+      return `${status} ${new URL(href.replaceAll("&amp;", "&"), BASE_URL).pathname}`;
+    } catch {
+      return `${status} ${href}`;
+    }
+  });
+  return { state, lessons: lessons.join(", ") };
+}
+
+// Sends a call of the browser extension: the extension origin, the bearer token, and a JSON body.
+async function extensionRequest(path, token, body) {
+  const response = await fetch(BASE_URL + path, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      Origin: EXTENSION_ORIGIN,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  return { status: response.status, location: "", retryAfter: null, body: await response.text() };
+}
+
+// The course steps. The course learner loads the fixture course through the worker, with the rule fallback.
+// The worker has no ANTHROPIC_API_KEY in CI, so the lesson finder picks the links under the course path in page order.
+// The fixture course has 3 lessons. The second lesson answers 404, so it fails and the other two load.
+// The extension routes allow 10 calls per minute. These steps send 3 extension calls.
+// No step here sends a sign-in call. The sign-up route has its own bucket "signup".
+const courseSteps = COURSES
+  ? [
+      [
+        "course learner signs up",
+        () =>
+          request("/api/auth/signup", { method: "POST", form: { email: courseEmail, password }, cookies: courseJar }),
+        { status: 302, location: "/auth/confirm-email" },
+      ],
+      [
+        "course load redirects to the course",
+        async () => {
+          const { result, linkedCourseId } = await loadFixtureCourse();
+          courseId = linkedCourseId;
+          return result;
+        },
+        { status: 302, location: "/dashboard/courses/" },
+      ],
+      [
+        "course load ends done",
+        () => withValue(courseJobId, "no job id from the course load", (id) => waitForJob(id, 90, courseJar)),
+        { status: 200, json: { status: "done" } },
+      ],
+      [
+        "course has 2 loaded lessons and 1 failed lesson in order",
+        () =>
+          withValue(courseId, "no course id from the course load", async (id) =>
+            summarize(await request(`/dashboard/courses/${id}`, { cookies: courseJar }), courseSummary),
+          ),
+        {
+          status: 200,
+          json: {
+            state: "ready",
+            lessons: [
+              `loaded ${FIXTURE_COURSE_PATH}/first-steps.html`,
+              `failed ${FIXTURE_COURSE_PATH}/missing-lesson.html`,
+              `loaded ${FIXTURE_COURSE_PATH}/queries.html`,
+            ].join(", "),
+          },
+        },
+      ],
+      [
+        "second load of the same URL redirects to the same course",
+        async () => (await loadFixtureCourse()).result,
+        // A getter, because the id is known only after the first load.
+        {
+          status: 302,
+          get location() {
+            return `/dashboard/courses/${courseId}?job=`;
+          },
+        },
+      ],
+      [
+        "second course load ends done",
+        () => withValue(courseJobId, "no job id from the second course load", (id) => waitForJob(id, 90, courseJar)),
+        { status: 200, json: { status: "done" } },
+      ],
+      [
+        "course list keeps one course",
+        async () =>
+          summarize(await request("/dashboard/courses", { cookies: courseJar }), (body) => ({
+            courses: body.split('data-testid="course-item"').length - 1,
+          })),
+        { status: 200, json: { courses: 1 } },
+      ],
+      // The main smoke user is the second learner. The course page answers 404 for a course of another learner.
+      [
+        "second learner cannot open the course",
+        () => withValue(courseId, "no course id from the course load", (id) => request(`/dashboard/courses/${id}`)),
+        { status: 404, bodyExcludes: 'data-testid="lesson-item"' },
+      ],
+      [
+        "token is created",
+        async () => {
+          const result = await request("/api/tokens", {
+            method: "POST",
+            form: { name: "Smoke token" },
+            cookies: courseJar,
+          });
+          try {
+            const body = JSON.parse(result.body);
+            accessToken = body.token ?? null;
+            accessTokenId = body.id ?? null;
+          } catch {
+            accessToken = null;
+            accessTokenId = null;
+          }
+          return result;
+        },
+        { status: 201, json: { name: "Smoke token" } },
+      ],
+      [
+        "extension starts a course with the token",
+        () =>
+          withValue(accessToken, "no token from the token route", async (token) => {
+            const result = await extensionRequest("/api/extension/courses", token, {
+              sourceUrl: EXTENSION_COURSE_URL,
+              title: "Smoke extension course",
+            });
+            try {
+              extensionCourseId = JSON.parse(result.body).courseId ?? null;
+            } catch {
+              extensionCourseId = null;
+            }
+            return result;
+          }),
+        { status: 200, bodyMatches: /"courseId":"[0-9a-f-]{36}"/ },
+      ],
+      [
+        "extension saves a page with the token",
+        () =>
+          withValue(accessToken, "no token from the token route", (token) =>
+            withValue(extensionCourseId, "no course id from the extension", (id) =>
+              extensionRequest("/api/extension/pages", token, {
+                courseId: id,
+                url: EXTENSION_PAGE_URL,
+                title: "Smoke lesson 1",
+                markdown: "# Smoke lesson 1\n\nThe extension saved this page.",
+              }),
+            ),
+          ),
+        { status: 200, json: { position: 1 } },
+      ],
+      [
+        "course page lists the saved page",
+        () =>
+          withValue(extensionCourseId, "no course id from the extension", async (id) =>
+            summarize(await request(`/dashboard/courses/${id}`, { cookies: courseJar }), courseSummary),
+          ),
+        { status: 200, json: { state: "ready", lessons: `loaded ${new URL(EXTENSION_PAGE_URL).pathname}` } },
+      ],
+      [
+        "token revoke redirects to settings",
+        () =>
+          withValue(accessTokenId, "no token id from the token route", (id) =>
+            request(`/api/tokens/${id}/revoke`, { method: "POST", cookies: courseJar }),
+          ),
+        { status: 302, location: "/dashboard/settings?token_notice=revoked" },
+      ],
+      [
+        "revoked token gets 401",
+        () =>
+          withValue(accessToken, "no token from the token route", (token) =>
+            withValue(extensionCourseId, "no course id from the extension", (id) =>
+              extensionRequest("/api/extension/pages", token, {
+                courseId: id,
+                url: `${EXTENSION_COURSE_URL}/lesson-2`,
+                title: "Smoke lesson 2",
+                markdown: "# Smoke lesson 2\n\nThe revoked token must not save this page.",
+              }),
+            ),
+          ),
+        { status: 401, json: { error: "invalid_token" } },
       ],
     ]
   : [];
@@ -625,6 +867,8 @@ const steps = [
     { status: 200, bodyIncludes: '"status":"ok"' },
   ],
   ...hookSteps,
+  // The course steps run before the job steps, while the main smoke user still has its session from the settings steps.
+  ...courseSteps,
   // The job steps send no sign-in call. They take about a minute, so the sign-in limit can reset before the last step.
   // Then the last step needs 11 calls, and it allows 12.
   ...jobSteps,
@@ -657,6 +901,9 @@ if (!HOOK_SECRET) {
 }
 if (!JOB_CHECK) {
   console.log("SKIP  job steps  -> SMOKE_JOB_CHECK is not set");
+}
+if (!COURSES) {
+  console.log("SKIP  course steps  -> SMOKE_COURSES is not set");
 }
 
 let failed = 0;

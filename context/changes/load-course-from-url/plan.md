@@ -537,8 +537,8 @@ This phase makes CI protect both paths and gives the worker its model key in pro
 
 #### Automated
 
-- [ ] 5.1 The smoke test passes with the course steps
-- [ ] 5.2 The phone check passes for the course pages
+- [x] 5.1 The smoke test passes with the course steps
+- [x] 5.2 The phone check passes for the course pages
 - [ ] 5.3 The pull request shows the ci job and both smoke variants as passed
 
 #### Manual

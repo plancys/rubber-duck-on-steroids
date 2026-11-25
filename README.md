@@ -51,6 +51,10 @@ npm start
 - `npm run lint:fix` - Auto-fix ESLint issues
 - `npm run format` - Run Prettier
 - `npm run smoke` - Smoke test the auth flow against a running server (`BASE_URL`, defaults to `http://localhost:4321`)
+- `npm run worker` - Start the background worker with the local Supabase values
+- `npm run test:unit` - Run the worker and extension unit tests
+- `npm run build:extension` - Build the browser extension into `extension/dist`
+- `node scripts/fixture-server.mjs` - Serve the fixture course site at `http://localhost:8799/duck-basics`
 
 ## Project Structure
 
@@ -465,7 +469,7 @@ The KV binding `QUOTA_ALERTS` has no `id`. The first deploy creates the namespac
 
 ### Background worker
 
-The background worker does the long work of a job outside the web app. It is a plain Node process in `worker/`, with no dependency. It takes jobs from the `jobs` table through the Supabase REST API, one job at a time. The web app sends `POST /wake` to the worker after it creates a job. `GET /health` answers `ok` while the worker runs.
+The background worker does the long work of a job outside the web app. It is a plain Node process in `worker/`. Its dependencies are in `worker/package.json`, and `npm install` in the repo root installs them. It takes jobs from the `jobs` table through the Supabase REST API, one job at a time. The web app sends `POST /wake` to the worker after it creates a job. `GET /health` answers `ok` while the worker runs.
 
 In production, the worker runs on [Google Cloud Run](https://cloud.google.com/run) as the service `rubber-duck-on-steroids-worker`. The `deploy-worker` job in `.github/workflows/ci.yml` deploys it. The service runs at most one instance, and no instance when it has no work. Google bills the time that an instance is on: the job time plus up to 15 idle minutes after the last request.
 
@@ -491,6 +495,21 @@ npm run worker
 The script reads the local service key into memory and starts the worker on port 8788. Ctrl+C releases the current job and stops the worker.
 
 4. Sign in, open `http://localhost:4321/dashboard/job-check`, and start a demo job.
+
+#### Load a course on your machine
+
+The worker loads a course in the `load_course` job. Without `ANTHROPIC_API_KEY`, it picks the lessons with its rule: the links under the path of the start page, in page order.
+
+1. In `.dev.vars`, set `ALLOW_PRIVATE_COURSE_URLS=true`, then restart `npm start`. The app then accepts a `localhost` course URL.
+2. In a second terminal, start the fixture course site:
+
+```bash
+node scripts/fixture-server.mjs
+```
+
+3. Start the worker with `npm run worker`. To let the model pick the lessons, set the key only in the env of that command: `ANTHROPIC_API_KEY=<key> npm run worker`. Never write the key to a file.
+4. Sign in, open `http://localhost:4321/dashboard/courses`, and load `http://localhost:8799/duck-basics`.
+5. Read the course page. It shows 3 lessons: 2 loaded, and 1 marked "Could not load", because the fixture site answers 404 for it.
 
 To check the container image, build it and run it against the local Supabase. `npx supabase status -o env` shows the local service key as `SERVICE_ROLE_KEY`. Use only the local key on your machine.
 
@@ -519,7 +538,7 @@ gcloud config set project <PROJECT_ID>
 gcloud projects describe <PROJECT_ID> --format="value(projectNumber)"
 ```
 
-4. Turn on the services. Cloud Run runs the worker. Cloud Build builds the image. Artifact Registry keeps the image. The IAM Credentials API lets GitHub use the deploy service account. Secret Manager keeps the two worker secrets.
+4. Turn on the services. Cloud Run runs the worker. Cloud Build builds the image. Artifact Registry keeps the image. The IAM Credentials API lets GitHub use the deploy service account. Secret Manager keeps the worker secrets.
 
 ```bash
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com iamcredentials.googleapis.com secretmanager.googleapis.com
@@ -582,6 +601,24 @@ done
 
 The service key is the `service_role` key or a secret key (`sb_secret_...`): Supabase project → **Settings → API Keys**. To change a value later, run `gcloud secrets versions add <name> --data-file=-`, then deploy the worker again.
 
+10. Set a spend limit for the Anthropic key before you create it. The worker makes one model call for each course load, with only the link texts and the URLs of the start page.
+    1. Open [Spend limits in the Claude Console](https://platform.claude.com/settings/spend-limits) and select the organization of the key.
+    2. Next to **Monthly spend limit**, click **Set limit** or **Adjust limit**. Enter a small value, for example 5 USD.
+    3. Open [API keys in the Claude Console](https://platform.claude.com/settings/keys), and create a key with the name `rubber-duck-worker`.
+
+    When the usage reaches the limit, the model call fails. The worker then picks the lessons with its rule, and the load still ends.
+
+11. Store the Anthropic key in Secret Manager, and let the worker read it. The `deploy-worker` job gives it to the worker as `ANTHROPIC_API_KEY`:
+
+```bash
+printf '%s' '<ANTHROPIC_API_KEY>' | gcloud secrets create worker-anthropic-api-key --data-file=-
+gcloud secrets add-iam-policy-binding worker-anthropic-api-key \
+  --member=serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com \
+  --role=roles/secretmanager.secretAccessor
+```
+
+The `deploy-worker` job fails when the secret `worker-anthropic-api-key` does not exist. Do step 11 before a push that deploys the worker. The key never goes to GitHub, to the Cloudflare Worker, or to a file.
+
 #### Worker secrets and variables
 
 Set these values in **Settings → Environments → production**. `SUPABASE_URL` is already there from the [One-time setup](#one-time-setup).
@@ -617,6 +654,43 @@ The check page `/dashboard/job-check` is off in production. Turn it on only for 
 5. Run the workflow again. Open `PRODUCTION_URL/dashboard/job-check`. It answers 404. The worker now refuses demo jobs, also a demo row that a user inserts through the Supabase API.
 6. One day later, read the cost of the project on the Google billing page.
 
+#### Course load in production
+
+The worker that loads courses calls `fail_job` with 4 arguments. The migration `supabase/migrations/20261124212157_add_final_job_failure.sql` adds that form. The `deploy-worker` job does not wait for the `deploy` job, which applies the migrations. So apply the migrations before the new worker runs:
+
+1. Do steps 10 and 11 of the [One-time Google setup](#one-time-google-setup).
+2. Before you merge, apply the migrations to the production database. Use the value of the GitHub secret `SUPABASE_DB_URL`:
+
+```bash
+npx supabase db push --db-url "<SUPABASE_DB_URL>"
+```
+
+3. Merge to `main`. The `deploy-worker` job deploys the worker with `ANTHROPIC_API_KEY` from Secret Manager.
+4. Sign in to the production app, open `PRODUCTION_URL/dashboard/courses`, and load a section of `https://clickhouse.com/docs`.
+5. Wait until the course shows its lessons. The worker log in Cloud Run shows the token counts of the model call, but never the prompt or the key.
+6. One day later, read the cost of that load on the usage page of the Claude Console.
+
+The old worker still works with the new database, because the 4th argument has a default.
+
+## Browser extension
+
+Some course sites block every automated read. The worker does not pass such a bot check. For such a site, the browser extension saves each lesson page that you open. It converts the page to Markdown in the browser and sends it to the app with your personal access token. The extension runs in Chrome, Edge and Brave.
+
+1. Build the extension:
+
+```bash
+npm run build:extension
+```
+
+2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and select the folder `extension/dist`.
+3. In the app, open **Settings → Access tokens**, and create a token. The page shows the token once. Copy it.
+4. Open the extension popup. Enter the product address, for example `http://localhost:4321` or `PRODUCTION_URL`, and the token. Click **Save settings**.
+5. Open the start page of the course, then click **Start a course on this page**. Allow access to the site when the browser asks.
+6. Open each lesson page in course order. The extension saves each page once. The popup shows the count of saved pages.
+7. Click **Stop** when you have all lessons. The course page in the app lists the saved lessons in the order that you opened them.
+
+To stop the use of a token, click **Revoke** next to it on the Settings page. The extension then shows a sign-in error. A learner can have at most 5 live tokens. After a change in `extension/src/`, build again and click the reload icon of the extension on `chrome://extensions`.
+
 ## Smoke test
 
 `scripts/smoke.mjs` is a dependency-free Node script that walks the whole auth flow (sign-up, sign-in, protected page, sign-out, password reset) over HTTP. Run it against the dev server or the production preview after dependency upgrades:
@@ -635,6 +709,13 @@ The notes steps use two users to prove that one user cannot see, change, or dele
 <!-- END sample-resource -->
 
 The password reset steps read the reset email from Mailpit. Local Supabase starts Mailpit at `http://127.0.0.1:54324`. Set `MAILPIT_URL` to use a different address.
+
+`SMOKE_COURSES=1` adds the course steps. A new learner loads the fixture course and expects 2 loaded lessons and 1 failed lesson, in order. A second load of the same URL keeps one course. The main smoke user gets 404 for that course. Then the learner creates a token, the script calls the extension routes with it, and a revoked token gets 401. The steps need these parts:
+
+1. `ALLOW_PRIVATE_COURSE_URLS=true` in `.dev.vars`, before the build or `npm run dev`.
+2. The fixture course site: `node scripts/fixture-server.mjs`.
+3. The worker without `ANTHROPIC_API_KEY`: `npm run worker`. The steps expect the lessons of the rule.
+4. The smoke test: `SMOKE_COURSES=1 BASE_URL=http://localhost:4321 npm run smoke`.
 
 > **Note:** this script exists primarily to guard the development of the starter itself — it is a fast sanity check that dependency upgrades did not break the build, the Cloudflare adapter or the Supabase auth flow. It is **not** a substitute for a real test suite. Once you build your own product on top of this starter, add proper tests (unit, integration, end-to-end) suited to your application.
 
@@ -662,12 +743,14 @@ The check applies five rules to each page:
 
 The output has one line per page and viewport, with the element and the measured value on a failure. The check skips a page that answers 404.
 
+The check also loads one course and measures `/dashboard/courses` and the page of that course. The course is the fixture course at `http://localhost:8799/duck-basics`, so the server needs `ALLOW_PRIVATE_COURSE_URLS=true`. Without it, the check skips the course page. Start `node scripts/fixture-server.mjs` and `npm run worker` to get a course with lessons.
+
 ## CI
 
 GitHub Actions runs two jobs on every push and PR to `main`, and on a manual run:
 
 - **ci** — lint, `astro check` and build. Configure `SUPABASE_URL` and `SUPABASE_KEY` as repository secrets for the build step.
-- **smoke** — starts a local Supabase via the Supabase CLI, runs the policy tests with `npx supabase test db`, builds, serves the production preview on the Cloudflare runtime and runs `npm run smoke` against it. No secrets required. The job installs Chromium and runs `npm run phone-check` against the same preview, before the smoke test.
+- **smoke** — starts a local Supabase via the Supabase CLI, runs the policy tests with `npx supabase test db`, builds, serves the production preview on the Cloudflare runtime and runs `npm run smoke` against it. No secrets required. The job installs Chromium and runs `npm run phone-check` against the same preview, before the smoke test. It also runs the unit tests, builds the extension, and starts the fixture course site before the worker. It sets `ALLOW_PRIVATE_COURSE_URLS=true` and `SMOKE_COURSES=1`, so the smoke test loads the fixture course and calls the extension routes. The job sets no `ANTHROPIC_API_KEY`. The log shows the worker log and the requests to the fixture site at the end.
 
 <!-- BEGIN sample-resource -->
 

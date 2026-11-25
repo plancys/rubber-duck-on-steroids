@@ -1,0 +1,3 @@
+# The fixture course site of the CI smoke test. It allows automated reads of everything except /private/.
+User-agent: *
+Disallow: /private/
