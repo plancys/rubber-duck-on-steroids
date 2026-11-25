@@ -53,6 +53,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // The learner has a course for this URL. Load it again, and keep the course.
+    // reload_course sets the course loading and inserts the job in one transaction.
     const existing = await supabase.from("courses").select("id").eq("source_url", checked.url).maybeSingle();
     if (existing.error || !existing.data) {
       return context.redirect("/dashboard/courses?error=unknown");

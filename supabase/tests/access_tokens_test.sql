@@ -7,7 +7,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(45);
+select plan(53);
 
 -- Create two users as the superuser.
 insert into auth.users (id, email)
@@ -226,7 +226,8 @@ reset role;
 select results_eq(
   $$ select user_id, source_url, title, source_kind, status
      from public.courses
-     where source_url like 'https://learn.example.com/%' $$,
+     where source_url like 'https://learn.example.com/%'
+       and user_id = '11111111-1111-1111-1111-111111111111' $$,
   $$ values ('11111111-1111-1111-1111-111111111111'::uuid, 'https://learn.example.com/course'::text,
              'Course'::text, 'extension'::text, 'ready'::text) $$,
   'extension_start_course creates a ready extension course of the token owner with a normalized URL'
@@ -276,6 +277,21 @@ select throws_ok(
   '28000',
   'invalid token',
   'extension_start_course refuses a missing token'
+);
+
+-- The extension functions hold the limits of the routes: a URL of at most 2048 characters, a title of at most 300.
+select throws_ok(
+  $$ select public.extension_start_course('abc', 'https://learn.example.com/' || repeat('a', 2048), 'Course') $$,
+  '23514',
+  null,
+  'extension_start_course rejects a URL that is longer than 2048 characters'
+);
+
+select throws_ok(
+  $$ select public.extension_start_course('abc', 'https://learn.example.com/other', repeat('t', 301)) $$,
+  '23514',
+  null,
+  'extension_start_course rejects a title that is longer than 300 characters'
 );
 
 -- The pages go to the next position, in the order of the saves.
@@ -366,7 +382,46 @@ select throws_ok(
   'extension_save_page rejects a page URL that is not http or https'
 );
 
--- A crawl course that a site blocked becomes an extension course. A crawl course that loads stays as it is.
+select throws_ok(
+  $$ select public.extension_save_page('abc', current_setting('test.course_id')::uuid,
+       'https://learn.example.com/course/' || repeat('a', 2048), 'Long', '# Long') $$,
+  '23514',
+  null,
+  'extension_save_page rejects a page URL that is longer than 2048 characters'
+);
+
+select throws_ok(
+  $$ select public.extension_save_page('abc', current_setting('test.course_id')::uuid,
+       'https://learn.example.com/course/long-title', repeat('t', 301), '# Long title') $$,
+  '23514',
+  null,
+  'extension_save_page rejects a title that is longer than 300 characters'
+);
+
+-- A course holds at most 500 lessons. The course has 2 lessons. Fill it to 500.
+reset role;
+insert into public.lessons (course_id, user_id, position, title, url, markdown, status)
+select current_setting('test.course_id')::uuid, '11111111-1111-1111-1111-111111111111', n, 'Page ' || n,
+       'https://learn.example.com/course/page-' || n, '# Page', 'loaded'
+from generate_series(3, 500) as n;
+set local role anon;
+
+select throws_ok(
+  $$ select public.extension_save_page('abc', current_setting('test.course_id')::uuid,
+       'https://learn.example.com/course/page-501', 'Page 501', '# Page 501') $$,
+  'RD003',
+  null,
+  'extension_save_page refuses a new page in a course with 500 lessons'
+);
+
+select is(
+  public.extension_save_page('abc', current_setting('test.course_id')::uuid,
+    'https://learn.example.com/course/two', 'Two again', '# Two again'),
+  2,
+  'extension_save_page still replaces a page in a course with 500 lessons'
+);
+
+-- A crawl course that a site blocked becomes an extension course. A crawl course that loads or is ready stays as it is.
 select is(
   public.extension_start_course('abc', 'https://blocked.example.com/course/', 'Blocked course'),
   'cccccccc-0000-0000-0000-000000000002'::uuid,
@@ -390,6 +445,21 @@ select throws_ok(
   '55006',
   null,
   'extension_start_course refuses a crawl course that loads'
+);
+
+select throws_ok(
+  $$ select public.extension_start_course('abc', 'https://example.com/course', 'Crawl course') $$,
+  'RD002',
+  null,
+  'extension_start_course refuses a crawl course that is ready'
+);
+
+reset role;
+
+select results_eq(
+  $$ select source_kind, status from public.courses where id = 'cccccccc-0000-0000-0000-000000000001' $$,
+  $$ values ('crawl'::text, 'ready'::text) $$,
+  'a ready crawl course stays a crawl course'
 );
 
 -- Only the web app roles call the extension functions.

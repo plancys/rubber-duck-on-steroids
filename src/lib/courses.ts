@@ -8,6 +8,8 @@ type Client = NonNullable<ReturnType<typeof createClient>>;
 
 // The Postgres code of a unique violation. The index jobs_one_in_progress_per_user_idx allows one job in progress.
 const UNIQUE_VIOLATION = "23505";
+// The code of the load_course job trigger: the learner started 10 course loads in the last hour.
+const LOAD_QUOTA_EXCEEDED = "RD001";
 
 /** A longer URL is not a course start page. The limit also keeps the URL far under the payload limit of a job. */
 export const COURSE_URL_MAX_LENGTH = 2048;
@@ -15,7 +17,7 @@ export const COURSE_URL_MAX_LENGTH = 2048;
 export type CourseUrlErrorKey = "url_required" | "url_invalid" | "url_not_http" | "url_credentials" | "url_private";
 
 export type CourseErrorKey =
-  CourseUrlErrorKey | "job_active" | "extension_course" | "not_found" | "not_configured" | "unknown";
+  CourseUrlErrorKey | "job_active" | "too_many_loads" | "extension_course" | "not_found" | "not_configured" | "unknown";
 
 const COURSE_ERROR_TEXTS: Record<CourseErrorKey, string> = {
   url_required: "Enter the URL of the course start page.",
@@ -24,6 +26,7 @@ const COURSE_ERROR_TEXTS: Record<CourseErrorKey, string> = {
   url_credentials: "Remove the user name and the password from the URL.",
   url_private: "This address is not public. Use the URL of a public site.",
   job_active: "You already have a job in progress. Wait until it ends.",
+  too_many_loads: "You can start at most 10 course loads in one hour. Try again later.",
   extension_course: "This course comes from the browser extension. Use the extension to add pages.",
   not_found: "This course does not exist or you cannot open it.",
   not_configured: "Courses are not available right now.",
@@ -201,6 +204,13 @@ export async function hasJobInProgress(supabase: Client): Promise<boolean | null
   return data.length > 0;
 }
 
+/** The error key of a failed load_course job insert: a job in progress, the load quota, or an unknown error. */
+function loadJobErrorKey(code: string): CourseErrorKey {
+  if (code === UNIQUE_VIOLATION) return "job_active";
+  if (code === LOAD_QUOTA_EXCEEDED) return "too_many_loads";
+  return "unknown";
+}
+
 /** Creates the load_course job of a course. The database accepts it only for a crawl course of the learner. */
 export async function insertLoadJob(supabase: Client, courseId: string): Promise<CourseLoadOutcome> {
   const { data, error } = await supabase
@@ -209,20 +219,22 @@ export async function insertLoadJob(supabase: Client, courseId: string): Promise
     .select("id")
     .single();
   if (error) {
-    return { kind: "error", error: error.code === UNIQUE_VIOLATION ? "job_active" : "unknown" };
+    return { kind: "error", error: loadJobErrorKey(error.code) };
   }
   return { kind: "started", jobId: data.id };
 }
 
 /**
- * Loads an existing course of the learner again: reload_course sets it to loading, then a new job starts.
+ * Loads an existing course of the learner again. reload_course sets the course to loading and inserts the job
+ * in one transaction, and gives the job id. When the job insert fails, the course keeps its old state.
  * reload_course refuses a course of another learner, an extension course and a course that loads now.
  * Then no job starts, and the outcome names the reason.
  */
 export async function reloadCourse(supabase: Client, courseId: string): Promise<CourseLoadOutcome> {
-  const { data: changed, error } = await supabase.rpc("reload_course", { course_id: courseId });
-  if (error) return { kind: "error", error: "unknown" };
-  if (changed) return insertLoadJob(supabase, courseId);
+  const { data: jobId, error } = await supabase.rpc("reload_course", { course_id: courseId });
+  if (error) return { kind: "error", error: loadJobErrorKey(error.code) };
+  // The generated type says string, but the function gives null when the course does not change.
+  if (typeof jobId === "string") return { kind: "started", jobId };
 
   // RLS returns no row for a course of another learner, so it gives the same answer as a missing course.
   const { data: course, error: readError } = await supabase

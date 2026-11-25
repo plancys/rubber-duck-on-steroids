@@ -2,7 +2,6 @@ import type { APIRoute } from "astro";
 import { COURSE_URL_MAX_LENGTH, isCourseId } from "@/lib/courses";
 import {
   bearerToken,
-  cleanTitle,
   createAnonClient,
   extensionDatabaseError,
   extensionError,
@@ -10,6 +9,7 @@ import {
   extensionOrigin,
   preflightResponse,
   readJsonBody,
+  titleOrUrl,
 } from "@/lib/extension-api";
 import { isAuthRateLimited } from "@/lib/rate-limit";
 
@@ -69,7 +69,7 @@ export const POST: APIRoute = async ({ request }) => {
     token,
     course_id: courseId,
     url,
-    title: cleanTitle(body.title) ?? url,
+    title: titleOrUrl(body.title, url),
     markdown,
   });
   if (error) {

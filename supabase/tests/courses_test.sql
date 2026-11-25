@@ -7,7 +7,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(50);
+select plan(59);
 
 -- Create two users as the superuser.
 insert into auth.users (id, email)
@@ -275,9 +275,10 @@ select throws_ok(
 );
 
 -- reload_course works only for the owner of a crawl course, and not while the course loads.
+-- It sets the course loading and inserts the load_course job in one call, and returns the job id.
 select is(
   public.reload_course('cccccccc-0000-0000-0000-000000000001'),
-  false,
+  null::uuid,
   'reload_course does nothing for the course of a different learner'
 );
 
@@ -285,26 +286,93 @@ set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 
 select is(
   public.reload_course('cccccccc-0000-0000-0000-000000000003'),
-  false,
+  null::uuid,
   'reload_course does nothing for an extension course'
 );
 
-select is(
-  public.reload_course('cccccccc-0000-0000-0000-000000000001'),
-  true,
-  'reload_course returns true for the owner of a ready crawl course'
+-- The first learner has a job in progress: the load_course job above. The job insert fails, so the whole call fails.
+select throws_ok(
+  $$ select public.reload_course('cccccccc-0000-0000-0000-000000000001') $$,
+  '23505',
+  null,
+  'reload_course fails when the learner has a job in progress'
 );
 
 select results_eq(
-  $$ select status, error is null from public.courses where id = 'cccccccc-0000-0000-0000-000000000001' $$,
-  $$ values ('loading'::text, true) $$,
-  'reload_course sets the course loading and clears the error'
+  $$ select status from public.courses where id = 'cccccccc-0000-0000-0000-000000000001' $$,
+  $$ values ('ready'::text) $$,
+  'a reload_course that fails leaves the course in its old state'
+);
+
+reset role;
+delete from public.jobs where user_id = '11111111-1111-1111-1111-111111111111';
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+select isnt(
+  public.reload_course('cccccccc-0000-0000-0000-000000000001'),
+  null::uuid,
+  'reload_course returns a job id for the owner of a ready crawl course'
+);
+
+select results_eq(
+  $$ select c.status, c.error is null, j.type, j.status, j.user_id
+     from public.courses as c
+     join public.jobs as j on j.payload ->> 'courseId' = c.id::text
+     where c.id = 'cccccccc-0000-0000-0000-000000000001' $$,
+  $$ values ('loading'::text, true, 'load_course'::text, 'waiting'::text, '11111111-1111-1111-1111-111111111111'::uuid) $$,
+  'reload_course sets the course loading, clears the error and inserts the load_course job of the learner'
 );
 
 select is(
   public.reload_course('cccccccc-0000-0000-0000-000000000001'),
-  false,
+  null::uuid,
   'reload_course does nothing while the course loads'
+);
+
+-- A learner starts at most 10 course loads in one hour. The second learner has 10 load jobs from the last hour.
+reset role;
+insert into public.jobs (user_id, type, payload, status, created_at)
+select '22222222-2222-2222-2222-222222222222', 'load_course',
+       '{"courseId": "cccccccc-0000-0000-0000-000000000002"}', 'done', now() - interval '30 minutes'
+from generate_series(1, 10);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+
+select throws_ok(
+  $$ insert into public.jobs (type, payload)
+     values ('load_course', '{"courseId": "cccccccc-0000-0000-0000-000000000002"}') $$,
+  'RD001',
+  null,
+  'a learner cannot start an eleventh course load in one hour'
+);
+
+select throws_ok(
+  $$ select public.reload_course('cccccccc-0000-0000-0000-000000000002') $$,
+  'RD001',
+  null,
+  'reload_course fails above the load quota'
+);
+
+select results_eq(
+  $$ select status from public.courses where id = 'cccccccc-0000-0000-0000-000000000002' $$,
+  $$ values ('ready'::text) $$,
+  'a reload above the load quota leaves the course in its old state'
+);
+
+reset role;
+update public.jobs
+set created_at = now() - interval '61 minutes'
+where user_id = '22222222-2222-2222-2222-222222222222';
+
+set local role authenticated;
+set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+
+select lives_ok(
+  $$ insert into public.jobs (type, payload)
+     values ('load_course', '{"courseId": "cccccccc-0000-0000-0000-000000000002"}') $$,
+  'a load job that is older than one hour does not count toward the load quota'
 );
 
 -- The worker functions.
@@ -385,6 +453,37 @@ select is(
   public.finish_course_load('cccccccc-0000-0000-0000-000000000001', 'Later title', '[]'),
   false,
   'finish_course_load returns false for a course that does not load'
+);
+
+-- A reload keeps the old text of a lesson that loaded before and fails now. The order comes from the new crawl.
+select results_eq(
+  $$ select status from public.start_course_load('cccccccc-0000-0000-0000-000000000001') $$,
+  $$ values ('loading'::text) $$,
+  'start_course_load sets a ready course loading for a reload'
+);
+
+select ok(
+  public.finish_course_load('cccccccc-0000-0000-0000-000000000001', 'New title',
+    '[{"position": 1, "title": "Two", "url": "https://example.com/course/two", "markdown": "# Two new",
+       "status": "loaded", "error": null},
+      {"position": 2, "title": "One link", "url": "https://example.com/course/one", "markdown": null,
+       "status": "failed", "error": "The page answered with status 503."},
+      {"position": 3, "title": "Three", "url": "https://example.com/course/three", "markdown": null,
+       "status": "failed", "error": "The page answered 404."}]'),
+  'finish_course_load returns true for a reload'
+);
+
+select results_eq(
+  $$ select position, title, url, markdown, status, error
+     from public.lessons
+     where course_id = 'cccccccc-0000-0000-0000-000000000001'
+     order by position $$,
+  $$ values
+       (1, 'Two'::text, 'https://example.com/course/two'::text, '# Two new'::text, 'loaded'::text, null::text),
+       (2, 'One'::text, 'https://example.com/course/one'::text, '# One'::text, 'loaded'::text, null::text),
+       (3, 'Three'::text, 'https://example.com/course/three'::text, null::text, 'failed'::text,
+        'The page answered 404.'::text) $$,
+  'finish_course_load keeps the old text of a lesson that loaded before and fails in the reload'
 );
 
 -- fail_course_load keeps the lessons of the last load.

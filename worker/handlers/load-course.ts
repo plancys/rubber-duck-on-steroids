@@ -3,7 +3,7 @@
 // The URL comes from the course row, so the payload holds no URL.
 
 import { BLOCKED_REASON, readLessons, readStartPage, type PageLog } from "../courses/crawl.ts";
-import type { Fetch } from "../courses/http.ts";
+import type { HttpClientOptions } from "../courses/http.ts";
 import { findLessons } from "../courses/find-lessons.ts";
 import type { LessonPicker } from "../llm.ts";
 import type { CourseStore, Json } from "../queue.ts";
@@ -14,6 +14,7 @@ export const START_FAILED_REASON = "The start page could not be read.";
 export const NO_LESSONS_REASON = "The start page has no lesson links.";
 export const NO_LESSON_LOADED_REASON = "No lesson page could be read.";
 export const COURSE_FAILED_REASON = "The course did not load.";
+export const ADDRESS_REJECTED_REASON = "The address of this course is not allowed.";
 
 export const READ_START_LABEL = "Reading the start page";
 export const FIND_LESSONS_LABEL = "Finding the lessons";
@@ -36,13 +37,13 @@ export type CourseLog =
       error?: string;
     };
 
-export interface LoadCourseOptions {
+// The fetch, the DNS lookup and the address setting of the crawl. The unit tests give a fake fetch and a fake lookup.
+// allowPrivateAddresses comes from ALLOW_PRIVATE_COURSE_URLS. Production never sets it.
+export interface LoadCourseOptions extends HttpClientOptions {
   courses: CourseStore;
   // The model picker, or null without ANTHROPIC_API_KEY.
   picker: LessonPicker | null;
   log: (line: CourseLog) => void;
-  // The fetch of the crawl. The unit tests give a fake fetch.
-  fetch?: Fetch;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -99,6 +100,8 @@ export function createLoadCourse(options: LoadCourseOptions): Handler {
     const crawl = {
       signal,
       fetch: options.fetch,
+      lookup: options.lookup,
+      allowPrivateAddresses: options.allowPrivateAddresses,
       log: (line: PageLog) => {
         options.log({ ...line, ...ids });
       },
@@ -108,6 +111,8 @@ export function createLoadCourse(options: LoadCourseOptions): Handler {
       await step(1, 2, READ_START_LABEL);
       const start = await readStartPage(course.source_url, crawl);
       if (start.kind === "blocked") return await fail(BLOCKED_REASON, false);
+      // The address stays private on each start, so the job gets no new start.
+      if (start.kind === "rejected") return await fail(ADDRESS_REJECTED_REASON, false);
       if (start.kind === "failed") return await fail(START_FAILED_REASON, startCanChange(start.status));
 
       await step(2, 2, FIND_LESSONS_LABEL);

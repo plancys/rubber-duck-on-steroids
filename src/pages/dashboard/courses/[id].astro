@@ -42,12 +42,14 @@ if (!supabase) {
   } else {
     course = courseResult.data;
     // The lesson text stays in the database. This page shows the list only.
+    // A course holds at most 500 lessons. The limit keeps the read small, also for a course that breaks that rule.
     const [lessonResult, jobResult] = await Promise.all([
       supabase
         .from("lessons")
         .select("id, position, title, url, status, error")
         .eq("course_id", id)
-        .order("position", { ascending: true }),
+        .order("position", { ascending: true })
+        .limit(500),
       // The newest load job of the course. A course from the extension has no load job.
       supabase
         .from("jobs")

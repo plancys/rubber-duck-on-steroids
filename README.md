@@ -507,7 +507,7 @@ The worker loads a course in the `load_course` job. Without `ANTHROPIC_API_KEY`,
 node scripts/fixture-server.mjs
 ```
 
-3. Start the worker with `npm run worker`. To let the model pick the lessons, set the key only in the env of that command: `ANTHROPIC_API_KEY=<key> npm run worker`. Never write the key to a file.
+3. Start the worker with `ALLOW_PRIVATE_COURSE_URLS=true npm run worker`. The worker reads only public addresses. This value lets it read the fixture site on `localhost`. Use it only on your machine and in CI. Production never sets it. To let the model pick the lessons, set the key only in the env of that command: `ALLOW_PRIVATE_COURSE_URLS=true ANTHROPIC_API_KEY=<key> npm run worker`. Never write the key to a file.
 4. Sign in, open `http://localhost:4321/dashboard/courses`, and load `http://localhost:8799/duck-basics`.
 5. Read the course page. It shows 3 lessons: 2 loaded, and 1 marked "Could not load", because the fixture site answers 404 for it.
 
@@ -714,7 +714,7 @@ The password reset steps read the reset email from Mailpit. Local Supabase start
 
 1. `ALLOW_PRIVATE_COURSE_URLS=true` in `.dev.vars`, before the build or `npm run dev`.
 2. The fixture course site: `node scripts/fixture-server.mjs`.
-3. The worker without `ANTHROPIC_API_KEY`: `npm run worker`. The steps expect the lessons of the rule.
+3. The worker without `ANTHROPIC_API_KEY`: `ALLOW_PRIVATE_COURSE_URLS=true npm run worker`. The steps expect the lessons of the rule.
 4. The smoke test: `SMOKE_COURSES=1 BASE_URL=http://localhost:4321 npm run smoke`.
 
 > **Note:** this script exists primarily to guard the development of the starter itself — it is a fast sanity check that dependency upgrades did not break the build, the Cloudflare adapter or the Supabase auth flow. It is **not** a substitute for a real test suite. Once you build your own product on top of this starter, add proper tests (unit, integration, end-to-end) suited to your application.
@@ -743,14 +743,14 @@ The check applies five rules to each page:
 
 The output has one line per page and viewport, with the element and the measured value on a failure. The check skips a page that answers 404.
 
-The check also loads one course and measures `/dashboard/courses` and the page of that course. The course is the fixture course at `http://localhost:8799/duck-basics`, so the server needs `ALLOW_PRIVATE_COURSE_URLS=true`. Without it, the check skips the course page. Start `node scripts/fixture-server.mjs` and `npm run worker` to get a course with lessons.
+The check also loads one course and measures `/dashboard/courses` and the page of that course. The course is the fixture course at `http://localhost:8799/duck-basics`, so the server needs `ALLOW_PRIVATE_COURSE_URLS=true`. Without it, the check skips the course page. Start `node scripts/fixture-server.mjs` and `ALLOW_PRIVATE_COURSE_URLS=true npm run worker` to get a course with lessons.
 
 ## CI
 
 GitHub Actions runs two jobs on every push and PR to `main`, and on a manual run:
 
 - **ci** — lint, `astro check` and build. Configure `SUPABASE_URL` and `SUPABASE_KEY` as repository secrets for the build step.
-- **smoke** — starts a local Supabase via the Supabase CLI, runs the policy tests with `npx supabase test db`, builds, serves the production preview on the Cloudflare runtime and runs `npm run smoke` against it. No secrets required. The job installs Chromium and runs `npm run phone-check` against the same preview, before the smoke test. It also runs the unit tests, builds the extension, and starts the fixture course site before the worker. It sets `ALLOW_PRIVATE_COURSE_URLS=true` and `SMOKE_COURSES=1`, so the smoke test loads the fixture course and calls the extension routes. The job sets no `ANTHROPIC_API_KEY`. The log shows the worker log and the requests to the fixture site at the end.
+- **smoke** — starts a local Supabase via the Supabase CLI, runs the policy tests with `npx supabase test db`, builds, serves the production preview on the Cloudflare runtime and runs `npm run smoke` against it. No secrets required. The job installs Chromium and runs `npm run phone-check` against the same preview, before the smoke test. It also runs the unit tests, builds the extension, and starts the fixture course site before the worker. It sets `ALLOW_PRIVATE_COURSE_URLS=true` for the app and for the worker, and `SMOKE_COURSES=1`, so the smoke test loads the fixture course and calls the extension routes. The job sets no `ANTHROPIC_API_KEY`. The log shows the worker log and the requests to the fixture site at the end.
 
 <!-- BEGIN sample-resource -->
 

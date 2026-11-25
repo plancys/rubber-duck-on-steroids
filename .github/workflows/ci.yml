@@ -114,8 +114,12 @@ jobs:
           curl -sf -o /dev/null http://localhost:8799/robots.txt || { echo "fixture site did not start"; cat "$RUNNER_TEMP/fixture.log"; exit 1; }
       # The worker reads the local Supabase values into memory and never prints the key.
       # The job sets no ANTHROPIC_API_KEY, so the lesson finder uses its rule and the course steps need no model call.
+      # ALLOW_PRIVATE_COURSE_URLS turns off the address check of the crawl, so the worker reads the fixture site on localhost.
+      # The deploy-worker job does not set it.
       # Its output goes to a file, so the step does not hold the output stream open. The last step shows the file.
       - name: Start the worker
+        env:
+          ALLOW_PRIVATE_COURSE_URLS: "true"
         run: |
           nohup npm run worker > "$RUNNER_TEMP/worker.log" 2>&1 < /dev/null &
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8788/health && break; sleep 1; done

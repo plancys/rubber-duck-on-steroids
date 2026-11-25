@@ -3,7 +3,6 @@ import { ALLOW_PRIVATE_COURSE_URLS } from "astro:env/server";
 import { normalizeCourseUrl } from "@/lib/courses";
 import {
   bearerToken,
-  cleanTitle,
   createAnonClient,
   extensionDatabaseError,
   extensionError,
@@ -11,6 +10,7 @@ import {
   extensionOrigin,
   preflightResponse,
   readJsonBody,
+  titleOrUrl,
 } from "@/lib/extension-api";
 import { isAuthRateLimited } from "@/lib/rate-limit";
 
@@ -55,7 +55,7 @@ export const POST: APIRoute = async ({ request }) => {
   const { data: courseId, error } = await supabase.rpc("extension_start_course", {
     token,
     source_url: checked.url,
-    title: cleanTitle(body.title) ?? checked.url,
+    title: titleOrUrl(body.title, checked.url),
   });
   if (error) {
     const mapped = extensionDatabaseError(error);

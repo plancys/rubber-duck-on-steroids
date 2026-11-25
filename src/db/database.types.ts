@@ -281,7 +281,7 @@ export type Database = {
         Returns: boolean;
       };
       release_job: { Args: { job_id: string; lease: string }; Returns: boolean };
-      reload_course: { Args: { course_id: string }; Returns: boolean };
+      reload_course: { Args: { course_id: string }; Returns: string };
       retry_job: { Args: { job_id: string }; Returns: boolean };
       revoke_access_token: { Args: { id: string }; Returns: boolean };
       start_course_load: {

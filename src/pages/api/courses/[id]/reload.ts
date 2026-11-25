@@ -21,6 +21,8 @@ export const POST: APIRoute = async (context) => {
   }
 
   // A course in "loading" without a job stays in that state. So check for a job in progress before the course changes.
+  // reload_course checks it again in one transaction with the job insert, so a job that starts after this check
+  // leaves the course in its old state.
   const busy = await hasJobInProgress(supabase);
   if (busy === null) {
     return context.redirect(`/dashboard/courses/${id}?error=unknown`);

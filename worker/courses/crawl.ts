@@ -16,7 +16,7 @@ import {
 import { RobotsTxtFile } from "@crawlee/utils";
 import { JSDOM } from "jsdom";
 import type { LessonRow } from "../queue.ts";
-import { createHttpClient, ROBOTS_AGENT, type Fetch } from "./http.ts";
+import { AddressNotAllowedError, createHttpClient, ROBOTS_AGENT, type HttpClientOptions } from "./http.ts";
 import { cleanText, pageToMarkdown } from "./markdown.ts";
 
 // Crawlee writes text logs, and an error text can hold a part of a page. The worker writes its own JSON lines.
@@ -29,6 +29,8 @@ export const NOT_HTML_REASON = "The page is not an HTML page.";
 export const EMPTY_REASON = "The page has no readable text.";
 export const TOO_LARGE_REASON = "The page text is larger than 1 MB.";
 export const ROBOTS_REASON = "robots.txt does not allow this page.";
+export const ROBOTS_NO_ANSWER_REASON = "robots.txt did not answer.";
+export const ADDRESS_REASON = "The address of this page is not allowed.";
 
 // The size limit of the markdown column of the lessons table.
 export const MAX_MARKDOWN_BYTES = 1_048_576;
@@ -46,6 +48,8 @@ const BLOCKED_STATUS = new Set([401, 403, 429]);
 const HTML_TYPES = new Set(["text/html", "application/xhtml+xml"]);
 // robots.txt rules for a site whose robots.txt cannot be read (RFC 9309: an unreachable file disallows all).
 const DISALLOW_ALL = "User-agent: *\nDisallow: /\n";
+// A 5xx answer of robots.txt is an outage, not a rule of the site.
+const ROBOTS_SERVER_ERROR = 500;
 
 export interface Link {
   url: string;
@@ -69,6 +73,9 @@ export type StartResult =
   | { kind: "page"; page: StartPage }
   // The site answers 401, 403 or 429, or robots.txt disallows the start page.
   | { kind: "blocked"; status?: number }
+  // The host or a redirect has an address that the crawl must not read.
+  | { kind: "rejected" }
+  // No status: no answer, for example a network error, a timeout, or no answer from robots.txt.
   | { kind: "failed"; status?: number };
 
 export type Lesson = LessonRow;
@@ -82,11 +89,10 @@ export interface PageLog {
   reason?: string;
 }
 
-export interface CrawlOptions {
+// The fetch, the DNS lookup and the address setting of the HTTP client (see http.ts).
+export interface CrawlOptions extends HttpClientOptions {
   signal: AbortSignal;
   log: (line: PageLog) => void;
-  // The fetch of Node. The unit tests give a fake fetch.
-  fetch?: Fetch;
 }
 
 export interface LessonOptions extends CrawlOptions {
@@ -94,16 +100,16 @@ export interface LessonOptions extends CrawlOptions {
   onPage?: (done: number) => Promise<void>;
 }
 
-// The URL without the fragment and without a trailing slash of the path. Two links with the same key show the same page.
+// The URL without the fragment and without a trailing slash, the same form as the extension sends.
+// Two links with the same key show the same page, and a lesson keeps the same URL from the crawl and from the extension.
 function pageKey(url: URL): string {
   const copy = new URL(url);
   copy.hash = "";
-  if (copy.pathname.length > 1) copy.pathname = copy.pathname.replace(/\/+$/, "");
-  return copy.toString();
+  return copy.href.replace(/\/+$/, "");
 }
 
-// Make each link absolute, keep only http and https links to the same site, remove the fragment and the duplicates.
-// The order stays the page order. A link to the page itself goes.
+// Make each link absolute, keep only http and https links to the same site, remove the fragment, the trailing slash
+// and the duplicates. The order stays the page order. A link to the page itself goes.
 export function normalizeLinks(anchors: readonly Anchor[], pageUrl: string): Link[] {
   const page = new URL(pageUrl);
   const seen = new Set([pageKey(page)]);
@@ -118,11 +124,10 @@ export function normalizeLinks(anchors: readonly Anchor[], pageUrl: string): Lin
     }
     if (url.protocol !== "http:" && url.protocol !== "https:") continue;
     if (url.origin !== page.origin) continue;
-    url.hash = "";
     const key = pageKey(url);
     if (seen.has(key)) continue;
     seen.add(key);
-    links.push({ url: url.toString(), text: cleanText(anchor.text, MAX_LINK_TEXT) ?? "" });
+    links.push({ url: key, text: cleanText(anchor.text, MAX_LINK_TEXT) ?? "" });
     if (links.length >= MAX_LINKS) break;
   }
   return links;
@@ -146,36 +151,55 @@ export function readStartDocument(document: Document, pageUrl: string): StartPag
   return { url: pageUrl, title, links: normalizeLinks(anchors, pageUrl) };
 }
 
-// Read robots.txt with the honest client. A 4xx answer allows all. A 5xx answer or no answer disallows all.
-export async function loadRobotsTxt(pageUrl: string, fetchPage?: Fetch): Promise<RobotsTxtFile> {
+// The robots.txt of a site. no_answer: a network error, a timeout or a 5xx answer. rejected: a private address.
+export type RobotsResult = { kind: "file"; file: RobotsTxtFile } | { kind: "no_answer" } | { kind: "rejected" };
+
+// Read robots.txt with the honest client. A 2xx answer gives the rules. A 4xx answer allows all.
+export async function loadRobotsTxt(pageUrl: string, http: HttpClientOptions = {}): Promise<RobotsResult> {
   const url = new URL("/robots.txt", pageUrl).toString();
   try {
-    const response = await createHttpClient(fetchPage).sendRequest({
+    const response = await createHttpClient(http).sendRequest({
       url,
       timeout: { request: PAGE_TIMEOUT_SECS * 1_000 },
     });
-    if (response.statusCode >= 200 && response.statusCode < 300) return RobotsTxtFile.from(url, response.body);
-    if (response.statusCode >= 400 && response.statusCode < 500) return RobotsTxtFile.from(url, "");
-  } catch {
-    // No answer. The crawl reads nothing from the site.
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return { kind: "file", file: RobotsTxtFile.from(url, response.body) };
+    }
+    if (response.statusCode >= 400 && response.statusCode < ROBOTS_SERVER_ERROR) {
+      return { kind: "file", file: RobotsTxtFile.from(url, "") };
+    }
+  } catch (error) {
+    if (error instanceof AddressNotAllowedError) return { kind: "rejected" };
   }
-  return RobotsTxtFile.from(url, DISALLOW_ALL);
+  return { kind: "no_answer" };
 }
 
 // Crawlee reads robots.txt with its default client, which sends browser-like headers. This crawler reads it with the
 // honest client instead. Crawlee still decides with respectRobotsTxtFile which page it may read.
+// A robots.txt that does not answer, or that has a private address, disallows the whole site (RFC 9309).
+// The crawler keeps the cause, so a skipped page gets the true reason, not "blocked".
 class CourseCrawler extends HttpCrawler<HttpCrawlingContext> {
   readonly robotsFiles = new Map<string, Promise<RobotsTxtFile>>();
-  fetchPage: Fetch | undefined;
+  readonly robotsProblems = new Map<string, "no_answer" | "rejected">();
+  http: HttpClientOptions = {};
 
   protected override getRobotsTxtFileForUrl(url: string): Promise<RobotsTxtFile | undefined> {
     const origin = new URL(url).origin;
     let file = this.robotsFiles.get(origin);
     if (!file) {
-      file = loadRobotsTxt(url, this.fetchPage);
+      file = loadRobotsTxt(url, this.http).then((robots) => {
+        if (robots.kind === "file") return robots.file;
+        this.robotsProblems.set(origin, robots.kind);
+        return RobotsTxtFile.from(new URL("/robots.txt", url).toString(), DISALLOW_ALL);
+      });
       this.robotsFiles.set(origin, file);
     }
     return file;
+  }
+
+  // The cause of a robots.txt skip: no_answer, rejected, or undefined when the rules of the site disallow the page.
+  robotsProblem(url: string): "no_answer" | "rejected" | undefined {
+    return this.robotsProblems.get(new URL(url).origin);
   }
 }
 
@@ -184,11 +208,17 @@ type CrawlerHandlers = Pick<
   "requestHandler" | "failedRequestHandler" | "onSkippedRequest"
 >;
 
-function createCrawler(fetchPage: Fetch | undefined, handlers: CrawlerHandlers): CourseCrawler {
+// The options of the HTTP client from the crawl options.
+function httpOptions(options: CrawlOptions): HttpClientOptions {
+  return { fetch: options.fetch, lookup: options.lookup, allowPrivateAddresses: options.allowPrivateAddresses };
+}
+
+function createCrawler(options: CrawlOptions, handlers: CrawlerHandlers): CourseCrawler {
+  const http = httpOptions(options);
   const crawler = new CourseCrawler(
     {
       ...handlers,
-      httpClient: createHttpClient(fetchPage),
+      httpClient: createHttpClient(http),
       respectRobotsTxtFile: { userAgent: ROBOTS_AGENT },
       maxConcurrency: 2,
       maxRequestsPerCrawl: MAX_REQUESTS,
@@ -206,7 +236,7 @@ function createCrawler(fetchPage: Fetch | undefined, handlers: CrawlerHandlers):
     // Each crawl has its own storage in memory. Nothing goes to the disk.
     new Configuration({ persistStorage: false }),
   );
-  crawler.fetchPage = fetchPage;
+  crawler.http = http;
   return crawler;
 }
 
@@ -255,7 +285,7 @@ export async function readStartPage(url: string, options: CrawlOptions): Promise
   const { log } = options;
   const state: { result: StartResult } = { result: { kind: "failed" } };
 
-  const crawler = createCrawler(options.fetch, {
+  const crawler: CourseCrawler = createCrawler(options, {
     requestHandler: (context) => {
       const status = statusOf(context);
       if (BLOCKED_STATUS.has(status)) {
@@ -278,14 +308,29 @@ export async function readStartPage(url: string, options: CrawlOptions): Promise
       }
       log({ event: "page", url, result: "loaded", status });
     },
-    failedRequestHandler: () => {
+    failedRequestHandler: (_context, error) => {
+      if (error instanceof AddressNotAllowedError) {
+        state.result = { kind: "rejected" };
+        log({ event: "page", url, result: "failed", reason: ADDRESS_REASON });
+        return;
+      }
       state.result = { kind: "failed" };
       log({ event: "page", url, result: "failed", reason: READ_FAILED_REASON });
     },
     onSkippedRequest: ({ reason }) => {
       if (reason !== "robotsTxt") return;
-      state.result = { kind: "blocked" };
-      log({ event: "page", url, result: "skipped_by_robots", reason: ROBOTS_REASON });
+      const problem = crawler.robotsProblem(url);
+      if (problem === "rejected") {
+        state.result = { kind: "rejected" };
+        log({ event: "page", url, result: "failed", reason: ADDRESS_REASON });
+      } else if (problem === "no_answer") {
+        // An outage of robots.txt can end soon. The start page fails as a network error, so the job gets a new start.
+        state.result = { kind: "failed" };
+        log({ event: "page", url, result: "failed", reason: ROBOTS_NO_ANSWER_REASON });
+      } else {
+        state.result = { kind: "blocked" };
+        log({ event: "page", url, result: "skipped_by_robots", reason: ROBOTS_REASON });
+      }
     },
   });
 
@@ -347,7 +392,7 @@ export async function readLessons(links: readonly Link[], options: LessonOptions
     await finish(lesson, { result, reason, status });
   }
 
-  const crawler = createCrawler(options.fetch, {
+  const crawler: CourseCrawler = createCrawler(options, {
     requestHandler: async (context) => {
       const lesson = byUrl.get(context.request.uniqueKey);
       if (!lesson) return;
@@ -363,15 +408,22 @@ export async function readLessons(links: readonly Link[], options: LessonOptions
       lesson.title = lessonTitle(linkText.get(lesson.url) ?? "", page.title);
       await finish(lesson, { result: "loaded", status });
     },
-    failedRequestHandler: async ({ request }) => {
+    failedRequestHandler: async ({ request }, error) => {
       const lesson = byUrl.get(request.uniqueKey);
-      if (lesson) await fail(lesson, READ_FAILED_REASON, "failed");
+      if (!lesson) return;
+      await fail(lesson, error instanceof AddressNotAllowedError ? ADDRESS_REASON : READ_FAILED_REASON, "failed");
     },
     onSkippedRequest: async ({ url, reason }) => {
       const lesson = byUrl.get(url);
       if (!lesson) return;
-      if (reason === "robotsTxt") await fail(lesson, ROBOTS_REASON, "skipped_by_robots");
-      else await fail(lesson, NOT_READ_REASON, "failed");
+      if (reason !== "robotsTxt") {
+        await fail(lesson, NOT_READ_REASON, "failed");
+        return;
+      }
+      const problem = crawler.robotsProblem(url);
+      if (problem === "rejected") await fail(lesson, ADDRESS_REASON, "failed");
+      else if (problem === "no_answer") await fail(lesson, ROBOTS_NO_ANSWER_REASON, "failed");
+      else await fail(lesson, ROBOTS_REASON, "skipped_by_robots");
     },
   });
 

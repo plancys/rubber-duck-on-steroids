@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(51);
+select plan(52);
 
 -- Create four users as the superuser.
 insert into auth.users (id, email)
@@ -463,6 +463,15 @@ select throws_ok(
   '23514',
   null,
   'a payload over 4096 bytes is rejected'
+);
+
+-- The course page and the load quota read the jobs of a learner by time.
+select has_index(
+  'public',
+  'jobs',
+  'jobs_user_created_idx',
+  array['user_id', 'created_at'],
+  'jobs has an index on the owner and the creation time'
 );
 
 select * from finish();

@@ -9,7 +9,7 @@ import type { Database } from "@/db/database.types";
 /** A body over 1 MB gets 413. The lessons table also limits the Markdown of a lesson to 1 MB. */
 export const EXTENSION_BODY_MAX_BYTES = 1048576;
 
-/** The longest title that the routes store. The worker uses the same limit. */
+/** The longest title that the routes store. The worker and the extension functions use the same limit. */
 const MAX_TITLE_LENGTH = 300;
 
 // A longer header is not a token of this app. The check saves a database call.
@@ -22,6 +22,8 @@ export type ExtensionErrorKey =
   | "too_large"
   | "invalid_request"
   | "course_loading"
+  | "crawl_course"
+  | "course_full"
   | "not_configured"
   | "unknown";
 
@@ -113,6 +115,11 @@ export function cleanTitle(value: unknown): string | null {
   return text ? text.slice(0, MAX_TITLE_LENGTH) : null;
 }
 
+/** The clean title, or the URL cut to 300 characters when the page has no title. The database refuses a longer title. */
+export function titleOrUrl(value: unknown, url: string): string {
+  return cleanTitle(value) ?? url.slice(0, MAX_TITLE_LENGTH);
+}
+
 /**
  * A Supabase client with the anon key and no session. The extension functions run as their owner
  * and take the token, so the routes need no session and no service key.
@@ -129,7 +136,9 @@ export function createAnonClient() {
 /**
  * Maps the error of an extension function to a status and a key. The answer never holds the database text.
  * 28000: an unknown or revoked token, or a course that is not an extension course of the token owner.
- * 55006: a crawl course for the URL loads now. 23514: a check of the lessons table, such as the 1 MB limit.
+ * 55006: a crawl course for the URL loads now. RD002: a crawl course for the URL is ready, so the learner reloads it
+ * in the product. RD003: the course has 500 lessons.
+ * 23514: a check, such as the 1 MB limit of the Markdown or the length limit of a URL or a title.
  */
 export function extensionDatabaseError(error: { code: string; message: string }): {
   status: number;
@@ -137,6 +146,8 @@ export function extensionDatabaseError(error: { code: string; message: string })
 } {
   if (error.code === "28000") return { status: 401, error: "invalid_token" };
   if (error.code === "55006") return { status: 409, error: "course_loading" };
+  if (error.code === "RD002") return { status: 409, error: "crawl_course" };
+  if (error.code === "RD003") return { status: 409, error: "course_full" };
   if (error.code === "23514") {
     return error.message.includes("lessons_markdown_size_check")
       ? { status: 413, error: "too_large" }

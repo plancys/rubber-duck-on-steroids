@@ -6,6 +6,7 @@ import type { Fetch } from "../courses/http.ts";
 import type { Course, CourseStore, Json, LessonRow } from "../queue.ts";
 import { SafeError } from "../run.ts";
 import {
+  ADDRESS_REJECTED_REASON,
   COURSE_FAILED_REASON,
   createLoadCourse,
   NO_COURSE_REASON,
@@ -92,11 +93,17 @@ function fakeSite(pages: Record<string, Page> = {}) {
   return { fetchPage, requested };
 }
 
+// A fake DNS lookup: docs.example has a public address, unless the test makes it private.
+function lookup(privateAddress: boolean) {
+  return () => Promise.resolve([privateAddress ? "192.168.1.10" : "93.184.216.34"]);
+}
+
 function run(options: {
   payload?: Json;
   store?: StoreSetup;
   site?: ReturnType<typeof fakeSite>;
   signal?: AbortSignal;
+  privateAddress?: boolean;
 }) {
   const { store, calls } = fakeStore(options.store);
   const site = options.site ?? fakeSite();
@@ -106,6 +113,7 @@ function run(options: {
     courses: store,
     picker: null,
     fetch: site.fetchPage,
+    lookup: lookup(options.privateAddress ?? false),
     log: (line) => {
       lines.push(line);
     },
@@ -189,6 +197,23 @@ test("a start page that robots.txt disallows fails the course with the extension
   await assert.rejects(result, safeError(BLOCKED_REASON, false));
   assert.deepEqual(calls.at(-1), { name: "failCourseLoad", args: [COURSE_ID, BLOCKED_REASON] });
   assert.deepEqual(site.requested, ["https://docs.example/robots.txt"]);
+});
+
+test("a start page on a private address fails the course with a safe reason, and the job gets no new start", async () => {
+  const { result, calls, site } = run({ privateAddress: true });
+  await assert.rejects(result, safeError(ADDRESS_REJECTED_REASON, false));
+  assert.deepEqual(calls.at(-1), { name: "failCourseLoad", args: [COURSE_ID, ADDRESS_REJECTED_REASON] });
+  assert.deepEqual(site.requested, []);
+});
+
+test("a robots.txt that does not answer fails the course as a network error, and the job gets a new start", async () => {
+  for (const robots of [{ status: 503, body: "Unavailable" }, { body: NETWORK_ERROR }]) {
+    const site = fakeSite({ "https://docs.example/robots.txt": robots });
+    const { result, calls } = run({ site });
+    await assert.rejects(result, safeError(START_FAILED_REASON, true));
+    assert.deepEqual(calls.at(-1), { name: "failCourseLoad", args: [COURSE_ID, START_FAILED_REASON] });
+    assert.deepEqual(site.requested, ["https://docs.example/robots.txt"]);
+  }
 });
 
 test("a start page that answers 404 fails the course, and the job gets no new start", async () => {

@@ -56,9 +56,16 @@ const database = { url: supabaseUrl, key: serviceKey };
 // Without ANTHROPIC_API_KEY the lesson finder uses its rule: the links under the path of the start page.
 const picker = createLessonPicker(process.env.ANTHROPIC_API_KEY);
 // The demo job runs only when WORKER_ALLOW_DEMO is "true". Production keeps it off unless a check needs it.
+// ALLOW_PRIVATE_COURSE_URLS "true" lets the crawl read a private address, such as the fixture site on localhost.
+// It is for a local run and CI only. Production never sets it.
 const handlers = createHandlers({
   allowDemo: process.env.WORKER_ALLOW_DEMO === "true",
-  loadCourse: { courses: createCourseStore(database), picker, log: writeLog },
+  loadCourse: {
+    courses: createCourseStore(database),
+    picker,
+    log: writeLog,
+    allowPrivateAddresses: process.env.ALLOW_PRIVATE_COURSE_URLS === "true",
+  },
 });
 
 const runner = createRunner({ queue: createQueue(database), handlers, log: writeLog });
@@ -92,7 +99,12 @@ server.on("error", (error) => {
 });
 
 server.listen(port, () => {
-  writeLog({ event: "listening", port, lessonFinder: picker ? "model" : "rule" });
+  writeLog({
+    event: "listening",
+    port,
+    lessonFinder: picker ? "model" : "rule",
+    privateCourseUrls: process.env.ALLOW_PRIVATE_COURSE_URLS === "true",
+  });
   // Look for jobs once at the start. A job can wait from a time when no worker ran.
   void runner.wake();
 });
