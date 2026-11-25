@@ -1,10 +1,10 @@
 ---
 change_id: load-course-from-url
 title: Load a course from its URL
-status: impl_reviewed
+status: archived
 created: 2026-11-24
 updated: 2026-11-25
-archived_at: null
+archived_at: 2026-11-25T15:20:21Z
 ---
 
 ## Notes
