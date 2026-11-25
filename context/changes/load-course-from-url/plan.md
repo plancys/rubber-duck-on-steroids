@@ -539,10 +539,10 @@ This phase makes CI protect both paths and gives the worker its model key in pro
 
 - [x] 5.1 The smoke test passes with the course steps
 - [x] 5.2 The phone check passes for the course pages
-- [ ] 5.3 The pull request shows the ci job and both smoke variants as passed
+- [x] 5.3 The pull request shows the ci job and both smoke variants as passed
 
 #### Manual
 
-- [ ] 5.4 The CI smoke log shows the fixture course load and the extension steps, and no key
+- [x] 5.4 The CI smoke log shows the fixture course load and the extension steps, and no key
 - [ ] 5.5 A production load of a docs section uses the model and ends ready
 - [ ] 5.6 The Anthropic usage page shows a cost that you accept
