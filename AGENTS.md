@@ -28,7 +28,7 @@ An MVP baseline web app: Astro 7 server-rendered pages with React 19 islands, Ty
 - `npx supabase start`: local Supabase, needs Docker. Node version: @.nvmrc.
 - `npx supabase test db`: pgTAP policy tests in `supabase/tests/`. CI runs them in the `smoke` job.
 - `npm run db:types`: writes `src/db/database.types.ts` from the local schema. Run it after each schema change.
-- `npm run setup:prod`: `scripts/setup-prod.mjs`, the production setup. It creates or reuses the Supabase project, sets the `production` environment secrets and variables in GitHub, and applies the Supabase auth settings and the Send Email Hook. It asks before it replaces a value. A human runs it. The README "Deployment > One-time setup" section has the manual steps.
+- `npm run setup:prod`: `scripts/setup-prod.mjs`, the production setup. It creates or reuses the Supabase project, sets up the background worker in Google Cloud (`scripts/setup-google.mjs`, with unit tests), sets the `production` environment secrets and variables in GitHub, and applies the Supabase auth settings and the Send Email Hook. It asks before it replaces a value. A human runs it. The README "Deployment > One-time setup" section has the manual steps.
 
 <!-- BEGIN sample-resource -->
 

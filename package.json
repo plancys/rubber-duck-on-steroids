@@ -14,7 +14,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "smoke": "node scripts/smoke.mjs",
-    "test:unit": "node --test \"worker/**/*.test.ts\" \"extension/**/*.test.ts\"",
+    "test:unit": "node --test \"worker/**/*.test.ts\" \"extension/**/*.test.ts\" \"scripts/**/*.test.mjs\"",
     "build:extension": "node extension/build.mjs",
     "phone-check": "node scripts/phone-check.mjs",
     "setup:prod": "node scripts/setup-prod.mjs",

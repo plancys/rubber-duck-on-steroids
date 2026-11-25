@@ -357,8 +357,8 @@ This project deploys to [Cloudflare Workers](https://workers.cloudflare.com/). T
 
 `scripts/setup-prod.mjs` does each provider step that a script can do safely. Some steps stay manual. Do the setup in this order:
 
-1. Do the manual steps in the table "Steps that stay manual" below. You need the Cloudflare API token, the `workers.dev` subdomain, the Resend sending-only key, and a Supabase access token.
-2. Log in to the CLIs: `gh auth login` and `npx wrangler login`.
+1. Do the manual steps in the table "Steps that stay manual" below. You need the Cloudflare API token, the `workers.dev` subdomain, the Resend sending-only key, a Supabase access token, and a Google Cloud project with billing.
+2. Log in to the CLIs: `gh auth login`, `npx wrangler login`, and `gcloud auth login`. Without `gcloud`, the script skips the worker step and names it as an open step.
 3. Run the setup script. Set the access token for this one command only:
 
 ```bash
@@ -376,6 +376,7 @@ The script runs these steps in this order. Each step reads the current state fir
 4. **Cloudflare**: the account ID from `wrangler whoami`, `PRODUCTION_URL` from the subdomain, and the API token.
 5. **Resend**: `EMAIL_FROM`, `ADMIN_EMAIL`, the API key, and a generated `SEND_EMAIL_HOOK_SECRET`. A new secret goes to Supabase first, with the hook off. If you decline that write, the script stops before GitHub changes.
    - **OAuth providers** (step 5c): it shows the Supabase callback URL, then asks for the GitHub and the Google client ID and secret. An empty client ID skips the provider. A provider that is on stays on unless you answer no. It turns on the providers in Supabase, then puts the providers that are on in `OAUTH_PROVIDERS`. See [OAuth login](#oauth-login).
+   - **Google Cloud worker** (step 5d): it does steps 3 to 9 and 11 of the [One-time Google setup](#one-time-google-setup). It asks for the project ID and the region, turns on the services, and reads the state of each resource. Then it shows the list of changes and asks once before it applies them. It reads the Supabase service key through the Management API and sends it to Secret Manager only. It generates the wake secret and writes the same value to Secret Manager and to GitHub. It asks for the Anthropic key in a hidden prompt. After the first worker deploy, a new run sets `WORKER_WAKE_URL`. A Google error stops only this step.
 6. **GitHub**: the `production` environment with the branch rule `main`, then the secrets and the variables.
 7. **Supabase auth settings**: Site URL, Redirect URLs with the OAuth callback, Confirm email, and the minimum password length.
 8. **Send Email Hook**: it turns on the hook only when the deployed route answers 401 to a call without a signature. In the run that makes a new secret, the hook stays off, because the deployed Worker does not have the secret yet. Run the deploy, then run setup again. With the hook on, the script sets the email rate limit of 30 an hour. Supabase accepts that value only after the hook is on.
@@ -394,6 +395,8 @@ The script never writes a file. It never prints a key, token, or password, excep
 | Add the domain in Resend and set its DNS records at your DNS provider.                                                                                                    | The records go to a DNS provider that the script has no access to. Resend verifies the domain after the records go live. |
 | Create the Resend API key with **Sending access** only.                                                                                                                   | Resend shows a key only once. You paste it into the hidden prompt.                                                       |
 | Create the Supabase access token: **Account → Access Tokens**. Revoke it after the setup.                                                                                 | The token has access to all your Supabase projects. You create it, you use it for one run, and you revoke it.            |
+| Create the Google Cloud project, link a billing account, and set a budget alert (Google steps 1 and 2).                                                                   | A project with billing needs a person, a payment card, and the terms of service.                                         |
+| Set the Anthropic spend limit, and create the key `rubber-duck-worker` (Google step 10).                                                                                  | The Claude Console has no API for the limit. You paste the key into the hidden prompt.                                   |
 | Save the database password in a password manager.                                                                                                                         | The script shows the password only once and never writes it to a file.                                                   |
 
 #### Secrets and variables
@@ -526,7 +529,7 @@ Then open `http://localhost:8788/health`. It answers `ok`.
 
 #### One-time Google setup
 
-A human does these steps. An agent does not. You need a Google account with a payment card and the [gcloud CLI](https://cloud.google.com/sdk/docs/install). Replace `<PROJECT_ID>`, `<PROJECT_NUMBER>`, and `<OWNER>/<REPO>` with your values, for example `plancys/rubber-duck-on-steroids`.
+A human does these steps. An agent does not. `npm run setup:prod` (step 5d) does steps 3 to 9 and 11, and sets the values of [Worker secrets and variables](#worker-secrets-and-variables). Steps 1, 2 and 10 stay manual. The commands below are the manual way, and they show what the script does. You need a Google account with a payment card and the [gcloud CLI](https://cloud.google.com/sdk/docs/install). Replace `<PROJECT_ID>`, `<PROJECT_NUMBER>`, and `<OWNER>/<REPO>` with your values, for example `plancys/rubber-duck-on-steroids`.
 
 1. Create a Google Cloud project, and link a billing account to it.
 2. Set a budget alert: **Billing → Budgets & alerts → Create budget**. Select the project, set a small amount, for example 5 USD, and keep the email alerts on. The alert sends an email. It does not stop the service.
@@ -621,7 +624,7 @@ The `deploy-worker` job fails when the secret `worker-anthropic-api-key` does no
 
 #### Worker secrets and variables
 
-Set these values in **Settings → Environments → production**. `SUPABASE_URL` is already there from the [One-time setup](#one-time-setup).
+`npm run setup:prod` sets these values, except `ENABLE_JOB_CHECK`. It sets `WORKER_WAKE_URL` only after the first worker deploy. To set a value by hand, use **Settings → Environments → production**. `SUPABASE_URL` is already there from the [One-time setup](#one-time-setup).
 
 | Name                             | Type     | Where the value comes from                                                                                                                                   |
 | -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -635,10 +638,10 @@ Set these values in **Settings → Environments → production**. `SUPABASE_URL`
 
 #### First deploy of the worker
 
-1. Set the values of the table above, but not `WORKER_WAKE_URL` and `ENABLE_JOB_CHECK`.
+1. Run `npm run setup:prod`, or set the values of the table above by hand, but not `WORKER_WAKE_URL` and `ENABLE_JOB_CHECK`.
 2. Open **Actions → CI → Run workflow** and select `main`. A manual run always deploys the worker. The `deploy-worker` job shows the worker address in a notice.
 3. Open the worker address with `/health` at the end. It answers `ok`.
-4. Set the variable `WORKER_WAKE_URL` to the worker address with `/wake` at the end.
+4. Run `npm run setup:prod` again. It sets the variable `WORKER_WAKE_URL` to the worker address with `/wake` at the end. You can also set it by hand.
 5. Run the workflow again. The `deploy` job sends `WORKER_WAKE_URL` and `WORKER_WAKE_SECRET` to the Cloudflare Worker.
 
 After the first deploy, a push to `main` deploys the worker only when a file in `worker/` changed. Before the Google setup, a push skips the worker deploy and shows a notice. The job stays green. A manual run fails the `deploy-worker` job when a value is missing, and the error names each missing value. The `deploy` job does not depend on `deploy-worker`.
