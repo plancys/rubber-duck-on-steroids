@@ -111,3 +111,67 @@ Risks (J):
 The order to move slices out (J): S-10, then S-09, then S-08. The other six slices need 55.5 likely hours.
 
 Recommendation (J): do not commit to all nine slices in 10 working days. Commit to S-02 to S-08, and keep S-09 and S-10 optional.
+
+## 8. Delta for Cognee in the MVP (2026-11-26)
+
+The same worker estimated two forms of Cognee on top of the table of section 3. It read the Cognee code (commit `1961133`) and this repository. It ran nothing. Cognee paths are paths in the Cognee repository. The researcher read each `file:line` of this section again.
+
+- Form K1: Cognee as a library in a separate Python container. Each run starts with empty stores, and our tables stay the system of record.
+- Form K2: Cognee as the store of the map, with one dataset for each learner. The web app reads the map from Cognee.
+
+### Extra work, in hours (optimistic, likely, pessimistic)
+
+| Item                                                                                                                             | K1             | K2               |
+| -------------------------------------------------------------------------------------------------------------------------------- | -------------- | ---------------- |
+| Container, entry point, memory size                                                                                              | 3, 5, 10       | 4, 7, 14         |
+| Deploy, secrets, setup script, docs                                                                                              | 4, 7, 14       | 5, 9, 18         |
+| Job contract from Node to Python                                                                                                 | 2, 4, 8        | none             |
+| Mapping: our `DataPoint` model, the prompt, chunk to passage                                                                     | 4, 8, 16       | 4, 8, 16         |
+| Configuration: embedder, telemetry, preflight, access control                                                                    | 2, 3, 6        | 2, 4, 8          |
+| Local development                                                                                                                | 2, 3, 6        | 2, 4, 8          |
+| CI with no model key and a fake model. F: a custom model needs the `llm` extractor (`cognee/api/v1/cognify/cognify.py:519-523`). | 4, 6, 12       | 5, 9, 18         |
+| Hardening, cold start                                                                                                            | 2, 3, 7        | 2, 4, 8          |
+| Prompt runs again on Cognee chunks                                                                                               | 2, 4, 8        | 2, 4, 8          |
+| A graph store that separates the learners                                                                                        | none           | 6, 12, 30        |
+| A private schema and a role on Supabase                                                                                          | none           | 3, 6, 12         |
+| Web sign-in to Cognee. F: the register route is always on (`cognee/api/client.py:389-393`).                                      | none           | 5, 10, 20        |
+| Web reads the map, with error states                                                                                             | none           | 4, 8, 16         |
+| Marks on node ids after a merge or a delete                                                                                      | none           | 4, 8, 16         |
+| A changed lesson needs a full new run. F: `cognee/api/v1/update/update.py:453-457`                                               | none           | 4, 8, 16         |
+| Privacy tests outside pgTAP                                                                                                      | none           | 3, 6, 12         |
+| **Sum**                                                                                                                          | **25, 43, 87** | **55, 107, 220** |
+
+### C0 work that Cognee removes
+
+| C0 item                                                                                                                                 | Saved hours (optimistic, likely, pessimistic) |
+| --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| The model call of S-02 and its parse                                                                                                    | 1, 2, 3                                       |
+| The name rule of S-02. F: `cognee/infrastructure/engine/models/DataPoint.py:217-247`                                                    | 0, 0.5, 1                                     |
+| K2 only: the topic, relation and link tables with row-level security                                                                    | 2, 4, 7                                       |
+| The passage splitter. J: S-05 needs our passages.                                                                                       | 0                                             |
+| The summaries of S-09. F: the default summary lists types and relations, with no model call (`cognee/modules/cognify/config.py:18-22`). | 0                                             |
+| The matching of S-10. J: a run with empty stores sees no earlier dataset.                                                               | 0                                             |
+
+### Totals
+
+| Composition | Hours (optimistic, likely, pessimistic) | Fits 80 likely hours                                | Order to move slices out     |
+| ----------- | --------------------------------------- | --------------------------------------------------- | ---------------------------- |
+| C0          | 47, 78, 150                             | All nine slices, with about 40% confidence          | S-10, S-09, S-08             |
+| C0 + K1     | 71, 118.5, 233                          | S-02 (60.5), S-03, S-04 and S-07: 77 hours          | S-10, S-09, S-08, S-06, S-05 |
+| C0 + K2     | 99, 178.5, 359                          | No set of slices. S-02 alone needs about 113 hours. | All slices after S-02        |
+
+### Largest new risks (J)
+
+1. The privacy of learners in K2. No Neo4j isolation option runs on our stack. F: with isolation off, all datasets share one graph (`cognee/context_global_variables.py:149-170`).
+2. Chunks are not passages. F: an explicit chunk size stops at the input limit of the embedder (`cognee/infrastructure/llm/utils.py:51-76`). J: a local fastembed model gives about 512 tokens, so a lesson of 5,000 tokens needs about 10 calls. A vendor embedder avoids this, and it adds a paid key.
+3. A second production service with no proof. F: five production rows of F-01 are still open (`context/changes/background-work-path/plan.md:698-702`).
+
+### Decisive findings (F)
+
+1. A custom graph model skips the entity merge. Cognee stores the result under `chunk.contains` as it is (`cognee/tasks/graph/extract_graph_from_data.py:165-172`).
+2. A deterministic id comes only from `identity_fields`. Without them, the id is a random UUID4 (`cognee/infrastructure/engine/models/DataPoint.py:189-201`).
+3. The relational base of Cognee has no schema (`cognee/infrastructure/databases/relational/ModelBase.py:5-11`). J: on Supabase the tables land in `public`, which our API exposes (`supabase/config.toml:13`).
+4. Isolation on Neo4j needs Enterprise `CREATE DATABASE` (`cognee/infrastructure/databases/graph/neo4j_driver/Neo4jDatasetDatabaseHandler.py:31-37`), a Docker container for each dataset (`Neo4jCommunityDatasetDatabaseHandler.py:40-46`), or an Aura instance for each dataset (`Neo4jAuraDevDatasetDatabaseHandler.py:18-20`).
+5. Telemetry goes to `https://test.prometh.ai` (`cognee/shared/utils.py:23`) unless the environment sets `TELEMETRY_DISABLED` (`cognee/shared/utils.py:575-580`).
+
+Recommendation (J): K1 fits 80 hours only with S-02, S-03, S-04 and S-07. K2 does not fit.

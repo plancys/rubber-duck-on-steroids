@@ -7,9 +7,9 @@ repository: plancys/rubber-duck-on-steroids
 topic: "How to build and show the topic graph of a loaded course (S-02, FR-003)"
 tags: [research, codebase, anthropic, topic-graph, graph-view, open-source, learner-model, architecture, security]
 status: complete
-last_updated: 2026-11-25
+last_updated: 2026-11-26
 last_updated_by: Claude Code
-last_updated_note: "Third follow-up: a reduced design (composition C0) that fits a 2-week MVP, the maturity signals of each project, and phases for the parts that leave the MVP. The second follow-up gave a hybrid design with a common store and a private store. The first follow-up evaluated 23 open-source projects."
+last_updated_note: "Seventh follow-up: how a connected private brain shares one part, such as food preferences, and keeps medical and emotional facts in, with labels on claims, separate share views, an inference check and answers that do not depend on the secret. The sixth follow-up gave a sharing protocol between a course knowledge base and a private knowledge base of one person, both on Cognee, with a gateway, categories and typed operations. The fifth follow-up gave the private brain as a separate service. The fourth follow-up gave Cognee in the MVP and the origin of each block. The third follow-up gave a reduced design (composition C0) for a 2-week MVP. The second follow-up gave a hybrid design with a common store and a private store. The first follow-up evaluated 23 open-source projects."
 ---
 
 # Research: How to build and show the topic graph of a loaded course (S-02, FR-003)
@@ -68,6 +68,35 @@ The command gave no other question. So this research answers four questions for 
 - **The reduced design, composition C0, is the stack that exists plus one job type, a few tables and one view** (R.6). Six rules keep the two-store future open.
 - **C0 fits 10 working days for S-02 to S-08.** For all nine slices, a worker estimates 47 to 150 hours, with 78 hours as the likely value (R.8).
 - **The parts that leave the MVP come back in three phases:** a deeper learner model, the shared store, and the company scale (R.9).
+
+**Added by the fourth follow-up of 2026-11-26 (see "Follow-up Research (4)" at the end):**
+
+- **Cognee can enter the MVP only as the extraction engine behind contract 2 (form K1).** Our passages, tables, identity check and cycle check stay (W.2, W.9).
+- **K1 costs 43 more likely hours.** Ten working days then hold S-02, S-03, S-04 and S-07, not S-02 to S-08 (W.10).
+- **Cognee as the store of the map (form K2) does not fit the MVP.** Its ids are random or come from names, and a merge leaves no redirect (W.8).
+- **Three diagrams show the origin of each block:** our own code, an existing part, a reused project, a pattern, or an outside service (W.4 to W.7).
+
+**Added by the fifth follow-up of 2026-11-26 (see "Follow-up Research (5)" at the end):**
+
+- **Cognee keeps no private knowledge in the target design.** In the private zone it can only run as an engine that keeps nothing (P.3).
+- **The design supports a "private brain" as a separate service in its structure:** one direction of reference, an event log, a state function and a contract with no fixed place (P.5).
+- **Four parts are missing for outside apps:** claims beyond learning, a shared vocabulary for each domain, consent with scopes, and a query policy (P.6). They form a phase E (P.11).
+- **Open standards cover the protocol, and "compute at the brain" is the safest query style** (P.7, P.8).
+
+**Added by the sixth follow-up of 2026-11-26 (see "Follow-up Research (6)" at the end):**
+
+- **The sharing protocol is a profile of open standards:** OAuth 2.1 with PKCE for consent, Rich Authorization Requests for the categories, DPoP for tokens bound to a key, and a small typed API (G.6, G.7).
+- **Each category of the private knowledge base is one Cognee dataset,** because Cognee checks the read right for each dataset in a search, and a node set is only a tag (G.4, G.5).
+- **A sharing gateway is the only door to the private knowledge base.** It checks the grant, calls Cognee as a separate principal for each app, checks each answer against a schema, and writes an audit row (G.9).
+- **Cognee can be the store of a private knowledge base that belongs to the person, under six conditions** (G.10).
+
+**Added by the seventh follow-up of 2026-11-26 (see "Follow-up Research (7)" at the end):**
+
+- **In a connected private brain, the hard part is inference, not access.** A connected brain leaks by six paths, and rights on data stop only the first one. EU law counts data that reveal health or religion indirectly as special category data (M.2, M.3).
+- **The unit of privacy is a claim with labels,** not a note and not a node. A derived claim gets the labels of its sources, and only the owner removes a label (M.5, M.6).
+- **Questions from outside reach a separate share view, never the connected graph.** Most views are short cards that the owner approves. Cognee stays the thinking graph, and the labels live in our own claim store (M.7, M.12, M.13).
+- **A model checks each view for guesses, answers do not depend on the secret, and the strongest level brings the catalog of the app to the brain** (M.8 to M.10).
+- **G.5 changes:** categories become labels on claims, and the shared units become views (M.14).
 
 ## Detailed Findings
 
@@ -347,7 +376,8 @@ The reports of the three workers of the second follow-up:
 The data of the third follow-up:
 
 - `research-appendix/project-maturity.md`: the maturity signals, the code sizes, and the speed of this repository
-- `research-appendix/mvp-effort-estimate.md`: the report of the worker that estimated the slices
+- `research-appendix/mvp-effort-estimate.md`: the report of the worker that estimated the slices. Its section 8 holds the estimate for Cognee in the MVP (fourth follow-up).
+- `research-appendix/private-brain.md`: the protocols for consent, and how the memory projects let outside apps read the data of one person (fifth follow-up)
 
 ## Open Questions
 
@@ -388,6 +418,33 @@ Added by the third follow-up of 2026-11-25:
 24. **Is a part of the map a lesson?** This default gives a view with two levels and no fork, and it answers question 15 (R.6).
 25. **Which slices move out when 10 working days are not enough?** R.8 gives an order.
 26. **Is "2 weeks" 10 working days of full-time work?** The PRD records after-hours work (`context/foundation/prd.md:10`).
+
+Added by the fourth follow-up of 2026-11-26:
+
+27. **Does Cognee enter the MVP as the extraction engine (K1), and when?** W.10 gives the cost in slices and the order with the least risk: our own engine first, K1 after S-04.
+28. **If K1, which embedding does Cognee use?** A local model costs memory and CPU in the container, and it gives small chunks. A vendor adds a second outside service, a key and a cost (W.8).
+29. **If K1, does the Cognee container run as an internal service or as a Cloud Run job?** A job gets CPU for its whole life, and a service gets CPU while it processes a request (W.8).
+30. **Does S-02 compare the extraction of one chunk with the extraction of one lesson on real course text before it selects the engine?** W.12 names this gap.
+
+Added by the fifth follow-up of 2026-11-26:
+
+31. **Does the product plan a phase E, a private brain that other apps read?** If yes, it needs a claim model beyond learning (P.4, P.11).
+32. **Which query styles does phase E offer:** claims with consent, compute at the brain, or signed claims that the person carries (P.7)?
+33. **Does S-03 give each learner event a source, and put the learner data behind one module (P.10)?**
+
+Added by the sixth follow-up of 2026-11-26:
+
+34. **Who hosts a private knowledge base:** this product, another provider, or the device of the person (G.10)?
+35. **Which categories and sensitivity labels does the first private knowledge base have (G.5)?**
+36. **Does the course service only read from the private knowledge base, or does it also write evidence back with `append_evidence` (G.7)?**
+37. **Does the course service keep a copy of the learner state for speed, or does it ask the private knowledge base in each session (G.12)?**
+
+Added by the seventh follow-up of 2026-11-26:
+
+38. **Which labels does the first private brain use, and does the owner confirm each claim or only each line of a card (M.5, M.12)?**
+39. **Which level of the leak ladder does each outside use get (M.9)?**
+40. **Can the brain use health claims to rank results when the result goes only to the person (M.9)?**
+41. **Does the course product keep free text from the learner, for example the answers in S-06, and where (M.15)?**
 
 ## Follow-up Research 2026-11-25: open-source projects for the core
 
@@ -1230,3 +1287,1179 @@ The worker judges these items at about 30 likely hours, inside the totals of the
 - The file counts of R.5 describe the code as it stands. A bundler removes unused code, and a careful fork can cut files.
 - The three defaults of R.6 are recommendations. The plan and the owner decide them.
 - This research did not design the tables. That is work for the plan.
+
+## Follow-up Research 2026-11-26 (4): Cognee in the MVP, and the origin of each block
+
+### W.1 Request and method
+
+The user asked two things:
+
+- How does the analysis of follow-up (3) change if the owner insists on Cognee in the MVP?
+- The research has no system design diagram that shows where each block comes from: our own code, or a project that we reuse. The right granularity is a project that solves a complex problem, not a small library of a programming language.
+
+Method:
+
+- The researcher read the Cognee facts of the earlier appendices again. The researcher checked the new facts in the Cognee code, commit `1961133`, version 1.6.10. A path in W.8 is a path in the Cognee repository, unless it starts with `research-appendix/` or names this repository.
+- The researcher read the Cloud Run container contract on 2026-11-26.
+- The worker of follow-up (3) estimated the extra hours for two forms of Cognee. It read the Cognee code and this repository. Its report is in `research-appendix/mvp-effort-estimate.md`, section 8.
+- No project was run.
+
+### W.2 The answer in short
+
+- **Cognee can enter the MVP in one form that keeps the design: as the extraction engine behind contract 2 (form K1).** Cognee runs in a separate Python container. Our tables stay the system of record, and no Cognee id leaves the container.
+- **K1 costs 43 more likely hours.** Ten working days then hold S-02, S-03, S-04 and S-07. S-05, S-06, S-08, S-09 and S-10 move out. Without Cognee, the 10 days hold S-02 to S-08 (W.10).
+- **Cognee as the store of the map (form K2) does not fit the MVP.** Its node ids are random or come from names, a merge leaves no redirect, and a delete removes a topic with no source left. So a mark of S-03 can lose its topic. S-02 alone needs about 113 likely hours in K2.
+- **In form K1, Cognee does a small part of the work.** Each run starts with empty stores. With our own graph model, Cognee does not merge entities, and its default summary is a list, not prose. So the MVP keeps our passages, our cache by content hash, our identity check and our cycle check.
+- **What K1 gives the MVP:** a tested extraction pipeline that runs our own graph model and prompt, a link from each node to its chunk, loaders for PDF and EPUB files (FR-012), and an early start on the engine of phase D.
+- **Three diagrams now show the origin of each block** (W.4 to W.6). One table lists each block with its project and its problem (W.7).
+
+### W.3 How to read the diagrams
+
+| Tag in a block | Color  | Meaning                                                      |
+| -------------- | ------ | ------------------------------------------------------------ |
+| OWN            | blue   | New code that we write                                       |
+| EXISTS         | grey   | Code or platform that exists in this repository (F-01, S-01) |
+| REUSE          | green  | A project that we run, as a library or as a service          |
+| PATTERN        | violet | Our own code that follows the design of a named project      |
+| SERVICE        | orange | An outside service that we call                              |
+
+- One block solves one problem. A small library, such as a Markdown parser or an HTTP client, is not a block. It stays inside the block that uses it.
+- The tag is in the text of each block, so the diagrams do not rely on color alone.
+
+### W.4 Diagram 1: the MVP without Cognee (composition C0)
+
+```mermaid
+flowchart TB
+  subgraph BROWSER["Browser"]
+    EXT["Browser extension<br/>EXISTS: S-01"]
+    MAP["Map view with the knowledge overlay<br/>REUSE: React Flow, dagre<br/>PATTERN: OpenFlowKit"]
+    PAGES["Lesson list, lesson reader, quiz<br/>OWN"]
+  end
+  subgraph WEB["Web app on Cloudflare Workers: EXISTS"]
+    READ["Read side: two reads, one join by topic id<br/>OWN"]
+    STATE["Learner state with 4 values<br/>PATTERN: Tutor MCP"]
+    PATH["Adjusted lesson list<br/>OWN"]
+  end
+  subgraph DB["Supabase Postgres: SERVICE"]
+    COURSE["Courses and lessons<br/>EXISTS: S-01"]
+    JOBS["Job queue and quotas<br/>EXISTS: F-01"]
+    KNOW["Knowledge tables<br/>OWN"]
+    EVENTS["Learner events<br/>OWN"]
+    QS["Questions and summaries<br/>OWN"]
+  end
+  subgraph WORKER["Worker on Cloud Run: EXISTS"]
+    LOAD["Course loader<br/>EXISTS: S-01"]
+    SPLIT["Passage splitter<br/>OWN"]
+    EXTRACT["Topic extraction<br/>OWN<br/>PATTERN: neo4j-graphrag-python, LightRAG"]
+    CHECKS["Checks: quote, identity, cycle<br/>PATTERN: Graphiti, OpenTutor"]
+    GEN["Question job and summary job<br/>OWN"]
+  end
+  LLM["Claude Haiku 5.5<br/>SERVICE: Anthropic"]
+  EXT -->|pages| COURSE
+  LOAD --> COURSE
+  JOBS -->|next job| WORKER
+  COURSE --> SPLIT --> EXTRACT --> CHECKS --> KNOW
+  EXTRACT -->|one call for each lesson| LLM
+  KNOW --> GEN
+  GEN --> LLM
+  GEN --> QS
+  KNOW --> READ
+  EVENTS --> STATE --> READ
+  READ --> MAP
+  READ --> PATH --> PAGES
+  QS --> PAGES
+  PAGES -->|marks and answers| EVENTS
+  MAP -->|marks| EVENTS
+  classDef own fill:#dbeafe,stroke:#1d4ed8,color:#0b1b3a
+  classDef exists fill:#e5e7eb,stroke:#4b5563,color:#111827
+  classDef reuse fill:#dcfce7,stroke:#15803d,color:#052e16
+  classDef pattern fill:#ede9fe,stroke:#6d28d9,color:#1e1035
+  classDef service fill:#ffedd5,stroke:#c2410c,color:#3b1502
+  class PAGES,READ,PATH,KNOW,EVENTS,QS,SPLIT,GEN own
+  class EXT,COURSE,JOBS,LOAD exists
+  class MAP reuse
+  class STATE,EXTRACT,CHECKS pattern
+  class LLM service
+```
+
+### W.5 Diagram 2: the MVP with Cognee as the extraction engine (C0 + K1)
+
+```mermaid
+flowchart TB
+  subgraph WORKER["Worker on Cloud Run: EXISTS"]
+    LOAD["Course loader<br/>EXISTS: S-01"]
+    SPLIT["Passage splitter<br/>OWN"]
+    RUN["Start of the topic run, cache by content hash<br/>OWN<br/>PATTERN: LightRAG"]
+    CHECKS["Checks: quote, identity, cycle<br/>PATTERN: Graphiti, OpenTutor"]
+    WRITE["Writer of the knowledge rows<br/>OWN"]
+    GEN["Question job and summary job<br/>OWN"]
+  end
+  subgraph COG["Cognee container on Cloud Run: NEW, no database key"]
+    ADD["One data item for each passage<br/>REUSE: Cognee"]
+    CHUNK["Chunker, for a long passage<br/>REUSE: Cognee"]
+    GX["Extraction with our topic model and prompt<br/>REUSE: Cognee<br/>OWN: the model, the prompt"]
+    EMB["Embeddings<br/>REUSE: a local model or a vendor"]
+    STORES["Stores for one run, in memory<br/>REUSE: SQLite, LanceDB, Ladybug"]
+    EXPORT["Export: candidates with evidence<br/>OWN"]
+    ADD --> CHUNK --> GX --> STORES
+    EMB --> STORES
+    STORES --> EXPORT
+  end
+  DB[("Supabase Postgres<br/>EXISTS and OWN tables of diagram 1")]
+  LLM["Claude Haiku 5.5<br/>SERVICE: Anthropic, through LiteLLM inside Cognee"]
+  LOAD --> DB
+  DB --> SPLIT --> RUN
+  RUN -->|passages of one lesson, with the topic list| ADD
+  GX -->|one call for each chunk| LLM
+  EXPORT -->|topic candidates, links, relations| CHECKS
+  CHECKS --> WRITE --> DB
+  DB --> GEN
+  GEN --> LLM
+  classDef own fill:#dbeafe,stroke:#1d4ed8,color:#0b1b3a
+  classDef exists fill:#e5e7eb,stroke:#4b5563,color:#111827
+  classDef reuse fill:#dcfce7,stroke:#15803d,color:#052e16
+  classDef pattern fill:#ede9fe,stroke:#6d28d9,color:#1e1035
+  classDef service fill:#ffedd5,stroke:#c2410c,color:#3b1502
+  class SPLIT,WRITE,GEN,EXPORT own
+  class LOAD,DB exists
+  class ADD,CHUNK,GX,EMB,STORES reuse
+  class RUN,CHECKS pattern
+  class LLM service
+```
+
+The browser and the web app stay as in diagram 1. Only the worker side changes:
+
+- The extraction call of C0 moves into the Cognee container.
+- Our passage splitter stays, because S-05 collapses our passages. The worker gives Cognee one data item for each passage. Inference: a chunk then does not cross a passage border. Nobody tested this.
+- The checks, the writer of the knowledge rows, and the question and summary jobs stay in the Node worker.
+- The Cognee container gets the passages of one lesson and returns candidates. It holds no database key and no learner data. This follows control 5 of H.8.
+- With our own graph model, Cognee does not merge entities (W.8). So our identity check does all of the identity work.
+- The export step maps each chunk to our passage row by our own content hash. So no Cognee id reaches our tables, and rules 3 and 4 of R.6 hold.
+
+### W.6 Diagram 3: the target after phases B to D
+
+```mermaid
+flowchart TB
+  subgraph COMMON["Common zone: no personal data"]
+    CONN["Connectors and file loaders<br/>REUSE: Cognee"]
+    ENG["Engine for shared sources, with a working copy<br/>REUSE: Cognee"]
+    GATE["Promotion gate: schema, source trust, review<br/>OWN"]
+    SHARED["Shared map: topics, relations, locators, hashes<br/>OWN"]
+    REG["Topic registry: ids, alias names, topic events<br/>PATTERN: Graphiti, Tutor MCP"]
+    CONN --> ENG --> GATE --> SHARED
+    REG --- SHARED
+  end
+  subgraph PRIVATE["Private zone: one user, kept in our own private store"]
+    CONTENT["Personal space: lesson text, private topics<br/>OWN"]
+    PENG["Engine for private sources, keeps nothing<br/>OWN, or REUSE: Cognee as in K1"]
+    EVENTS["Learner events<br/>OWN"]
+    MISC["Misconception records<br/>PATTERN: Tutor MCP"]
+    LEARN["Learner engine: probability, decay, next question<br/>PATTERN: Tutor MCP, pyBKT<br/>REUSE: FSRS through ts-fsrs"]
+    CONTENT -->|passages| PENG
+    PENG -->|private topics| CONTENT
+    EVENTS --> LEARN
+    MISC --> LEARN
+  end
+  ROLES["Database roles, role check at start<br/>PATTERN: Honcho, Tutor MCP"]
+  VIEW["Nested map with the overlay<br/>REUSE: React Flow<br/>PATTERN: OpenFlowKit"]
+  LEARN -.->|topic ids| REG
+  REG -.->|topic events| LEARN
+  SHARED --> VIEW
+  CONTENT --> VIEW
+  LEARN --> VIEW
+  ROLES -.- GATE
+  ROLES -.- EVENTS
+  classDef own fill:#dbeafe,stroke:#1d4ed8,color:#0b1b3a
+  classDef reuse fill:#dcfce7,stroke:#15803d,color:#052e16
+  classDef pattern fill:#ede9fe,stroke:#6d28d9,color:#1e1035
+  class GATE,SHARED,CONTENT,PENG,EVENTS own
+  class CONN,ENG,VIEW reuse
+  class REG,MISC,LEARN,ROLES pattern
+```
+
+H.5 gives the contracts between the zones, and R.9 gives the order of the phases. Cognee keeps no private knowledge in this target (P.3).
+
+### W.7 Each block, its origin and its problem
+
+| Block                                             | Origin in C0       | Origin in C0 + K1     | Project                                       | The problem that it solves                                          | Phase |
+| ------------------------------------------------- | ------------------ | --------------------- | --------------------------------------------- | ------------------------------------------------------------------- | ----- |
+| Course loader and browser extension               | Exists             | Exists                | None                                          | Reads a course from its site, or through the browser of the learner | Done  |
+| Job queue and quotas                              | Exists             | Exists                | None                                          | Runs long work outside a page request, one job for each learner     | Done  |
+| Passage splitter                                  | Own                | Own                   | None                                          | Cuts a lesson into passages with stable ids                         | A     |
+| Topic extraction                                  | Own, with patterns | Reuse, with our model | neo4j-graphrag-python, LightRAG; Cognee in K1 | Turns passages into topics and relations under a schema             | A     |
+| Embeddings                                        | None               | Reuse                 | A local model or a vendor                     | Gives the vectors that the Cognee stores need                       | A, K1 |
+| Identity check                                    | Pattern            | Pattern               | Graphiti                                      | Keeps one topic for one concept across lessons                      | A     |
+| Cycle check                                       | Pattern            | Pattern               | OpenTutor                                     | Keeps the prerequisite relations free of cycles                     | A     |
+| Quote check                                       | Own                | Own                   | None                                          | Proves that each link points at real text                           | A     |
+| Knowledge tables                                  | Own                | Own                   | None                                          | Holds the map as the system of record                               | A     |
+| Learner events and the state function             | Pattern            | Pattern               | Tutor MCP                                     | Keeps a claim apart from a proof                                    | A     |
+| Map view                                          | Reuse, pattern     | Reuse, pattern        | React Flow, dagre; OpenFlowKit                | Draws an interactive graph with a layout, one part at a time        | A     |
+| Question job and summary job                      | Own                | Own                   | None                                          | Checks a claim, and shortens a known passage                        | A     |
+| Learner engine                                    | Not in the MVP     | Not in the MVP        | Tutor MCP, pyBKT; FSRS through `ts-fsrs`      | Gives a probability, a decay and the next question                  | B     |
+| Misconception records                             | Not in the MVP     | Not in the MVP        | Tutor MCP                                     | Keeps a wrong belief as a record that blocks a collapse             | B     |
+| Topic registry with topic events                  | Not in the MVP     | Not in the MVP        | Graphiti, Tutor MCP                           | Keeps topic identity across sources, with merges and splits         | C     |
+| Promotion gate                                    | Not in the MVP     | Not in the MVP        | None                                          | Lets only checked canon into the common store                       | C     |
+| Database roles and the role check                 | Not in the MVP     | Not in the MVP        | Honcho, Tutor MCP                             | Gives narrow rights to each job kind                                | C     |
+| Engine, connectors and loaders for shared sources | Not in the MVP     | Not in the MVP        | Cognee                                        | Reads many sources, with access lists for groups                    | D     |
+
+### W.8 Facts that decide the form of Cognee
+
+**What K1 can use**
+
+- The SDK has `add`, `cognify`, `update`, `delete` and `search` (`cognee/__init__.py:40-91`). So Cognee runs as a library, with no API server. Inference: the register route and the API key defects of H.4 then do not apply.
+- `cognify` takes our own graph model as a `DataPoint` subclass, and a custom prompt (`cognee/api/v1/cognify/cognify.py:138-162,414-417`). A custom graph model works only with the `llm` extractor (`cognify.py:519-522`).
+- The chunk keeps a `contains` link to each node of a custom model that came from it (`cognee/tasks/graph/extract_graph_from_data.py:165-172`, parameter `chunk_attachment`).
+- The default stores are local files: SQLite (`cognee/infrastructure/databases/relational/config.py:22`), LanceDB (`cognee/infrastructure/databases/vector/config.py:32`) and Ladybug for the graph (`cognee/infrastructure/databases/graph/config.py:47`).
+- Cognee reads Markdown and text with its core loader (`cognee/infrastructure/loaders/core/text_loader.py:24`). It reads PDF through `pypdf`, a core dependency (`cognee/infrastructure/loaders/external/pypdf_loader.py:24`). HTML needs the optional extra `scraping`, and EPUB and DOCX need the optional extra `docs` (`pyproject.toml:150-152,196-204`, `cognee/infrastructure/loaders/external/unstructured_loader.py:35-49`). The researcher found no MOBI loader. FR-012 asks for EPUB, MOBI, MD and PDF.
+- `TELEMETRY_DISABLED` stops the telemetry (`cognee/shared/utils.py:575`). Without it, events go to an outside address (`cognee/shared/utils.py:23`).
+
+**What K1 must add or change**
+
+- **Embeddings.** The default embedder is OpenAI `text-embedding-3-large` (`cognee/infrastructure/databases/vector/embeddings/config.py:20-21`). Cognee uses the local model `BAAI/bge-small-en-v1.5`, a 67 MB download, only when no usable model key exists (`embeddings/config.py:23-30,220-233`). The MVP has an Anthropic key, so K1 must select a local model or an embedding vendor. Anthropic has no embedding model (section 6).
+- **Chunk size.** The automatic chunk size is the smaller of the token limit of the embedding model and half of the context of the language model (`cognee/infrastructure/llm/utils.py:13-41`). An explicit chunk size also stops at the input limit of the embedding model (`cognee/infrastructure/llm/utils.py:51-76`). Inference: with a small local embedding model, one lesson gives several chunks and several model calls. C0 makes one call for each lesson.
+- **Memory.** The file system of a Cloud Run container is in memory, so each file that a run writes uses the memory of the instance. The data does not persist when the instance stops ([container contract](https://cloud.google.com/run/docs/container-contract)). Our worker has 512 MiB. The Cognee `pyproject.toml` has 53 dependency lines, among them `onnxruntime`, `lancedb`, `litellm`, `fastapi`, `dlt` and `pandas`. Nobody measured the memory of one run.
+- **Model call.** Cognee calls Anthropic through LiteLLM (`cognee/infrastructure/llm/config.py:107`). It sends `temperature` only when `LLM_TEMPERATURE` is set (`cognee/infrastructure/llm/config.py:269-298`). So the sampling rule of section 6 holds when that variable stays empty. Nobody ran a LiteLLM request with structured output on `claude-haiku-5-5`.
+- **Our ids.** For our own graph model, a node id is random, unless the model names identity fields. Then the id comes from those values (`cognee/infrastructure/engine/models/DataPoint.py:188-202,217-247`). A chunk id comes from the document id, the content hash and the occurrence (`cognee/modules/chunking/chunk_id.py:20-22`). So the export step must map a chunk to our passage row by our own content hash. Rules 3 and 4 of R.6 then hold.
+- **No entity merge.** With a graph model that is not the built-in `KnowledgeGraph`, Cognee attaches the result of each chunk as it is and skips its merge of duplicates (`cognee/tasks/graph/extract_graph_from_data.py:165-176`). So our identity check does all of the identity work, as in C0.
+- **No prose summary.** The default summary of a chunk is one line for each extracted type and one line for each relation, with no model call. A prose summary costs one model call for each chunk (`cognee/modules/cognify/config.py:18-22`). So S-09 keeps its own summary job.
+- **No memory between runs.** Each run starts with empty stores, so `incremental_loading` (`cognify.py:149`) has no earlier state to read. The chunk-level update refuses a custom graph model in any case (`cognee/api/v1/update/update.py:453-457`).
+- **Existing topics.** The extraction of one chunk gets no list of the existing topics. Inference: the custom prompt of each run can carry that list, as the prompt of C0 does. Nobody tested this.
+- **CPU for a long run.** A Cloud Run job gets CPU for its whole life ([container contract](https://cloud.google.com/run/docs/container-contract), "For jobs"). A service gets CPU while it processes a request. So the Cognee container fits a service that returns candidates in the response, or a job.
+
+**What K2 breaks**
+
+- Rule 3 of R.6, a topic id with no meaning: a node id of our model is random, or it comes from name values (`cognee/infrastructure/engine/models/DataPoint.py:188-202`). A merge leaves no redirect (`research-appendix/common-store-cognee-graphiti.md`, the identity section). Inference: a rebuild of a lesson then leaves a mark of S-03 on a topic id that no longer exists.
+- The separation of learners: with access control off, all datasets share one graph and one vector store (`cognee/context_global_variables.py:149-170`). Isolation on Neo4j needs Enterprise or AuraDB, or one container for each dataset (`cognee/infrastructure/databases/graph/neo4j_driver/Neo4jDatasetDatabaseHandler.py:31-37`).
+- The Cognee relational tables have no schema (`cognee/infrastructure/databases/relational/ModelBase.py:5-11`). Inference: on our Supabase they land in `public`, and the API of this repository exposes `public` (`supabase/config.toml:13`).
+- Principle 5 of F.6, "a topic with no source left stays as a retired topic": a delete removes an entity that has no source left (`research-appendix/graph-engines-from-web.md`, the Cognee update and delete).
+- K2 needs persistent stores. The Postgres graph adapter is a demo (the Cognee `README.md:282`), so the graph needs a volume or Neo4j.
+- K2 needs the API server, with the hardening list of H.4: the register route, the plain API keys and the default password.
+
+### W.9 The forms of Cognee in the MVP
+
+| Form | What Cognee does                                                                      | What stays ours                                                                           | New infrastructure                                                                     | Extra hours (optimistic, likely, pessimistic) | Verdict                                      |
+| ---- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------- | -------------------------------------------- |
+| K0   | Nothing in the MVP. It enters in phase D.                                             | All of C0                                                                                 | None                                                                                   | 0, 0, 0                                       | The plan of follow-up (3)                    |
+| K1   | It extracts topics with our graph model and prompt, and links each node to its chunk. | The passages, the cache by content hash, the identity, cycle and quote checks, the tables | One Python container with no database key, and an embedding choice                     | 25, 43, 87                                    | The form to use if Cognee must be in the MVP |
+| K2   | It stores the map, with one dataset for each learner.                                 | The learner events                                                                        | A Cognee API service, persistent stores, and a graph store that separates the learners | 55, 107, 220                                  | It does not fit the MVP                      |
+
+- K1 runs with empty stores at each run. A K1 with persistent stores needs a graph store that persists and separates the learners. That store is the main cost of K2.
+- The hours come from the worker (`research-appendix/mvp-effort-estimate.md`, section 8).
+
+### W.10 The budget with Cognee in the MVP
+
+| Composition | Optimistic | Likely | Pessimistic | Slices in 80 hours                                      | Order to move slices out     |
+| ----------- | ---------- | ------ | ----------- | ------------------------------------------------------- | ---------------------------- |
+| C0          | 47         | 78     | 150         | S-02 to S-08 (61 hours). S-09 and S-10 are the reserve. | S-10, S-09, S-08             |
+| C0 + K1     | 71         | 118.5  | 233         | S-02, S-03, S-04 and S-07 (77 hours)                    | S-10, S-09, S-08, S-06, S-05 |
+| C0 + K2     | 99         | 178.5  | 359         | No set. S-02 alone needs about 113 hours.               | All slices after S-02        |
+
+Readings:
+
+- K1 adds 43 likely hours, and it saves 2.5 likely hours: the model call with its parse in S-02, and the name rule. So S-02 grows from 20 to 60.5 likely hours.
+- The worker judges that Cognee saves nothing in S-05, S-09 and S-10. S-05 needs our passages. The default Cognee summary is a list, not prose (W.8). A run with empty stores sees no earlier course.
+- With K1, the north star S-04 still fits in 10 working days. S-05 and S-06 move out, so the collapsed passages of FR-009 and the double-check questions of FR-006 are not in the 10 days.
+- The largest K1 items, in likely hours: the mapping of our model, prompt and chunks (8), the deploy, secrets, setup script and docs (7), the CI path with a fake model (6), and the container (5).
+- The order with the least risk, if Cognee must be in M-01 (researcher judgment): build S-02 with our own engine, reach S-04, and then put K1 behind contract 2. Rule 5 makes this a change of one function. This order costs about 2.5 more likely hours, because S-02 first builds its own model call. In return, the north star does not wait for the second runtime.
+
+The three largest new risks (worker judgment, and the researcher read each line again):
+
+1. The privacy of learners in K2. W.8 gives the code facts: shared stores with access control off, Enterprise or AuraDB for isolation on Neo4j, and Cognee tables in `public`.
+2. Chunks are not passages. With a local embedding model of about 512 tokens, a lesson of 5,000 tokens needs about 10 model calls. A vendor embedder avoids this, and it adds a paid key.
+3. A second production service with no proof. Five production rows of F-01 are still open (`context/changes/background-work-path/plan.md:698-702`).
+
+### W.11 What this changes in follow-up (3)
+
+- **R.4, the row for Cognee:** with K1, the verdict moves from "later, phase D" to "MVP, as the extraction engine". The MVP then uses 1 project as code. Cognee replaces the patterns of neo4j-graphrag-python and LightRAG inside the extraction step. Our cache by content hash keeps the LightRAG pattern outside the container. The patterns of Graphiti, OpenTutor, Tutor MCP and OpenFlowKit stay.
+- **R.6:** the six rules stay. Rule 5 makes the swap possible. One rule comes in: no Cognee id leaves the Cognee container.
+- **R.6, the passage splitter:** it stays in K1, because S-05 needs our passages.
+- **R.7, contract 2:** Cognee implements it from the start.
+- **R.2 and R.8, "C0 fits 10 working days for S-02 to S-08":** with K1, the 10 days hold S-02, S-03, S-04 and S-07. W.10 gives the new budget.
+- **R.9, phase D:** it gets smaller. The engine runs already, so phase D adds the service form, the datasets with access lists, and the shared sources.
+- **H.8, control 5:** it holds in K1, because the container gets passages only.
+
+### W.12 Limits of this follow-up
+
+- No project was run. The hours are judgments of one worker.
+- Nobody measured the memory, the start time or the image size of a Cognee container.
+- Nobody ran Cognee with `claude-haiku-5-5` through LiteLLM.
+- Nobody compared the extraction of one chunk with the extraction of one lesson on real course text.
+
+## Follow-up Research 2026-11-26 (5): where private knowledge lives, and the private brain as a separate service
+
+### P.1 Request and method
+
+The user asked two things:
+
+- In diagram 3 (W.6), does the private zone keep its knowledge in Cognee too?
+- How well does the design support a "private brain": the private zone as a separate service that other apps use, outside the current scope? Example: a recipe site reads the food preferences of the person over a safe protocol, like a private key that holds our data, and shows a personal list of recipes.
+
+Method:
+
+- The researcher read the private zone of H.2, H.5, H.6 and R.6 again, and the access tokens of S-01 in this repository.
+- One worker checked the status of the protocols for consent and delegated access in primary sources, on 2026-11-26.
+- One worker read how the evaluated memory projects let an outside app read the data of one person. It ran nothing.
+- The researcher read the schema.org page for `RestrictedDiet` on 2026-11-26.
+- The reports are in `research-appendix/private-brain.md`. No project was run.
+- A path that starts with the name of an evaluated project is relative to the folder of the evaluated projects. A path that starts with `cognee/` is relative to the Cognee repository.
+
+### P.2 The answer in short
+
+- **No. Cognee keeps no private knowledge in the target design.** In the private zone, Cognee can only be the engine in the form of K1: it gets passages, returns candidates and keeps nothing. Our own private store keeps all private knowledge. In phase D, Cognee keeps a working copy of shared sources only.
+- **The design supports a private brain well in its structure.** The private zone already has one direction of reference, an event log, a state function and a contract with no fixed place. So the zone can move to its own service, or to one store for each person, without a change of the common zone.
+- **Four parts are missing for the recipe example:** claims about the person that are not about learning, a shared vocabulary for each domain, consent with scopes for each app, and a query policy that gives an app the minimum.
+- **Of the evaluated projects, only Tutor MCP asks the person to approve an app.** Its OAuth consent for each client and scope is the pattern for the brain. Three projects show traps to avoid (P.6).
+- **Open standards cover the protocol.** OAuth 2.1 with Rich Authorization Requests fits a live query with consent, and the MCP authorization profile gives AI agents the same path. Signed claims (VC 2.0, SD-JWT) fit "a private key with our data": the person carries the claims and shows only the needed ones.
+- **The safest query style is "compute at the brain".** The recipe site sends its recipe ids, and the brain returns only an order of those ids. The preferences stay in the brain.
+- **For the MVP, the cost is near zero.** Rules 1, 2 and 6 of R.6 already keep the split open. P.10 adds two small choices.
+
+### P.3 Where the private knowledge lives
+
+Cognee keeps no private knowledge in the target design (W.6):
+
+- In the private zone, Cognee can only be the engine, in the stateless form of K1. It gets the passages of one private source, returns candidates, and keeps nothing after the run.
+- The private store keeps all private knowledge: the personal space, the learner events and the learner state. It is our own store: tables in Postgres now, a separate database at level L2, or one store for each person at level L3 (H.6).
+- In phase D, Cognee as a service keeps a working copy of shared sources. The canon that people see comes through the promotion gate into our shared map.
+
+Five reasons from the code facts:
+
+1. **Ids.** The learner state points at stable topic ids (rules 2 and 3 of R.6). A Cognee node id is random or comes from name values, and a merge leaves no redirect (W.8).
+2. **No learner model.** Our learner state is an event log with a policy version (F.6, principle 8). Cognee has no such model.
+3. **Weak separation on our stack.** With access control off, all Cognee datasets share one graph and one vector store. Isolation on Neo4j needs Enterprise or AuraDB, or one container for each dataset. Local files on Cloud Run do not persist (W.8).
+4. **Erasure.** With one private store, the erasure flow removes the access first and the data after that, in one place (H.8, threat 7).
+5. **A second record of each question.** The Cognee search stores the query text and the answer (H.4). For a private brain, that is a second log of each question about the person.
+
+An option exists: one Cognee dataset for each person, with its own stores. This research does not recommend it, for reasons 1 to 4.
+
+The labels of diagram 3 now say this: the private zone is "kept in our own private store", and the engine for private sources "keeps nothing".
+
+### P.4 Terms
+
+| Term              | Meaning in this research                                                                                                                                             |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Private brain     | The private zone of H.5 as a separate service: one service, or one store for each person                                                                             |
+| Owner             | The person whose data the brain holds                                                                                                                                |
+| Client app        | An app that reads or writes a part of the brain for the owner: this product, a recipe site, or the AI agent of another app                                           |
+| Claim             | One statement about the owner: a kind (knowledge, preference, constraint), a subject id, a value, a state (declared, observed, confirmed), and its evidence events   |
+| Shared vocabulary | The ids that the brain and a client app both understand. For this product it is the topic registry. For recipes it can be the schema.org values of `RestrictedDiet`. |
+
+schema.org defines `RestrictedDiet` with 11 values, for example `VegetarianDiet`, `VeganDiet` and `GlutenFreeDiet`. The property `suitableForDiet` of a `Recipe` or a `MenuItem` takes these values ([schema.org](https://schema.org/RestrictedDiet), read on 2026-11-26).
+
+### P.5 What the design already gives
+
+| Property                                                                                                         | Where                                                                           | What it gives the private brain                                                                             |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| The common store holds no personal data, and the private store points at the common store (rules 1 and 2)        | H.5, R.6                                                                        | The private zone can move to its own service, and the common zone does not change.                          |
+| Contract 3: events go in, a state comes out, and the callers do not know where the private store runs            | H.5                                                                             | The API of the brain exists in outline.                                                                     |
+| Contract 4: the reader joins the map and the state                                                               | H.5                                                                             | An outside app is one more reader. It joins its own items with the claims that it may read.                 |
+| The state is a pure function of the events and a policy version                                                  | R.6 (rule 6), F.6 (principle 8)                                                 | The brain can give different views to different apps from one log, and it can replay them.                  |
+| A claim is not a proof                                                                                           | F.6 (principle 9)                                                               | An app can see if a preference is declared, observed or confirmed.                                          |
+| A topic id has no meaning and does not change                                                                    | R.6 (rule 3)                                                                    | An app can keep a reference that a rename does not break.                                                   |
+| Levels L2 and L3                                                                                                 | H.6                                                                             | A separate database, or one store for each person. L3 is the closest form to "a private key with our data". |
+| The erasure flow                                                                                                 | H.8 (threat 7)                                                                  | Export and deletion of one person happen in one place.                                                      |
+| Personal access tokens: hashed, named, revocable, at most 5 live tokens, and usable only through named functions | `supabase/migrations/20261124200900_create_access_tokens.sql:1-19,25-53,81-127` | A first form of access for an app that acts for one person exists already.                                  |
+
+The S-01 tokens have no scope, no expiry and no log of each use. Only the time of the last use is stored (`create_access_tokens.sql:16`).
+
+### P.6 What the design lacks for the recipe example
+
+| Gap                                                    | Why the recipe example needs it                               | What can fill it                                                                                                                                                                                                 |
+| ------------------------------------------------------ | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The claims hold learning only                          | Food preferences are another kind of claim                    | A claim model with kinds and states (P.4). Honcho keeps a peer card with prefixes such as `IDENTITY:` and `ATTRIBUTE:`. Memobase keeps profile slots such as `interest` (`research-appendix/memory-systems.md`). |
+| No shared vocabulary outside learning                  | The site and the brain must name "vegetarian" in the same way | The schema.org values of `RestrictedDiet` (P.4)                                                                                                                                                                  |
+| No consent for each app                                | The owner approves one app for one kind of data               | OAuth 2.1 with PKCE, and RAR for the kinds of claims (P.7). Tutor MCP stores an approval for each learner, client, redirect address and scope (`tutor-mcp/auth/oauth.go:785-814`).                               |
+| A Supabase OAuth token has the full access of the user | A recipe site must not read the learning data                 | Rule 10 of P.9                                                                                                                                                                                                   |
+| No expiry and no read audit                            | The owner sees who read what, and the access ends             | Short access tokens with rotating refresh tokens: Tutor MCP uses 30 minutes (`tutor-mcp/auth/jwt.go:39-42`). An audit row for each read is our own work: no evaluated project logs reads for the owner.          |
+| No query policy                                        | An app gets the minimum                                       | Way B of P.7. Honcho shows the code side: the token limits what its chat can recall to a set of sessions (`honcho/src/routers/peers.py:297-348`).                                                                |
+| No defense against a hostile app                       | Text from an app can try to steer a model                     | Rule 5 of H.5, and rules 3 and 5 of P.9                                                                                                                                                                          |
+
+**What the evaluated projects show** (worker judgment, and the researcher read each anchor again):
+
+- Only Tutor MCP asks the person to approve an app. It stores the approval for each client and scope, and its scopes separate read from write (`tutor-mcp/models/oauth.go:16-23`). Its OAuth design is the pattern for the consent of the brain.
+- Cognee makes each app its own principal, with an access list for each dataset (`research-appendix/private-brain.md`, section 2).
+- Honcho lets the token set the part of the data that the model can read, and code limits the recall to that part (`honcho/src/routers/peers.py:297-348`).
+
+Three traps:
+
+1. **The person is a field of the request, not a claim of the token.** In Mem0 and Memobase, a key holder names the user in the request (`research-appendix/private-brain.md`, section 2). Then each key can read each person.
+2. **Defaults that open everything.** Memobase accepts any root token when `ACCESS_TOKEN` is not set (`memobase/src/server/api/memobase_server/api_layer/middleware.py:178-182`). Honcho gives admin rights when auth is off (`honcho/src/security.py:328-329`). Tutor MCP gives the broad `learner` scope to a request with no scope (`tutor-mcp/auth/scopes.go:21-24`).
+3. **No revocation for each app, and no read audit for the owner.** Honcho keys are stateless signed tokens with no deny list. Cognee keeps the text of each question and its answer by default (`cognee/modules/search/operations/search_history_config.py:1-14`). That is a second copy of personal data, not an audit for the owner.
+
+### P.7 Three ways for an outside app to use the brain
+
+| Way                                      | What leaves the brain                                  | Freshness                                                | Standards and their status on 2026-11-26                                                                                                                                   | Fit for the recipe example                                        |
+| ---------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| A. Claims with consent                   | The claims of the approved kinds, for example the diet | Live                                                     | OAuth 2.1 (Internet-Draft 17, not an RFC), PKCE (RFC 7636), Rich Authorization Requests (RFC 9396), Resource Indicators (RFC 8707), Protected Resource Metadata (RFC 9728) | Good for a few stable preferences                                 |
+| B. Compute at the brain                  | Only an order of the ids that the app sent             | Live                                                     | The same as A, with a typed request: ids go in, and ids in an order come out                                                                                               | The best privacy of the three: the app learns only an order       |
+| C. Signed claims that the person carries | Only the claims that the person shows                  | As of the date of issue. A status list gives revocation. | VC Data Model 2.0 (W3C Recommendation, 2025-05-15), SD-JWT (RFC 9901, 2025-11), OID4VCI 1.0 (final, 2025-09-16), OID4VP 1.0 (final, 2025-07-09)                            | Good for stable claims. The site needs no live call to the brain. |
+
+- **AI agents.** The MCP authorization of version 2026-07-28 uses the same parts as way A. The authorization server must implement OAuth 2.1. An MCP server must publish its Protected Resource Metadata (RFC 9728), and a client must find the authorization server through it ([MCP authorization](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)). So one brain API can serve a website and the agent of another app.
+- **Fine-grained consent.** Rich Authorization Requests carry a list of `authorization_details` with a type, actions and data types. The person can approve a part of the list (RFC 9396, worker report).
+- **Way C and "a private key with our data".** This way matches the picture best: a wallet holds the keys and the signed claims, and the person shows only "vegetarian" to the recipe site. A signed claim proves who issued it, not that it is true. SD-JWT VC, the profile for such claims, is still a draft (draft 27, in IESG evaluation on 2026-11-16).
+- **Not chosen.** UMA 2.0 (Kantara Recommendation, 2018) and GNAP (RFC 9635, 2024-10) fit rules that the owner sets in advance, but the worker found no named adopters. The Solid Protocol is a draft community report (version 0.11.0, 2024-05-12), not on the W3C standards track.
+- The status of each item and its source are in `research-appendix/private-brain.md`, section 1.
+
+### P.8 The target: the private brain as a separate service
+
+This diagram adds two tags to the tags of W.3:
+
+| Tag      | Meaning                                              |
+| -------- | ---------------------------------------------------- |
+| STANDARD | An open protocol or format that the block implements |
+| OUTSIDE  | An app of another party (dashed border)              |
+
+```mermaid
+flowchart LR
+  subgraph OWNER["Owner"]
+    CONSENT["Consent page and the list of approved apps<br/>OWN"]
+    WALLET["Wallet with signed claims<br/>REUSE: a wallet app<br/>STANDARD: VC 2.0, SD-JWT"]
+  end
+  subgraph BRAIN["Private brain: one store for each person, level L3"]
+    AS["Authorization server: tokens, revocation<br/>REUSE: Supabase Auth OAuth 2.1 server, beta<br/>STANDARD: OAuth 2.1, PKCE"]
+    GRANTS["Grants: app, kinds of claims, purpose, expiry<br/>OWN<br/>PATTERN: RFC 9396 details"]
+    API["Brain API: claim queries, rank my items<br/>OWN<br/>STANDARD: RFC 9728 metadata"]
+    FILTER["Scope filter before any model call<br/>OWN"]
+    STORE["Events, claims, personal space<br/>OWN"]
+    AUDIT["Audit log of each read<br/>OWN"]
+    ISSUER["Issuer of signed claims<br/>OWN<br/>STANDARD: OID4VCI, SD-JWT"]
+  end
+  subgraph APPS["Client apps"]
+    RD["This product: learning<br/>OWN"]
+    RECIPE["Recipe site: food<br/>OUTSIDE"]
+    AGENT["AI agent of another app<br/>OUTSIDE<br/>STANDARD: MCP authorization"]
+  end
+  LLM["Model call on filtered data only<br/>SERVICE: Anthropic"]
+  VOCAB["Shared vocabularies<br/>topic registry: OWN<br/>schema.org RestrictedDiet: STANDARD"]
+  RD -->|events in, state out| API
+  RECIPE -->|1. asks for food preferences| AS
+  AS -->|2. shows the request| CONSENT
+  CONSENT -->|3. approves food only| GRANTS
+  AS -->|4. short-lived token| RECIPE
+  RECIPE -->|5. sends 100 recipe ids| API
+  API -->|checks| GRANTS
+  API --> FILTER --> STORE
+  FILTER --> LLM
+  API --> AUDIT
+  API -->|6. returns the ids in an order| RECIPE
+  AGENT --> API
+  ISSUER -->|signed claim| WALLET
+  WALLET -->|7. shows only: vegetarian| RECIPE
+  STORE -.- VOCAB
+  RECIPE -.- VOCAB
+  classDef own fill:#dbeafe,stroke:#1d4ed8,color:#0b1b3a
+  classDef reuse fill:#dcfce7,stroke:#15803d,color:#052e16
+  classDef service fill:#ffedd5,stroke:#c2410c,color:#3b1502
+  classDef outside fill:#ffffff,stroke:#4b5563,color:#111827,stroke-dasharray:4 3
+  class CONSENT,GRANTS,API,FILTER,STORE,AUDIT,ISSUER,RD own
+  class WALLET,AS reuse
+  class LLM service
+  class RECIPE,AGENT outside
+```
+
+How to read the numbers:
+
+- Steps 1 to 4 are way A of P.7. The recipe site asks, the owner approves food preferences only, and the site gets a short-lived token. Our consent page writes the approval into our own grants table.
+- Steps 5 and 6 are way B. The site sends its recipe ids, and the brain returns them in an order. The preferences do not leave the brain.
+- Step 7 is way C. The wallet shows one signed claim, and the brain gets no call.
+- The AI agent of another app uses the same API, through the MCP authorization profile.
+
+### P.9 Rules for a private brain
+
+1. The owner approves each app for named kinds of claims and one purpose. The owner can revoke an approval at any time.
+2. A token lives for a short time. It is bound to one app, one owner, a set of scopes and one resource. The owner comes from the token, never from a field of the request (trap 1 of P.6).
+3. Code filters the data by scope before any model call. The model never sees data outside the scope. This is rule 5 of H.5.
+4. The brain prefers "compute at the brain". The app sends its items, and the brain returns ids in an order, through a structured output.
+5. Text from an app is data, never an instruction to the brain.
+6. Each read leaves an audit row that the owner can see.
+7. The brain gives derived claims, not raw events or personal content, unless the owner approves that kind.
+8. Export and deletion of all data of one owner happen in one place. A revoked app loses its access at once.
+9. Each default refuses access. No auth setting, no scope or no grant means no access (trap 2 of P.6).
+10. A token of an outside app works only on the brain API. With Supabase as the authorization server, each OAuth access token has the full access of the user, plus a `client_id` claim, and custom scopes do not exist yet ([Supabase OAuth flows](https://supabase.com/docs/guides/auth/oauth-server/oauth-flows), read on 2026-11-26). So each row-level security policy of the private tables refuses a token with a `client_id`, and the brain API checks our own grants table.
+
+A limit of rule 4: an order of recipes still tells the app something. An app that always sees meat at the end can infer a vegetarian diet. So rule 4 reduces what leaves the brain, and it does not remove it.
+
+### P.10 What S-02 does now
+
+1. Keep rules 1, 2 and 6 of R.6. They are the base of the split, and they cost nothing extra.
+2. Give each learner event a source: the app or the feature that wrote it. Later, the owner can see which app said what, and an app can get only the claims that it may read.
+3. Put the reads and writes of learner data behind one module with the shape of contract 3. A later scope check then has one place.
+
+These choices take minutes to an hour in S-03. The MVP needs no OAuth server, no scopes, no audit log and no wallet.
+
+### P.11 Where this fits in the phases
+
+| Phase | Content                                                                                                              | Start it when                                                | It needs                                                |
+| ----- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------- |
+| E     | The private brain as a service for other apps: claims of more kinds, consent, scopes, audit, the query styles of P.7 | A second app outside this product needs the data of a person | Phase B (claims with states), and level L2 or L3 of H.6 |
+
+Phase E is outside M-01 and outside phases B to D. This research gives no estimate for it.
+
+### P.12 Limits of this follow-up
+
+- No project was run, and nobody built a part of a private brain.
+- The protocol facts have the date 2026-11-26. A draft can change.
+- The legal part is not legal advice. A brain that reads preferences for many apps does profiling of a person, so it needs a legal review before it starts.
+- The claim model of P.4 is a sketch. The plan of phase E must design it.
+
+## Follow-up Research 2026-11-26 (6): a sharing protocol between a course knowledge base and a private knowledge base
+
+### G.1 Request and method
+
+The user asked for a second view of the private brain of follow-up (5):
+
+- A course knowledge base (CKB) is a service, preferably on Cognee.
+- A private knowledge base (PKB) belongs to one person, preferably on Cognee. It holds many kinds of information, for example the knowledge of a topic and food preferences.
+- Question: how does a safe protocol look that lets a service fetch the data of a person, but only the information that the person wants to share?
+
+Method:
+
+- The researcher read the sharing parts of Cognee (commit `1961133`): agent principals, dataset rights, the search filter, node sets and the defaults. Paths that start with `cognee/` are paths in the Cognee repository.
+- The researcher read five more sources on 2026-11-26: Rich Authorization Requests (RFC 9396, sections 7 and 11), DPoP (RFC 9449), token revocation (RFC 7009), OpenID Connect Core 1.0 (section 17.3) and Article 9 of the GDPR.
+- The protocol reuses the standards that follow-up (5) checked (P.7, `research-appendix/private-brain.md`).
+- No project was run. The protocol is a design sketch, and the JSON shapes are examples.
+
+### G.2 The answer in short
+
+- **The protocol is a profile of open standards, not a new protocol.** OAuth 2.1 with PKCE carries the consent. Rich Authorization Requests name what the service may read. DPoP binds each token to the key of the service. A small typed API carries the queries.
+- **The unit of sharing is a category, and each category is one Cognee dataset.** Cognee checks the read right of each dataset in a search. A node set is only a tag, so it cannot be a unit of sharing.
+- **A sharing gateway stands in front of the PKB.** The gateway checks the grant, calls Cognee as a separate principal for each app, checks each answer against a schema, and writes an audit row. No app talks to Cognee directly.
+- **The service sends its items, and the PKB answers about those items only.** The course service sends its topic ids and gets a state for each id. The recipe site sends its recipe ids and gets them back in an order. Raw notes and free text do not leave the PKB.
+- **Food preferences can be special categories of data.** "Halal" shows a religion and "diabetic" shows a health condition (GDPR Article 9). So they get their own categories, with an explicit consent.
+- **Cognee can be the store of a PKB under six conditions** (G.10). This changes P.3 for the case where the PKB belongs to the person.
+- **The course service then keeps no personal state.** It asks the PKB of the person in each session, and it writes evidence back only when the person allows it.
+
+### G.3 The two knowledge bases
+
+```mermaid
+flowchart LR
+  subgraph CS["Course service: common zone, no personal data"]
+    CAPP["Course app: path, reader, quiz<br/>OWN"]
+    CKB["Course knowledge base<br/>REUSE: Cognee<br/>OWN: topic model with registry ids"]
+    CAPP --- CKB
+  end
+  subgraph PS["Private knowledge base of one person"]
+    AS["Authorization server and consent page<br/>REUSE: an OAuth 2.1 server<br/>STANDARD: OAuth 2.1, PKCE, RAR, DPoP"]
+    GW["Sharing gateway: grants, typed queries, schema check, audit<br/>OWN"]
+    PKB["Private store: one dataset for each category<br/>REUSE: Cognee, access control on"]
+    CLAIMS["Claims and events of the owner<br/>OWN"]
+    CON["Owner console: categories, grants, audit, revocation<br/>OWN"]
+    AS --- GW
+    GW -->|as the principal of the app| PKB
+    GW --- CLAIMS
+    CON --- AS
+    CON --- GW
+  end
+  RECIPE["Recipe site<br/>OUTSIDE"]
+  CAPP -->|overlay: topic ids in, states out| GW
+  RECIPE -->|rank: recipe ids in, order out| GW
+  CAPP -.->|asks for consent| AS
+  RECIPE -.->|asks for consent| AS
+  classDef own fill:#dbeafe,stroke:#1d4ed8,color:#0b1b3a
+  classDef reuse fill:#dcfce7,stroke:#15803d,color:#052e16
+  classDef outside fill:#ffffff,stroke:#4b5563,color:#111827,stroke-dasharray:4 3
+  class CAPP,GW,CLAIMS,CON own
+  class CKB,PKB,AS reuse
+  class RECIPE outside
+```
+
+The tags are the tags of W.3 and P.8.
+
+- **The CKB** holds the course canon: topics, relations and passages. It holds no personal data. Its topic ids must not change, because a PKB stores them. In Cognee, a data point gets a deterministic id only from its `identity_fields`, and else a random id (`cognee/infrastructure/engine/models/DataPoint.py:189-200`). So the topic model of the CKB names the registry key as its identity field, not the topic name.
+- **The PKB** holds the information of one person. The sharing gateway is the only door to it. The gateway keeps the claims and the events of the owner in its own small store, and Cognee keeps the content: the graph, the chunks and the vectors.
+- **One company can run both.** Even then, the course service gets no special path into the PKB. It uses the same protocol, the same grants and the same audit as the recipe site.
+
+### G.4 What Cognee gives for sharing, and what it does not
+
+| Fact                                                                                                                            | Anchor                                                                                                                                             | Use in the protocol                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Each dataset has four rights for a principal: read, write, delete and share.                                                    | `cognee/modules/users/permissions/permission_types.py:1`                                                                                           | A grant maps to the read right on the datasets of its categories.              |
+| An owner can make an agent principal with its own API key. Agents are one level deep.                                           | `cognee/modules/agents/create_agent.py:10-21`                                                                                                      | The gateway makes one agent principal for each app.                            |
+| Only a principal with the share right can give or take away a right on a dataset.                                               | `cognee/modules/users/permissions/methods/authorized_give_permission_on_datasets.py:15,31-32`, `authorized_revoke_permission_on_datasets.py:17,30` | Only the owner, through the gateway, changes the rights.                       |
+| The search checks the read right for the given datasets, or uses all readable datasets. This works only in access control mode. | `cognee/modules/search/methods/search.py:245-249`                                                                                                  | The gateway always sends the dataset ids of the grant, with access control on. |
+| The search can return context only, and it can add references.                                                                  | `cognee/api/v1/search/search.py:48,58,70`                                                                                                          | The matcher of the gateway reads context, and the gateway writes the answer.   |
+| The search types include `CYPHER` and `NATURAL_LANGUAGE`, which run queries on the graph.                                       | `cognee/modules/search/types/SearchType.py:85-108`                                                                                                 | The gateway never offers these types to an app.                                |
+| A node set is a tag on documents. The permission code does not use node sets.                                                   | `cognee/api/v1/add/add.py:47,188-192`                                                                                                              | A category must be a dataset, not a node set.                                  |
+| API keys have no scope and no expiry (`research-appendix/private-brain.md`, section 2). Key hashing is off by default.          | `cognee/modules/users/api_key/hash_api_key.py:4`                                                                                                   | Apps never see a Cognee key. The gateway holds the keys, with hashing on.      |
+| The search keeps each question and its answer by default.                                                                       | `cognee/modules/search/operations/search_history_config.py:1-14`                                                                                   | The PKB turns this off. The audit of the gateway keeps no content.             |
+| Telemetry is on until `TELEMETRY_DISABLED` is set. The API server always mounts the register route.                             | `cognee/shared/utils.py:23,575`, `cognee/api/client.py:389-393`                                                                                    | The PKB sets the switch, and its Cognee API is never public.                   |
+
+So Cognee gives a store with a right for each dataset, and the gateway gives everything that faces an app: consent, scopes, expiry, the typed API and the audit.
+
+### G.5 The unit of sharing: categories and their sensitivity
+
+Each piece of information in the PKB belongs to exactly one category, and each category is one Cognee dataset.
+
+| Category           | Example content                                       | Sensitivity | Can be shared                                 |
+| ------------------ | ----------------------------------------------------- | ----------- | --------------------------------------------- |
+| `private.inbox`    | Each new piece of information, before a review        | never       | No                                            |
+| `knowledge.topics` | The state of each topic: known, partly known, unknown | normal      | Yes, as states for the ids that an app sends  |
+| `knowledge.notes`  | Notes and passages that the person wrote or loaded    | never       | No                                            |
+| `food.preferences` | Vegetarian, vegan, dislikes                           | normal      | Yes                                           |
+| `food.religious`   | Halal, kosher, Hindu diet                             | special     | Only with an explicit consent for one purpose |
+| `food.health`      | Diabetic, low salt, allergies                         | special     | Only with an explicit consent for one purpose |
+
+Rules for the categories:
+
+1. New information goes to `private.inbox`. A classifier can propose a category, and the owner confirms each move to a category that can be shared.
+2. A category with the sensitivity "never" does not appear on a consent page.
+3. A "special" category needs its own explicit consent for one purpose. Article 9 of the GDPR forbids the processing of data that shows religious beliefs or health, unless an exception applies. One exception is the explicit consent of the person for specified purposes ([GDPR Article 9](https://gdpr-info.eu/art-9-gdpr/), read on 2026-11-26).
+4. The values of schema.org show why food needs three categories. `RestrictedDiet` has `HalalDiet`, `KosherDiet` and `HinduDiet`, which show a religion, and `DiabeticDiet`, which shows a health condition (P.4).
+
+### G.6 The protocol as a profile of standards
+
+| Step                   | What happens                                                                                                                                                      | Standard                                                                                                                                                                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Discovery           | The gateway publishes its metadata: the authorization server, and a catalog of the categories, the operations and the vocabularies that it accepts.               | Protected Resource Metadata (RFC 9728). RFC 9396, section 11.1: publish the types of authorization details in the server metadata.                                                                                         |
+| 2. Client registration | The app registers its name, purpose, redirect addresses and privacy policy. The consent page shows them.                                                          | Client ID Metadata Document or pre-registration, as in MCP authorization 2026-07-28                                                                                                                                        |
+| 3. Request             | The app asks for named categories and operations, a purpose and a retention, for one resource.                                                                    | OAuth 2.1 with PKCE, Rich Authorization Requests (RFC 9396), Resource Indicators (RFC 8707)                                                                                                                                |
+| 4. Consent             | The owner sees the app, each category, each operation, the purpose and the retention. The owner can approve a part. A wider request later asks again.             | RFC 9396, sections 7 and 11.2: the token carries the details "as granted by the resource owner", and the consent step can change the request. Pattern: the stored consent of Tutor MCP (`tutor-mcp/auth/oauth.go:785-814`) |
+| 5. Token               | A short-lived token for the gateway only, bound to the key of the app. Its subject is a pairwise id, so two apps cannot link the person. A refresh token rotates. | DPoP (RFC 9449), OpenID Connect Core 1.0 section 17.3                                                                                                                                                                      |
+| 6. Query               | The app calls one of the typed operations of G.7.                                                                                                                 | Our own API contract                                                                                                                                                                                                       |
+| 7. Revocation          | The owner revokes a grant in the console. The app can revoke its own token.                                                                                       | Token Revocation (RFC 7009)                                                                                                                                                                                                |
+| 8. Agents              | The AI agent of an app uses the same grants and operations through an MCP server of the gateway.                                                                  | MCP authorization, version 2026-07-28                                                                                                                                                                                      |
+| 9. Offline claims      | For a stable claim, the PKB issues a signed claim to a wallet, and the person shows only that claim. No live call is necessary.                                   | OID4VCI 1.0, OID4VP 1.0, SD-JWT (RFC 9901)                                                                                                                                                                                 |
+
+- OpenID Connect Core 1.0, section 17.3: "To protect the End-User from possible correlation among Clients, the use of a Pairwise Pseudonymous Identifier (PPID) as the sub (subject) SHOULD be considered."
+- DPoP lets an app prove that it holds a private key, and the server binds the tokens to that key (RFC 9449, section 1). A stolen token is then useless without the key.
+- OAuth 2.1 is still an Internet-Draft (P.7).
+
+### G.7 The typed operations
+
+The gateway offers four operations. Each grant names the operations that it allows. No operation returns free text from a model.
+
+| Operation         | The app sends                                         | The PKB returns                                                           | Example                                 |
+| ----------------- | ----------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------- |
+| `overlay`         | A list of item ids with labels, in a named vocabulary | One state for each sent id, and the basis of the state                    | The course service and its topic ids    |
+| `rank`            | A list of item ids with attributes                    | The same ids in an order. With the `filter` action, also the excluded ids | The recipe site and its recipe ids      |
+| `claims`          | A category                                            | Typed claims of that category                                             | "VegetarianDiet, declared"              |
+| `append_evidence` | Events about the owner, for example a passed quiz     | An acknowledgement                                                        | The course service writes a quiz result |
+
+The request of the course service in step 3:
+
+```json
+{
+  "response_type": "code",
+  "client_id": "https://courses.example/client.json",
+  "resource": "https://pkb.example/",
+  "code_challenge_method": "S256",
+  "authorization_details": [
+    {
+      "type": "pkb_share",
+      "category": "knowledge.topics",
+      "actions": ["overlay", "append_evidence"],
+      "vocabulary": "https://courses.example/vocab/topics/v1",
+      "purpose": "adjust-course-path",
+      "retention": "session"
+    }
+  ]
+}
+```
+
+An `overlay` call in step 6, with the DPoP proof in its header:
+
+```json
+{
+  "vocabulary": "https://courses.example/vocab/topics/v1",
+  "category": "knowledge.topics",
+  "items": [
+    { "id": "t-0193", "label": "MergeTree engine" },
+    { "id": "t-0194", "label": "Repeatable read" }
+  ]
+}
+```
+
+The answer:
+
+```json
+{
+  "results": [
+    { "id": "t-0193", "state": "unknown" },
+    { "id": "t-0194", "state": "known", "basis": "checked" }
+  ],
+  "policy": "pkb-share/1"
+}
+```
+
+A `rank` call of the recipe site, and its answer:
+
+```json
+{
+  "vocabulary": "https://schema.org/",
+  "category": "food.preferences",
+  "items": [
+    { "id": "r-1", "suitableForDiet": ["VeganDiet"], "ingredients": ["tofu", "rice"] },
+    { "id": "r-2", "suitableForDiet": [], "ingredients": ["beef", "onion"] }
+  ]
+}
+```
+
+```json
+{ "order": ["r-1", "r-2"], "policy": "pkb-share/1" }
+```
+
+How the PKB computes an answer:
+
+1. When the PKB holds the id of the vocabulary, it reads the state directly. A person who learned with this product has the ids already, because the private side points at the common ids (rule 2 of H.5).
+2. Else the gateway searches the granted dataset as the principal of the app, with context only. A model then matches each sent item to that context and returns only an id and a state, through a structured output.
+3. The gateway checks the answer: each id must come from the request, each state must come from the fixed list, and the count must not pass the limit of the grant.
+
+### G.8 The flow
+
+```mermaid
+sequenceDiagram
+  participant O as Owner
+  participant C as Course service
+  participant A as Authorization server
+  participant G as Sharing gateway
+  participant P as Cognee of the PKB
+  C->>G: read the protected resource metadata
+  C->>A: authorization request with PKCE, resource and authorization details
+  A->>O: consent page with the category, operations, purpose and retention
+  O->>A: approve the overlay on knowledge.topics
+  A->>C: authorization code
+  C->>A: code and PKCE verifier, with a DPoP proof
+  A->>C: short-lived token bound to the key of the app, pairwise subject
+  C->>G: overlay with 200 topic ids, token and DPoP proof
+  G->>G: check the token, the grant, the operation and the limits
+  G->>P: search the granted dataset only, as the principal of the app
+  P-->>G: context
+  G->>G: match, then check the answer schema, then write an audit row
+  G-->>C: one state for each sent id
+  O->>G: read the audit, then revoke the grant
+  C->>G: the next overlay
+  G-->>C: 401, the grant is revoked
+```
+
+### G.9 Five walls in the gateway and the store
+
+| Wall | Where            | What it stops                                                                                                                                                      |
+| ---- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1    | Gateway          | A token that is expired, revoked, for another resource or without its key. An operation or a category outside the grant. Too many items.                           |
+| 2    | Cognee rights    | The gateway calls Cognee as the principal of the app, which has the read right on the granted datasets only. A defect in wall 1 still cannot read another dataset. |
+| 3    | Search types     | Only the context search is in use. The graph query types are never in use.                                                                                         |
+| 4    | Answer schema    | An answer with an id that the app did not send, a state outside the fixed list, free text, or too many results.                                                    |
+| 5    | Audit and limits | Many queries that rebuild a profile: each grant has a budget of queries for each day, and the owner sees each call.                                                |
+
+The audit row holds the time, the app, the grant, the operation, the category and the counts. It holds no content.
+
+### G.10 Cognee as the store of a PKB: six conditions
+
+P.3 did not recommend Cognee as the private store, for five reasons. That analysis put the private store inside this product. In this view, the PKB belongs to the person, and the conditions below answer each reason.
+
+| #   | Condition                                                                                                                                        | Reason of P.3 that it answers       |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| 1   | The PKB refers to topics by the ids of the vocabulary, and the CKB gives them stable ids through `identity_fields`. No Cognee id leaves the PKB. | 1, ids                              |
+| 2   | The gateway keeps the claims and the events of the owner in its own small store. Cognee keeps the content.                                       | 2, no learner model                 |
+| 3   | One Cognee for each person, or access control on with a store for each dataset.                                                                  | 3, weak separation                  |
+| 4   | The deletion of a PKB deletes its Cognee, or all datasets of the owner, and the grants.                                                          | 4, erasure                          |
+| 5   | `COGNEE_LOG_SEARCH_HISTORY=false`, `TELEMETRY_DISABLED`, and `HASH_API_KEY=true`.                                                                | 5, a second record of each question |
+| 6   | The Cognee API of the PKB is never public. The gateway is the only door.                                                                         | The hardening list of H.4           |
+
+Where a PKB can run:
+
+| Place                                                     | Separation                                                                         | Note                                                                                                                            |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| A hosted Cognee for each person                           | The strongest of the hosted options                                                | A cost for each person. Cloud Run files do not persist, so it needs a volume (W.8).                                             |
+| One hosted Cognee for many people, with access control on | Weaker: the relational database with the users and the rights is shared (W.8, H.4) | Wall 1 must also check the owner on each call.                                                                                  |
+| Cognee on the device of the person                        | The closest form to "a private key with our data"                                  | The defaults of Cognee are local files (W.8). When the device is offline, signed claims (step 9 of G.6) cover the stable facts. |
+
+### G.11 Threats and controls
+
+| #   | Threat                                                      | Control                                                                                                |
+| --- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 1   | An app reads more than the owner approved                   | Walls 1 to 4                                                                                           |
+| 2   | A stolen token                                              | DPoP, a token for one resource, a short life                                                           |
+| 3   | Two apps link the same person                               | A pairwise subject id for each app                                                                     |
+| 4   | Many queries rebuild a profile                              | A budget for each grant, limits on the items, and the audit                                            |
+| 5   | Text in an item tries to steer the model of the matcher     | Items are data. The model sees the granted dataset only. The schema accepts ids from the request only. |
+| 6   | Food data shows a religion or a health condition            | Separate special categories, with an explicit consent for one purpose                                  |
+| 7   | A wrong category puts a private fact into a shared dataset  | New information goes to the inbox, and the owner confirms each move                                    |
+| 8   | The defaults of Cognee leak data                            | Condition 5 and condition 6 of G.10                                                                    |
+| 9   | The company that runs the course service also hosts the PKB | Separate services and keys, the same protocol for each app, and an audit that the owner sees           |
+| 10  | An app keeps the shared data too long                       | The retention in the grant and in the terms. Operations with small answers, such as `rank`.            |
+
+### G.12 What this follow-up changes
+
+- **P.3, "Cognee keeps no private knowledge":** it stays for the private store inside this product. For a PKB that belongs to the person, Cognee can be the store under the six conditions of G.10.
+- **H.5, contract 3 (learner evidence):** in this view it becomes the operations `overlay` and `append_evidence` of the protocol.
+- **H.5, contract 4 (overlay at read time):** the course service joins its own topics with the states from the PKB in each session. The course service then keeps no personal state.
+- **P.7:** the three ways stay. This follow-up gives them one protocol: way A is `claims`, way B is `rank` and `overlay`, and way C is step 9 of G.6.
+
+### G.13 Limits of this follow-up
+
+- This is a design sketch. Nobody built the gateway, and no project was run.
+- The names of the operations, the categories and the JSON fields are examples.
+- OAuth 2.1 and SD-JWT VC are still drafts.
+- The legal part is not legal advice. The categories of G.5 need a legal review.
+- Nobody measured a Cognee for each person: its memory, its start time or its cost.
+
+## Follow-up Research 2026-11-26 (7): sharing one part of a connected private brain
+
+### M.1 Request and method
+
+The request: "In your private brain, let's assume there are informations mixed and interconnected like in human brain. How to permit access to only part of the informations, e.g. let know about cooking preferences but not share medical and emotional data to outside?" The user asked for ideas outside the box, and for no detail about OAuth.
+
+Scope:
+
+- G already gives the door: consent, tokens, the gateway and the typed operations. This follow-up does not change them.
+- This follow-up looks at the content: which part of a connected brain can leave, and how the brain decides it.
+
+Method:
+
+- Three workers ran in parallel. The first read the research on models that infer private facts and on agents that leak them. The second read classic security, EU law and product precedents. The third read the Cognee code at commit 1961133.
+- I checked the decisive numbers in the papers, the paragraphs of both court rulings, the Topics quote and the decisive Cognee anchors myself. M.17 lists each source.
+
+### M.2 The answer in short
+
+- **The hard part is inference, not access.** A right on data hides the node "diabetes" with no effort. But "avoids sugar" and a few other lines can let the model of a recipe site guess the diabetes. Models guess personal attributes from text with up to 85% top-1 accuracy (M.8).
+- **EU law counts the guess.** Data that reveal a special category "indirectly, following an intellectual operation involving deduction or cross-referencing" get the protection of Article 9 GDPR (CJEU C-184/20, paragraphs 123 and 127). This holds when the guess is wrong (CJEU C-252/21, paragraph 69).
+- **A connected brain leaks by six paths,** and rights on data stop only the first one (M.3).
+- **The brain acts like a discreet person.** It thinks with everything and speaks through a filter. Seven habits of a discreet person give seven mechanisms (M.4).
+- **The unit of privacy is a claim with labels,** not a note and not a node. A derived claim gets the labels of its sources, and only the owner removes a label (M.5, M.6).
+- **Questions from outside never reach the connected graph.** They reach a share view. For most audiences, the view is a short card that the owner approves line by line. Cognee stays the thinking graph, and it stops being the door (M.7, M.12, M.13).
+- **A model plays the attacker.** It tries to guess the hidden labels from each card before the card goes live (M.8).
+- **The strongest level reverses the flow.** The agent of the person takes the public recipe list and ranks it on the side of the person. The site learns only the clicks (M.9).
+- **G.5 changes.** Categories become labels on claims, and the shared units become views (M.14).
+
+### M.3 Six ways a connected brain leaks
+
+An example: one journal note of the owner.
+
+> "After the diabetes diagnosis I felt low for weeks. Cooking Mediterranean dinners with my sister helped me. I try to avoid sugar now."
+
+```mermaid
+flowchart LR
+  subgraph TG["Thinking graph: all claims of the note"]
+    ME(("The person"))
+    DIA["Diabetes"]
+    MOOD["Low mood"]
+    MED["Mediterranean dinners"]
+    SIS["The sister"]
+    SUG["Sugar"]
+    ME -->|"has · health"| DIA
+    DIA -->|"caused · health, emotion"| MOOD
+    ME -->|"cooks · food"| MED
+    MED -->|"helped with · emotion"| MOOD
+    ME -->|"cooks with · other person"| SIS
+    ME -->|"avoids · food"| SUG
+    SUG -.->|"because of · health"| DIA
+  end
+  subgraph FV["Food view: only the claims with the label food"]
+    VME(("The person"))
+    VMED["Mediterranean dinners"]
+    VSUG["Sugar"]
+    VME -->|"cooks"| VMED
+    VME -->|"avoids"| VSUG
+  end
+  TG ==>|"projector"| FV
+  linkStyle 0,1,6 stroke:#b91c1c,stroke-width:2px
+  linkStyle 3 stroke:#6d28d9,stroke-width:2px
+  linkStyle 2,5,7,8 stroke:#15803d,stroke-width:2px
+  linkStyle 4 stroke:#6b7280,stroke-width:2px
+```
+
+Edge colors: green for food, red for health, purple for emotion, gray for another person. The projector keeps only the green edges.
+
+The note gives seven claims. The labels are on the claims, which are the edges, because one node can be in several claims. The node "Mediterranean dinners" is in a food claim and in an emotional claim.
+
+| Claim                                            | Labels          | Can go into a food view |
+| ------------------------------------------------ | --------------- | ----------------------- |
+| The person has diabetes.                         | health          | No                      |
+| The diabetes caused a low mood.                  | health, emotion | No                      |
+| The person cooks Mediterranean dinners.          | food            | Yes                     |
+| The cooking helped with the low mood.            | emotion         | No                      |
+| The person cooks with the sister.                | other person    | No                      |
+| The person avoids sugar.                         | food            | Yes, but see path 3     |
+| The person avoids sugar because of the diabetes. | health          | No                      |
+
+| #   | Leak path    | Example                                                                                               | Control                                                                         | Section |
+| --- | ------------ | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------- |
+| 1   | Direct read  | An app reads "has diabetes".                                                                          | Rights on what an app can read                                                  | G.9     |
+| 2   | Neighbor     | A search for food finds "Mediterranean dinners" and returns its neighbor "helped with the low mood".  | Questions from outside reach a separate view, never the connected graph         | M.7     |
+| 3   | Inference    | The view holds only food claims, but "avoids sugar" with other lines lets a model guess the diabetes. | A model tries to guess the hidden labels before the view goes live              | M.8     |
+| 4   | Refusal      | The brain answers questions about sugar for most people, but refuses for this person.                 | The brain decides by the type of question, never by the data                    | M.10    |
+| 5   | Accumulation | Many small answers over months add up to a profile.                                                   | A ledger of what each audience got, a budget, and the check on the whole ledger | M.10    |
+| 6   | Persuasion   | Text from the app talks the model of the brain into telling more.                                     | The model that reads text from outside never sees the private claims            | M.11    |
+
+Rights on data stop only path 1. The other five paths need the mechanisms of M.5 to M.11.
+
+### M.4 The principle: think with everything, speak through a filter
+
+A person knows the diagnosis, and still tells the cook only "no sugar, please". Privacy research calls this contextual integrity. Nissenbaum names two types of norms: "norms of appropriateness, and norms of flow or distribution" (Washington Law Review 79, 2004). Barth, Datta, Mitchell and Nissenbaum describe each flow by its sender, its recipient, its subject, the type of information and "a principle of transmission" (IEEE S&P 2006). So the brain has two layers:
+
+1. **The thinking graph.** It holds everything, connected. Only the owner and the agent of the owner use it.
+2. **The discretion layer.** It builds one share view for each audience and purpose, and it checks each view before the view leaves.
+
+The mechanisms come from the habits of a discreet person:
+
+| #   | Habit of a discreet person                                                              | Mechanism of the brain                                                              | Pattern                             | Section |
+| --- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------- | ------- |
+| 1   | I know which of my facts are private, fact by fact.                                     | Each claim gets labels at ingestion.                                                | Labels on each fact                 | M.5     |
+| 2   | A secret stays a secret when I say it in other words.                                   | A derived claim gets the labels of all its sources. Only the owner removes a label. | Information flow control            | M.6     |
+| 3   | The cook and the doctor hear different stories.                                         | One share view for each audience, separate from the thinking graph                  | Partial identity                    | M.7     |
+| 4   | Before I speak, I ask: "What can they guess from this?"                                 | A model tries to guess the hidden labels from each view.                            | Inference control                   | M.8     |
+| 5   | I pick from the menu myself, and I do not explain why.                                  | The brain answers instead of telling, or the catalog comes to the brain.            | SafeAnswers, matching on the device | M.9     |
+| 6   | I give everyone the same polite "I prefer not to say", and I remember what I told whom. | Answers do not depend on the secret. A ledger records each disclosure.              | Simulatable auditing                | M.10    |
+| 7   | A stranger cannot talk me into telling a secret.                                        | The model that reads text from outside never sees private claims.                   | Dual LLM, CaMeL, AirGapAgent, FIDES | M.11    |
+
+```mermaid
+flowchart LR
+  SRC["Notes, chats and events of the owner<br/>OUTSIDE"]
+  LLM["Model API<br/>SERVICE"]
+  subgraph BRAIN["Private brain: only the owner and the agent of the owner"]
+    LAB["Claim splitter and labeler<br/>OWN"]
+    TG["Thinking graph: all claims, connected<br/>REUSE: Cognee, one dataset"]
+    CS["Claim store: labels, sources, owner decisions<br/>OWN"]
+  end
+  subgraph DISC["Discretion layer"]
+    PROJ["Projector: keeps the claims that the policy allows<br/>OWN, PATTERN: information flow control"]
+    CHK["Inference check: a model guesses the hidden labels<br/>OWN, PATTERN: inference control"]
+    CON["Owner console: approves each line<br/>OWN"]
+    CARD["One share view, a card, for each audience<br/>OWN, PATTERN: partial identity"]
+    LED["Ledger of each disclosure<br/>OWN, PATTERN: query auditing"]
+  end
+  GW["Sharing gateway of G<br/>OWN"]
+  APP["Recipe site<br/>OUTSIDE"]
+  AG["Agent of the person, level 0<br/>OWN"]
+  SRC --> LAB
+  LAB --> TG
+  LAB -->|"through the inbox"| CS
+  CS --> PROJ --> CHK --> CON --> CARD
+  CARD --> GW
+  GW --- LED
+  APP -->|"typed request"| GW
+  GW -->|"answer from the view only"| APP
+  APP -.->|"public catalog"| AG
+  TG -.->|"the full brain, results stay with the person"| AG
+  LAB -.- LLM
+  CHK -.- LLM
+  classDef own fill:#dbeafe,stroke:#1d4ed8,color:#0b1b3a
+  classDef reuse fill:#dcfce7,stroke:#15803d,color:#052e16
+  classDef service fill:#ffedd5,stroke:#c2410c,color:#3b1502
+  classDef outside fill:#ffffff,stroke:#4b5563,color:#111827,stroke-dasharray:4 3
+  class LAB,CS,PROJ,CHK,CON,CARD,LED,GW,AG own
+  class TG reuse
+  class LLM service
+  class SRC,APP outside
+```
+
+The tags are the tags of W.3 and P.8. Only the thinking graph reuses a project. The discretion layer is our own code, and each of its blocks follows a published pattern.
+
+### M.5 Habit 1: labels on each claim
+
+1. **Split each source into claims.** A claim is one fact: a subject, a relation and an object. A note is never only "food" or only "health".
+2. **Give each claim one or more labels from a fixed list.** Start from the special categories of GDPR Article 9: health, religion, ethnic origin, political opinions, sex life, genetic data, biometric data and trade union membership. Add our own labels: emotion, other person, money and place. Add neutral labels for the subject: food and knowledge.
+3. **Label the reason apart from the preference.** "Avoids pork" is a preference. "Because of my religion" is a reason. Many sensitive facts are reasons, so the brain shares the what and keeps the why.
+4. **Keep the events in.** Memory research separates episodic memory, which holds events, from semantic memory, which holds stable facts (Tulving, "Episodic and semantic memory", in _Organization of Memory_, 1972). Emotion comes mostly with events. So only stable claims can enter a view, and events never leave.
+5. **Deny by default.** A claim without a label, or with an uncertain label, counts as private. A new claim goes to the inbox of G.5 first.
+6. **Keep other people out.** "My partner has a nut allergy" is the health data of another person. A view can say "no nuts", which is the what. It never says why.
+
+The labeler is a model, and a model makes mistakes. The worst mistake is a "food" label on a health claim. Three controls reduce it:
+
+- The labeler asks one narrow question for each sensitive label, for example "Can this claim show the health of a person?". It prefers a false "yes" to a false "no".
+- A word list adds labels that the model missed: names of drugs, conditions, and diets with a medical name.
+- The owner confirms each claim before it enters a view (M.12).
+
+### M.6 Habit 2: labels follow the data
+
+- **The rule.** A claim that the brain derives from other claims gets the labels of all its sources. This is the lattice model of information flow: "The central component of the model is a lattice structure derived from the security classes" (Denning, CACM, 1976). In the decentralized label model, a value from two inputs gets "the union of the two set of policies" (Myers and Liskov, ACM TOSEM, 2000, section 3.5).
+- **An example.** The brain derives "prefers recipes with little sugar" from "has diabetes". The derived claim gets the label health, although its text is about food.
+- **Only the owner removes a label.** In the same model, "a principal may weaken only the policies that it has itself provided" (Myers and Liskov, section 1). In the brain, the owner can say: "Share 'avoids sugar' as a taste, without its reason." The brain records this decision with its date.
+- **Label creep.** A claim that comes from many sources collects many labels, and then nothing can leave. The decisions of the owner on the card (M.12) solve this for the few lines that matter.
+- **Unknown sources.** A claim from a source that the brain cannot trace gets all labels. Cognee writes some derived output with no source. The default stage list of `improve()` has nine stages, among them user preferences and a global context index (`cognee/modules/improve/registry.py:26-36`). Output without a data item gets no provenance (`cognee/tasks/storage/add_data_points.py:180-187`). So no output of Cognee goes into a view directly. It goes to the inbox as a new claim with all labels.
+- **A research precedent.** Collaborative Memory keeps a private tier and a shared tier, records the provenance of each memory fragment, and checks read and write policies (Rezazadeh et al., arXiv 2505.18279, 2025).
+
+### M.7 Habit 3: one separate view for each audience
+
+- **Filters on one big graph are weak.** One missed filter, one search type without the filter, or one path through a hidden node shows the hidden fact. The Cognee code at commit 1961133 shows each of these:
+  - The default search type is `HYBRID_COMPLETION`, which reads "Document passages plus entity neighbourhoods" (`cognee/api/v1/search/search.py:45,91-92`).
+  - The graph search scores each triplet from both of its nodes and its edge (`cognee/modules/graph/cognee_graph/CogneeGraph.py:480-516`). The graph data around the hits includes "their direct neighbors" (`cognee/infrastructure/databases/graph/ladybug/adapter.py:3437-3440`). So a food question can return "Mediterranean dinners, helped with, low mood".
+  - The text for the model is the full text of a chunk, or the description of a node (`cognee/modules/graph/utils/resolve_edges_to_text.py:53-59`).
+  - A node set filter keeps the tagged nodes and their neighbors (`adapter.py:3239-3293`). The worker found that edges carry no node set tag.
+  - One entity name gives one node across all notes, because the id is a uuid5 of the name (`cognee/infrastructure/engine/models/DataPoint.py:217-247`, `cognee/modules/graph/utils/expand_with_nodes_and_edges.py:128`). An update replaces the whole property blob of the node (`adapter.py:135-142`), so the description comes from the last note that wrote it.
+  - The search has no filter on custom properties. The graph filter compares declared columns, such as `type`, not keys inside the property blob (`adapter.py:3366-3377`).
+- **A mature graph database has the same class of problem.** In Neo4j, "the user can see all labels attached to a node they have access to, even if they do not have access to traverse on all of those labels" (Neo4j Operations Manual, limitations).
+- **A view is a separate store.** It holds only the claims whose labels the policy of that audience allows. A question from the app cannot reach a health claim, because the view does not hold one.
+- **A view has no holes.** It never shows "hidden" or an empty slot, because a hole tells the reader that something is there.
+- **A view does not need to be a graph.** A food view is a short list of typed claims: likes, avoids, time and budget. The graph is how the brain thinks, and the card is how the brain speaks. Only a large view needs its own Cognee dataset, for example the notes of the person on a topic for a tutor app. With access control on, which is the default when the stores support it, each dataset has its own graph file and its own vector file (`cognee/context_global_variables.py:149-170`, `LadybugDatasetDatabaseHandler.py:40-43`, `LanceDBDatasetDatabaseHandler.py:35`).
+- **The projector rebuilds a view** when the owner adds, changes or withdraws a claim, or changes a policy.
+- **Products also separate memory by context.** Claude creates "a separate memory for each project" (Anthropic, 2025-09-11). In 2024, OpenAI steered ChatGPT memory "away from proactively remembering sensitive information, like your health details" (OpenAI, 2024-02-13). Its current help center says that sensitive information can appear in memory when the person shares it. So the brain cannot rely on a model to leave sensitive facts out.
+
+The policy of one view:
+
+```yaml
+view: cooking
+audience: recipe sites
+purpose: suggest recipes
+allow_labels: [food]
+deny_labels: [health, religion, emotion, other person]
+kinds: [stable preference] # events never leave
+owner_review: each new line
+level: 0 # the leak ladder of M.9
+expires: 2027-05-26
+```
+
+### M.8 Habit 4: an attacker inside
+
+- **The check.** Before a view goes live, and after each change, a separate model plays the app. It gets the view and the list of hidden labels, and it tries to guess each hidden label with a confidence.
+- **Why a model.** Staab et al. let models guess eight personal attributes from Reddit comments, such as age, sex, place and income. The best model reached "up to 85% top-1 and 95% top-3 accuracy", with 100 times less cost and 240 times less time than human labelers ("Beyond Memorization", ICLR 2024). Health and religion were not among the eight attributes, but the method is the same. An app with a model can try the same guesses, so the brain tries them first.
+- **A list of safe topics is not enough.** Google curated the Topics taxonomy "to exclude categories generally considered sensitive". Its explainer still says: "It may be possible that topics, or groups of topics, are statistically correlatable with sensitive categories."
+- **What the brain does with a guess:**
+  1. It shows the owner a warning on the line, for example: "'Avoids pork' and 'avoids alcohol' together can show a religion."
+  2. It offers three choices: keep the line, remove it, or make it vaguer.
+  3. It records the decision.
+- **A standard asks for the same warning.** The W3C Verifiable Credentials Data Model 2.0 says that holders "ought to be warned by their software" when "a correlation risk is posed by the combination of two or more" credentials (section 8).
+- **Neutral reasons.** A line is safer when many people hold it for a neutral reason. "Little sugar" has many neutral reasons, such as fitness or taste. The schema.org value `DiabeticDiet` has one reason only (G.5).
+- **The union, not one line.** The check reads the whole view and the ledger of the audience (M.10), because leaks add up.
+- **The result of the check is sensitive too.** A guess such as "a religion that forbids pork" reveals a special category, and C-252/21 makes this independent "of whether or not the information revealed ... is correct" (paragraph 69). So the result stays in the brain, with all labels.
+- **A test for defects.** For each answer type, a test runs the answer with and without the hidden claims, and the two answers must be the same. This is non-interference: what one group does "has no effect on what the second group of users can see" (Goguen and Meseguer, IEEE S&P 1982). The same paper leaves "security breaches arising through inference" out of its model. So this test checks the projector, and the model check above covers the guesses.
+- **The limit.** The check finds the obvious guesses. It is a test, not a proof.
+
+An example result of the check:
+
+```json
+{
+  "view": "cooking",
+  "guesses": [
+    {
+      "label": "religion",
+      "guess": "a religion that forbids pork and alcohol",
+      "confidence": "high",
+      "because": ["avoids pork", "avoids alcohol", "halal meat only"]
+    },
+    {
+      "label": "health",
+      "guess": "diabetes",
+      "confidence": "low",
+      "because": ["avoids sugar"]
+    }
+  ]
+}
+```
+
+### M.9 Habit 5: answer instead of tell, and bring the catalog to the brain
+
+The leak ladder. Each level leaks less than the level above it.
+
+| Level | What leaves the brain                           | What the recipe site learns                           | Example                                                                     |
+| ----- | ----------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- |
+| 4     | The notes or the graph                          | Everything                                            | Never allowed                                                               |
+| 3     | The lines of a view                             | The approved lines of the card                        | "Likes spicy food, avoids pork"                                             |
+| 2     | An answer that the brain computes from the view | The result. Many results can show a part of the view. | The order of the 100 recipe ids that the site sent (`rank` of G.7)          |
+| 1     | A yes or a no for each item                     | One bit for each item                                 | "Recipe 17 fits"                                                            |
+| 0     | Nothing. The catalog comes to the brain.        | Only the clicks of the person                         | The agent of the person reads the public recipes and ranks them on its side |
+
+- **Level 2 is SafeAnswers.** In openPDS, "applications submit code (the question) to be run against the metadata, and only the result (the answer) is sent back to them" (de Montjoye et al., PLoS ONE, 2014).
+- **Level 0 has a precedent.** Brave Ads download "a catalog with a subset of all available ads" and match the ads inside the browser (Brave blog, 2020). Brave states that "your personal data never leaves your device". This is the claim of the vendor.
+- **Agents make level 0 natural.** The agent of the person visits the recipe site like any reader, takes the public recipes, and ranks them with the full brain. The site sees an anonymous reader. Do not send your data to the app. Send the data of the app to your brain.
+- **The agent takes a broad part of the catalog.** A narrow search, such as "desserts for diabetics", tells the site the secret again.
+- **Sensitive claims can help, but only at level 0.** The brain can use "has diabetes" to rank recipes when the result goes only to the person. At levels 1 to 3 the result goes to the site, so the brain uses the view only. The rule: a sensitive claim shapes a result only when the result stays with the person.
+
+### M.10 Habit 6: answers do not depend on the secret
+
+- **A refusal can leak.** Suppose the brain refuses "Does the person eat sugar?" only for people with diabetes. Then each refusal tells the site the diagnosis. Kenthapadi, Mishra and Nissim show that "query denials may leak information". Their simulatable auditor decides "based exclusively on" the questions so far and the earlier answers, and not on the dataset (PODS 2005, definition 4.1).
+- **The rule.** The brain decides by the type of question and the policy. It answers a type of question for every person, or for no person.
+- **The same shape.** An empty view, a view with few lines and a refusal look the same for every person. The time to answer does not depend on the data.
+- **The ledger.** The brain records each disclosure for each audience: the date, the lines and the answer type. The check of M.8 reads it. Farkas and Jajodia name the old form of this problem: "Indirect data disclosure via inference channels occurs when sensitive information can be inferred from non-sensitive data and metadata" (SIGKDD Explorations, 2002).
+- **The budget.** Each audience gets a fixed number of answers for each period (G.9, wall 5).
+- **Noise, as an option.** Randomized response gives each answer a known chance to be random, so no single answer is certain (Warner, JASA, 1965). Chrome used this idea in RAPPOR (Erlingsson et al., ACM CCS 2014). The Topics API returned a random topic in 5% of the cases. Google retired Topics in October 2025, and its status page lists Topics as removed from Chrome. Noise lowers the quality of the recipes, so the brain uses it only for lines near a sensitive label.
+
+### M.11 Habit 7: the model that reads text from outside never sees private claims
+
+- **Models leak in context.** In ConfAIde, GPT-4 and ChatGPT told a secret to the wrong people in 39% and 57% of the meeting summaries, "even though they are directly instructed to preserve privacy" (ICLR 2024, tier 4). In PrivacyLens, a privacy prompt changed the leak rate of GPT-4 only from 26.37% to 24.54%. For Llama-3-70B, the rate went up from 36.51% to 39.15% (NeurIPS 2024).
+- **Memory makes it worse.** CIMemories found "up to 69% attribute-level violations" and a "granularity failure": a model picks the right domain, but shares unneeded details inside it (arXiv 2511.14937, 2025). That is the recipe case: the domain is food, and the unneeded detail is the reason.
+- **An attacker can pull memory out.** MEXTRA took 50 private queries out of the memory of an agent for health records with 30 attack prompts (ACL 2025).
+- **Split the roles:**
+  1. The projector and the check see the private claims and the type of the task. They never read free text from an app. AirGapAgent uses this split: "the design does not allow any information from the third party to flow back to the minimizer module". Under one hijacking question, the privacy score of a plain Gemini Ultra agent fell from 94.4% to 45.2%, and AirGapAgent kept 96.7%. The cost was in the utility score: 98.9% fell to 88.7% (ACM CCS 2024).
+  2. The answer model reads the request of the app and the view only. The Dual LLM pattern is the simple form: a privileged model with trusted input only, and a quarantined model without tools for untrusted text (Willison, 2023).
+  3. Each value carries its labels, and a policy checks each flow. In CaMeL, capabilities "track the sources and allowed recipients of each value". CaMeL solved 77% of the AgentDojo tasks with provable security, against 84% with no defense (arXiv 2503.18813, version 2). FIDES lets data out only "if all recipients are permitted to read the data", and with its policy checks it stopped all prompt injection attacks in AgentDojo (arXiv 2505.23643).
+- **G already helps.** Its typed operations carry ids, not free text (G.7). This habit keeps that rule when an agent, not a form, talks to the brain.
+
+### M.12 The owner sees one card for each audience
+
+```text
+Cooking card       for: recipe sites     purpose: suggest recipes
+                   level: 0              expires: 2027-05-26
+  Likes:    Mediterranean food, spicy food, one-pot dinners
+  Avoids:   desserts with much sugar, pork
+  Time:     30 minutes on weekdays
+  Warning:  "Avoids pork" can show a religion.         [Keep] [Remove] [Make vaguer]
+  New line: "Avoids alcohol" (from a note of 2026-11-20)   [Add] [Ignore]
+```
+
+- The card is the human form of declassification. The owner approves each line, and sees what each audience can know.
+- A card is a partial identity: "a subset of attribute values of a complete identity" (Pfitzmann and Hansen, terminology v0.34, 2010, section 13.3). Here the owner can read it.
+- New lines come from the inbox, with the warning of the check.
+- The card is cheap to build and easy to understand. It is a good first version of the discretion layer.
+
+### M.13 How this maps to Cognee
+
+| Need of the design                  | What Cognee gives at commit 1961133                                                                                                                                        | Anchor                                                                                                                                     | What our code adds                                                                         |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| One connected graph for the owner   | One node for each entity name, across all notes of a dataset                                                                                                               | `DataPoint.py:217-247`, `expand_with_nodes_and_edges.py:128`                                                                               | Nothing                                                                                    |
+| A trace from a claim to its source  | A chunk `contains` each entity that it mentions. Each node row keeps the keys of the chunks that produced it.                                                              | `expand_with_nodes_and_edges.py:155-174`, `ladybug/adapter.py:544-568`                                                                     | The claim store keeps its own link from each claim to the hash of its source               |
+| Labels on claims                    | Custom fields persist as node properties, but an update replaces the whole property blob                                                                                   | `get_graph_from_model.py:96-101`, `ladybug/adapter.py:135-142`                                                                             | Labels live in the claim store, not in Cognee                                              |
+| A filter by label in a search       | No filter on custom properties. A node set filter adds the neighbors.                                                                                                      | `ladybug/adapter.py:3239-3293,3366-3377`                                                                                                   | Separate views (M.7)                                                                       |
+| Physical separation of a large view | One graph file and one vector file for each dataset, with access control on by default                                                                                     | `context_global_variables.py:149-170`, `LadybugDatasetDatabaseHandler.py:40-43`, `LanceDBDatasetDatabaseHandler.py:35`                     | The projector writes a large view into its own dataset                                     |
+| The withdrawal of a claim           | `delete_data` removes a node or an edge when no source owns it any more. A node that another note also uses stays, and the worker infers that its property blob stays too. | `cognee/api/v1/datasets/datasets.py:464-644` (worker report), `cognee/infrastructure/databases/unified/provenance_delete_planner.py:57-59` | The projector rebuilds each view from the claim store. A full forget rebuilds the dataset. |
+| Derived knowledge                   | `improve()` writes preferences, conflicts and a global index. Output without a data item gets no provenance.                                                               | `cognee/modules/improve/registry.py:26-36`, `cognee/tasks/storage/add_data_points.py:180-187`                                              | Derived output enters a view only through the inbox, with all labels                       |
+
+So Cognee fits the thinking graph. The discretion layer is our own code, because Cognee has no labels that its search enforces. This matches condition 2 of G.10: the gateway keeps the claims of the owner in its own small store, and Cognee keeps the content.
+
+### M.14 What this follow-up changes
+
+- **G.5, "each piece of information in the PKB belongs to exactly one category":** this does not hold for a connected brain. Labels on claims replace it. The categories of G.5 become views, and its sensitivity levels (never, normal, special) become properties of the labels.
+- **G.4 and G.9, wall 2:** a view, not a category, maps to a Cognee dataset. Most views are cards and need no dataset.
+- **G.10, condition 2:** the small store of the gateway holds the claims with their labels, sources and owner decisions.
+- **G.11, threat 6:** the check of M.8 and the warning on the card add to the special categories.
+- **P.7:** level 0 of M.9 goes above way B.
+- **G.7, `overlay`:** the course service gets a level 2 answer from the view `knowledge.topics`. A topic state is a stable claim. A quiz answer is an event, and it stays in the brain.
+
+### M.15 What S-02 does now
+
+- S-02 does nothing new.
+- For S-03 and S-06, one rule joins the two choices of P.10: a learner event holds a typed state and a source. Free text from the learner, for example an answer to a double-check question, is an event. It stays private, and only its verdict can become a shared state.
+
+### M.16 Limits of this follow-up
+
+- This is a design sketch. Nobody built the labeler, the projector or the check.
+- A model labels the claims and runs the check, and both make mistakes. Nothing here proves that an inference is impossible.
+- Level 0 needs an agent or an app on the side of the person.
+- The numbers in the papers come from their benchmarks, not from food data.
+- The legal part is not legal advice.
+
+### M.17 Sources
+
+All sources were read on 2026-11-26.
+
+| #   | Source                                                                                                                    | Used in        | Link                                                                                                                                                                                                                                                                           |
+| --- | ------------------------------------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Staab et al., "Beyond Memorization: Violating Privacy via Inference with Large Language Models", ICLR 2024                | M.2, M.8       | https://arxiv.org/abs/2310.07298                                                                                                                                                                                                                                               |
+| 2   | CJEU C-184/20, OT v Vyriausioji tarnybinės etikos komisija, 2022-08-01, paragraphs 119 to 128 and ruling point 2          | M.2            | https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:62020CJ0184                                                                                                                                                                                                          |
+| 3   | CJEU C-252/21, Meta Platforms v Bundeskartellamt, 2023-07-04, paragraphs 68 and 69                                        | M.2, M.8       | https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:62021CJ0252                                                                                                                                                                                                          |
+| 4   | Nissenbaum, "Privacy as Contextual Integrity", Washington Law Review 79(1), 2004                                          | M.4            | https://digitalcommons.law.uw.edu/wlr/vol79/iss1/10                                                                                                                                                                                                                            |
+| 5   | Barth, Datta, Mitchell, Nissenbaum, "Privacy and Contextual Integrity: Framework and Applications", IEEE S&P 2006         | M.4            | https://nissenbaum.tech.cornell.edu/papers/Privacy%20and%20Contextual%20Integrity%20-%20Frameworks%20and%20Applications.pdf                                                                                                                                                    |
+| 6   | Tulving, "Episodic and semantic memory", in _Organization of Memory_, 1972                                                | M.5            | No link                                                                                                                                                                                                                                                                        |
+| 7   | Denning, "A Lattice Model of Secure Information Flow", CACM 19(5), 1976                                                   | M.6            | https://doi.org/10.1145/360051.360056                                                                                                                                                                                                                                          |
+| 8   | Myers and Liskov, "Protecting Privacy Using the Decentralized Label Model", ACM TOSEM, 2000                               | M.6            | https://doi.org/10.1145/363516.363526                                                                                                                                                                                                                                          |
+| 9   | Rezazadeh et al., "Collaborative Memory: Multi-User Memory Sharing in LLM Agents with Dynamic Access Control", 2025       | M.6            | https://arxiv.org/abs/2505.18279                                                                                                                                                                                                                                               |
+| 10  | Neo4j Operations Manual: read privileges and limitations                                                                  | M.7            | https://neo4j.com/docs/operations-manual/current/authentication-authorization/limitations/                                                                                                                                                                                     |
+| 11  | Anthropic, "Memory", 2025-09-11. OpenAI, "Memory and new controls for ChatGPT", 2024-02-13, and the Memory FAQ            | M.7            | https://www.anthropic.com/news/memory, https://openai.com/index/memory-and-new-controls-for-chatgpt/, https://help.openai.com/en/articles/8590148-memory-faq                                                                                                                   |
+| 12  | Google Privacy Sandbox: Topics taxonomy, the Topics explainer, the retirement of 2025-10-17 and the status page           | M.8, M.10      | https://privacysandbox.google.com/private-advertising/topics/web/topic-classification, https://github.com/patcg-individual-drafts/topics, https://privacysandbox.com/news/update-on-plans-for-privacy-sandbox-technologies/, https://privacysandbox.google.com/overview/status |
+| 13  | W3C Verifiable Credentials Data Model 2.0, section 8                                                                      | M.8            | https://www.w3.org/TR/vc-data-model-2.0/                                                                                                                                                                                                                                       |
+| 14  | Goguen and Meseguer, "Security Policies and Security Models", IEEE S&P 1982                                               | M.8            | https://doi.org/10.1109/SP.1982.10014                                                                                                                                                                                                                                          |
+| 15  | de Montjoye et al., "openPDS: Protecting the Privacy of Metadata through SafeAnswers", PLoS ONE, 2014                     | M.9            | https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0098790                                                                                                                                                                                                      |
+| 16  | Brave, "Intro to Brave Ads", 2020, and the Brave browser privacy policy                                                   | M.9            | https://brave.com/blog/intro-to-brave-ads/, https://brave.com/privacy/browser/                                                                                                                                                                                                 |
+| 17  | Kenthapadi, Mishra, Nissim, "Simulatable Auditing", PODS 2005                                                             | M.10           | https://doi.org/10.1145/1065167.1065183                                                                                                                                                                                                                                        |
+| 18  | Farkas and Jajodia, "The Inference Problem: A Survey", SIGKDD Explorations, 2002                                          | M.10           | https://doi.org/10.1145/772862.772864                                                                                                                                                                                                                                          |
+| 19  | Warner, "Randomized Response", JASA, 1965. Erlingsson, Pihur, Korolova, "RAPPOR", ACM CCS 2014                            | M.10           | https://doi.org/10.1080/01621459.1965.10480775, https://arxiv.org/abs/1407.6981                                                                                                                                                                                                |
+| 20  | Mireshghallah et al., "Can LLMs Keep a Secret?" (ConfAIde), ICLR 2024                                                     | M.11           | https://arxiv.org/abs/2310.17884                                                                                                                                                                                                                                               |
+| 21  | Shao et al., "PrivacyLens", NeurIPS 2024 Datasets and Benchmarks                                                          | M.11           | https://arxiv.org/abs/2409.00138                                                                                                                                                                                                                                               |
+| 22  | Mireshghallah et al., "CIMemories: A Compositional Benchmark for Contextual Integrity of Persistent Memory in LLMs", 2025 | M.11           | https://arxiv.org/abs/2511.14937                                                                                                                                                                                                                                               |
+| 23  | Wang et al., "Unveiling Privacy Risks in LLM Agent Memory" (MEXTRA), ACL 2025                                             | M.11           | https://arxiv.org/abs/2502.13172                                                                                                                                                                                                                                               |
+| 24  | Bagdasarian et al., "AirGapAgent: Protecting Privacy-Conscious Conversational Agents", ACM CCS 2024                       | M.11           | https://arxiv.org/abs/2405.05175                                                                                                                                                                                                                                               |
+| 25  | Willison, "The Dual LLM pattern for building AI assistants that can resist prompt injection", 2023                        | M.11           | https://simonwillison.net/2023/Apr/25/dual-llm-pattern/                                                                                                                                                                                                                        |
+| 26  | Debenedetti et al., "Defeating Prompt Injections by Design" (CaMeL), version 2, 2025                                      | M.11           | https://arxiv.org/abs/2503.18813                                                                                                                                                                                                                                               |
+| 27  | Costa et al., "Securing AI Agents with Information-Flow Control" (FIDES), 2025                                            | M.11           | https://arxiv.org/abs/2505.23643                                                                                                                                                                                                                                               |
+| 28  | Pfitzmann and Hansen, "A terminology for talking about privacy by data minimization", v0.34, 2010                         | M.12           | https://dud.inf.tu-dresden.de/literatur/Anon_Terminology_v0.34.pdf                                                                                                                                                                                                             |
+| 29  | Cognee at commit 1961133, local clone. Anchors in M.6, M.7 and M.13.                                                      | M.6, M.7, M.13 | https://github.com/topoteretes/cognee                                                                                                                                                                                                                                          |
