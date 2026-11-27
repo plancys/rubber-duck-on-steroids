@@ -3,7 +3,7 @@ change_id: mark-known-topics
 title: Mark known topics
 status: implementing
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 archived_at: null
 ---
 

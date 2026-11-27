@@ -472,19 +472,19 @@ The migration adds one table, one trigger and two functions. It changes no exist
 
 #### Automated
 
-- [x] 1.1 The migration applies to the local database: `npx supabase migration up`
-- [x] 1.2 The pgTAP tests pass, the new file included: `npx supabase test db`
-- [x] 1.3 `npm run db:types` adds `learner_events`, `course_topic_list` and `learner_course_events` to `src/db/database.types.ts`
-- [x] 1.4 Lint and types pass: `npm run lint` and `npx astro check`
+- [x] 1.1 The migration applies to the local database: `npx supabase migration up` — ac836fa
+- [x] 1.2 The pgTAP tests pass, the new file included: `npx supabase test db` — ac836fa
+- [x] 1.3 `npm run db:types` adds `learner_events`, `course_topic_list` and `learner_course_events` to `src/db/database.types.ts` — ac836fa
+- [x] 1.4 Lint and types pass: `npm run lint` and `npx astro check` — ac836fa
 
 ### Phase 2: State function and marks route
 
 #### Automated
 
-- [ ] 2.1 The unit tests pass, the new tests included: `npm run test:unit`
-- [ ] 2.2 Lint and types pass: `npm run lint` and `npx astro check`
-- [ ] 2.3 The build passes: `npm run build`
-- [ ] 2.4 The smoke test passes with the new route steps: `SMOKE_COURSES=1 SMOKE_TOPICS=1 npm run smoke`, with the setup of `AGENTS.md:81`
+- [x] 2.1 The unit tests pass, the new tests included: `npm run test:unit`
+- [x] 2.2 Lint and types pass: `npm run lint` and `npx astro check`
+- [x] 2.3 The build passes: `npm run build`
+- [x] 2.4 The smoke test passes with the new route steps: `SMOKE_COURSES=1 SMOKE_TOPICS=1 npm run smoke`, with the setup of `AGENTS.md:81`
 
 ### Phase 3: Checklist page and panel control
 

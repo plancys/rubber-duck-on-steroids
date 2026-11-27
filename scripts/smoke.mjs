@@ -67,6 +67,8 @@ const TOPICS = TOPICS_REQUESTED && COURSES;
 const MAP_LESSON = 1;
 // The newest topic job that the course learner started with the start route.
 let topicJobId = null;
+// A topic of the open lesson. The mark steps mark it and remove the mark.
+let markTopicId = null;
 
 function cookieHeader(cookies) {
   return [...cookies.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
@@ -82,7 +84,9 @@ function storeCookies(response, cookies) {
   }
 }
 
-async function request(path, { method = "GET", form, cookies = jar } = {}) {
+// `form` sends the fields as a URL-encoded form. Without `form`, `body` is the body as it is, for example a FormData
+// or a JSON text, and `headers` can name its content type. `headers` also adds other headers, such as Accept.
+async function request(path, { method = "GET", form, body, headers = {}, cookies = jar } = {}) {
   const response = await fetch(BASE_URL + path, {
     method,
     redirect: "manual",
@@ -90,8 +94,9 @@ async function request(path, { method = "GET", form, cookies = jar } = {}) {
       Cookie: cookieHeader(cookies),
       Origin: BASE_URL,
       ...(form ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
+      ...headers,
     },
-    body: form ? new URLSearchParams(form).toString() : undefined,
+    body: form ? new URLSearchParams(form).toString() : body,
   });
   storeCookies(response, cookies);
   return {
@@ -424,6 +429,10 @@ function mapSummary(body) {
   return { view, lessons: lessons.join(", ") };
 }
 
+// The id of a topic in the outline of an open lesson: <li id="topic-<uuid>">. The space before "id" keeps
+// data-testid="topic-..." out of the match.
+const OUTLINE_TOPIC = /\sid="topic-([0-9a-f-]{36})"/;
+
 // Starts a topic job of the course learner through the start route, and keeps the id of the job.
 // A failed start clears the id, so that a later step cannot wait for the job of an earlier step.
 async function startTopicJob(id) {
@@ -468,6 +477,94 @@ const topicMapSteps = TOPICS
           bodyMatches:
             /^(?=[\s\S]*data-testid="topic-map-page" data-view="lesson")(?=[\s\S]*data-testid="outline-topic")(?=[\s\S]*data-testid="outline-quote")/,
         },
+      ],
+      // The mark steps. The course learner marks the first topic of the open lesson, then removes the mark.
+      // The marks route answers a form post with a redirect, and a request that asks for JSON with JSON.
+      [
+        "open lesson gives a topic to mark",
+        () =>
+          withValue(courseId, "no course id from the course load", async (id) => {
+            const result = await request(`/dashboard/courses/${id}/map?lesson=${MAP_LESSON}`, { cookies: courseJar });
+            markTopicId = OUTLINE_TOPIC.exec(result.body)?.[1] ?? null;
+            return result;
+          }),
+        { status: 200, bodyMatches: OUTLINE_TOPIC },
+      ],
+      [
+        "learner marks a topic with a form post",
+        () =>
+          withValue(markTopicId, "no topic id from the open lesson", (topicId) =>
+            request(`/api/courses/${courseId}/marks`, {
+              method: "POST",
+              form: { mark: topicId, lesson: String(MAP_LESSON) },
+              cookies: courseJar,
+            }),
+          ),
+        // A getter, because the id is known only after the first load.
+        {
+          status: 302,
+          exact: true,
+          get location() {
+            return `/dashboard/courses/${courseId}/known?notice=marks_saved#lesson-${MAP_LESSON}`;
+          },
+        },
+      ],
+      // The island sends a FormData body and asks for JSON.
+      [
+        "learner removes the mark with a script request",
+        () =>
+          withValue(markTopicId, "no topic id from the open lesson", (topicId) => {
+            const body = new globalThis.FormData();
+            body.append("unmark", topicId);
+            return request(`/api/courses/${courseId}/marks`, {
+              method: "POST",
+              body,
+              headers: { Accept: "application/json" },
+              cookies: courseJar,
+            });
+          }),
+        { status: 200, json: { saved: 1 } },
+      ],
+      // Astro checks the origin only for a form body, so the route refuses every other body.
+      [
+        "marks route refuses a JSON body",
+        () =>
+          withValue(markTopicId, "no topic id from the open lesson", (topicId) =>
+            request(`/api/courses/${courseId}/marks`, {
+              method: "POST",
+              body: JSON.stringify({ mark: [topicId] }),
+              headers: { "Content-Type": "application/json", Accept: "application/json" },
+              cookies: courseJar,
+            }),
+          ),
+        { status: 415, json: { error: "invalid_marks" } },
+      ],
+      [
+        "marks route refuses a bad topic id",
+        () =>
+          withValue(courseId, "no course id from the course load", (id) =>
+            request(`/api/courses/${id}/marks`, {
+              method: "POST",
+              form: { mark: "not-a-topic-id" },
+              headers: { Accept: "application/json" },
+              cookies: courseJar,
+            }),
+          ),
+        { status: 400, json: { error: "invalid_marks" } },
+      ],
+      // The main smoke user is the second learner. The route reads nothing before the insert. The insert check of the
+      // database cannot see the topics of another learner, so the answer is marks_stale.
+      [
+        "second learner cannot mark a topic of the course",
+        () =>
+          withValue(markTopicId, "no topic id from the open lesson", (topicId) =>
+            request(`/api/courses/${courseId}/marks`, {
+              method: "POST",
+              form: { mark: topicId },
+              headers: { Accept: "application/json" },
+            }),
+          ),
+        { status: 409, json: { error: "marks_stale" } },
       ],
       // The main smoke user is the second learner. The map page answers 404 for a course of another learner.
       [
