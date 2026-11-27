@@ -8,7 +8,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(69);
+select plan(73);
 
 -- Create two users as the superuser.
 insert into auth.users (id, email)
@@ -390,6 +390,36 @@ select results_eq(
           and status in ('waiting', 'running')) $$,
   $$ values ('done'::text, 0::bigint) $$,
   'a full quota leaves the load job done and inserts no topic job'
+);
+
+-- retry_job refuses a build_topic_map job, so a retry cannot pass the limit of topic jobs in one hour.
+-- The topic job of the second learner fails first.
+update public.jobs
+set status = 'failed', error = 'No lesson of the course could be analysed.', finished_at = now()
+where user_id = '22222222-2222-2222-2222-222222222222'
+  and type = 'build_topic_map';
+
+set local role authenticated;
+set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+
+select is(
+  (select public.retry_job(j.id)
+   from public.jobs as j
+   where j.user_id = '22222222-2222-2222-2222-222222222222'
+     and j.type = 'build_topic_map'),
+  false,
+  'retry_job refuses the failed build_topic_map job of the caller'
+);
+
+reset role;
+
+select results_eq(
+  $$ select status, attempts
+     from public.jobs
+     where user_id = '22222222-2222-2222-2222-222222222222'
+       and type = 'build_topic_map' $$,
+  $$ values ('failed'::text, 0) $$,
+  'a refused retry leaves the build_topic_map job failed'
 );
 
 -- The worker functions.
@@ -846,6 +876,21 @@ select results_eq(
   'a link keeps its passage and the hash of the old passage text until the next map'
 );
 
+-- The page does not show that link, because its passage has a new text. Ducks keeps its link in lesson two.
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+select results_eq(
+  $$ select l ->> 'lesson_title', l ->> 'quote'
+     from jsonb_array_elements(
+       public.topic_map_lesson('cccccccc-0000-0000-0000-000000000001', 'https://example.com/course/one')
+         -> 'topics' -> 0 -> 'links') as l $$,
+  $$ values ('Two'::text, 'A duck'::text) $$,
+  'topic_map_lesson hides a link whose passage has a new text'
+);
+
+reset role;
+
 -- A changed lesson text.
 update public.lessons
 set markdown = '# Three Changed again.'
@@ -861,6 +906,32 @@ select results_eq(
   $$ values (3, 3, 0, 1, 0, 3) $$,
   'topic_map_state counts a lesson with a new hash'
 );
+
+-- An analysis that is newer than the map also counts as a change: a build stored it, and no finish followed.
+-- The test runs in one transaction, where now() does not move, so the analysis of lesson one gets a later time.
+reset role;
+
+update public.lesson_analyses
+set analysed_at = analysed_at + interval '1 minute'
+where course_id = 'cccccccc-0000-0000-0000-000000000001'
+  and lesson_url = 'https://example.com/course/one';
+
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+select results_eq(
+  $$ select changed_lessons
+     from public.topic_map_state('cccccccc-0000-0000-0000-000000000001') $$,
+  $$ values (2) $$,
+  'topic_map_state counts a lesson whose analysis is newer than the map'
+);
+
+reset role;
+
+update public.lesson_analyses
+set analysed_at = analysed_at - interval '1 minute'
+where course_id = 'cccccccc-0000-0000-0000-000000000001'
+  and lesson_url = 'https://example.com/course/one';
 
 -- A failed analysis keeps the passages and the last result of the lesson.
 reset role;

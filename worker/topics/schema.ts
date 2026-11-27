@@ -118,6 +118,13 @@ function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+// A name, a description or a reason on one line: each run of white space becomes one space.
+// The engine writes the names of a course into the prompt of each later request, so a line break in a name
+// could add a line to that prompt. A quote keeps its text, because the quote check compares it with the passage.
+function line(value: unknown): string {
+  return text(value).replace(/\s+/g, " ");
+}
+
 export function emptyRemovals(): Record<SchemaReason, number> {
   return Object.fromEntries(SCHEMA_REASONS.map((reason) => [reason, 0])) as Record<SchemaReason, number>;
 }
@@ -141,7 +148,7 @@ export function checkAnswer(
       schemaRemoved.invalidItem += 1;
       continue;
     }
-    const name = text(item.name);
+    const name = line(item.name);
     if (!normalizeName(name)) {
       schemaRemoved.emptyName += 1;
       continue;
@@ -185,7 +192,7 @@ export function checkAnswer(
       removedNames.add(normalizeName(name));
       continue;
     }
-    topics.push({ name, description: text(item.description), sameAs, links });
+    topics.push({ name, description: line(item.description), sameAs, links });
   }
 
   // A relation end names a topic of the answer first, then a known topic by its name or an alias name.
@@ -225,7 +232,7 @@ export function checkAnswer(
       else schemaRemoved.unknownEnd += 1;
       continue;
     }
-    relations.push({ kind, from, to, reason: text(item.reason), position: passage.position });
+    relations.push({ kind, from, to, reason: line(item.reason), position: passage.position });
   }
 
   return { topics, relations, schemaRemoved, quoteRemoved };

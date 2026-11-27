@@ -727,7 +727,7 @@ ANTHROPIC_API_KEY=<key> npm run engine
 npm run engine -- --fake
 ```
 
-The script shows the model source when it starts. It never shows a key. `LLM_MODEL` selects another model, for example `LLM_MODEL=anthropic/claude-sonnet-5-5 npm run engine`. `ENGINE_PORT` and `MODEL_PORT` change the ports. Ctrl+C stops the engine and the model source.
+The script shows the model source when it starts. It never shows a key. For the bridge and the fake model, the script makes a new key for each start, and the model source refuses each request without that key. So start them only through `npm run engine`. `LLM_MODEL` selects another model, for example `LLM_MODEL=anthropic/claude-sonnet-5-5 npm run engine`. `ENGINE_PORT` and `MODEL_PORT` change the ports. Ctrl+C stops the engine and the model source.
 
 To try one lesson with no database write, start the engine. Then run one of these commands in a second terminal:
 

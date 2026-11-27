@@ -1,7 +1,7 @@
 ---
 change_id: course-topic-graph
 title: Course topic graph
-status: implemented
+status: impl_reviewed
 created: 2026-11-25
 updated: 2026-11-27
 archived_at: null
@@ -129,3 +129,12 @@ archived_at: null
 - Row 6.9: the engine counted 47,509 input and 53,803 output tokens, about 0.032 USD at the list price. The Anthropic usage page showed 0.0079 USD at the time of the check. The page can show a cost late. The owner accepted the cost.
 - Row 6.10: the Google billing page showed a cost of zero.
 - Row 6.11: the owner followed the README section "Deployment > Topic engine", and the steps matched.
+
+### Implementation review (2026-11-27)
+
+- The full review is `reviews/impl-review.md`: verdict NEEDS ATTENTION, with 0 critical findings, 5 warnings and 5 observations. The owner fixed 9 findings and accepted F10.
+- `supabase/migrations/20261127200000_fix_topic_map_review.sql` (F1 and F2): `retry_job` refuses a `build_topic_map` job. `topic_map_lesson` hides a link to a passage with a new text. `topic_map_state` counts a lesson whose analysis is newer than the map as changed. Apply it to production with `npx supabase db push` before the merge.
+- `worker/handlers/build-topic-map.ts` (F3): one run sends at most 200 engine requests. At the limit the run builds the map from the stored results and ends `done`, and "Update the map" continues.
+- `worker/topics/schema.ts` and `engine/rubber_duck_engine/prompt.py` (F8): a topic name, a description and a reason stay on one line.
+- `scripts/engine.mjs`, `scripts/model-bridge.mjs`, `scripts/fake-model.mjs` and `scripts/lib/messages-api.mjs` (F9): a new `MODEL_KEY` for each start, a refusal of a request from a browser, and a stop of the `claude` runs when the bridge stops. A fixture lesson through the real bridge gave 7 topics in 11.3 seconds with the key.
+- Break check: without each fix, its new test failed. The 4 new pgTAP tests failed on the old function bodies, and the request limit test failed without the limit check.

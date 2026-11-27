@@ -825,6 +825,42 @@ This phase gives production its engine, and the owner accepts the quality of the
 - React Flow sub flows: https://reactflow.dev/learn/layouting/sub-flows
 - React Flow accessibility: https://reactflow.dev/learn/advanced-use/accessibility
 
+## Deviations
+
+The phase blocks above keep the text that the owner approved. The code differs from that text in the places below. The Notes of `change.md` give the reason of each deviation, and the implementation review (`reviews/impl-review.md`, findings F6 and F7) lists them.
+
+Deviations that the Notes record:
+
+| Plan text | What the code does | Record |
+| --- | --- | --- |
+| No React Flow attribution link (Critical Implementation Details, phase 4 item 6) | The link shows, at 44 px. The owner chose it. | Notes, phase 4 |
+| `save_lesson_analysis` replaces the passages of a lesson (phase 2 item 5) | It updates the passages by position, so a passage keeps its id. | Notes, phase 2 |
+| One more try for a network error and a 502 answer (phase 3 item 2) | The client also tries 429, 503 and 504 again. | Notes, phase 3 |
+| A failed lesson does not fail the job (phase 3 item 6) | An engine that does not answer fails the job with a retry. A 401 answer fails it with no retry. | Notes, phase 3 |
+| The layout module gives the overview positions (phase 4 item 4) | The overview is one column in course order, with no dagre. | Notes, phase 4 |
+| The map starts at zoom 1 on a phone (phase 4 item 6) | It starts at zoom 1 on each screen. The button "Whole map" fits the whole map. | Notes, phase 4 |
+| `data-status` holds `none`, `current`, `stale` or `partial` (phase 4 item 3) | It also holds `building` while a topic job runs. | Notes, phase 4 |
+| A direct insert of a topic job for a course of another learner fails (phase 5 item 1) | The smoke test uses the start route. pgTAP covers the direct insert. | Notes, phase 5 |
+| The tap size rule stays for each element inside the canvas (phase 5 item 2) | The rule skips an element that the canvas clips fully. | Notes, phase 5 |
+
+Additions with no record before the review:
+
+| Place | What the code adds |
+| --- | --- |
+| `engine/rubber_duck_engine/extract.py`, `prepare_cognee()` (phase 1 item 3) | It sets the Cognee retry to 1 attempt and wraps `litellm.acompletion`. `AGENTS.md` asks for a check before an upgrade. |
+| `engine/rubber_duck_engine/settings.py` (phase 1 item 4) | A sixth setting `HOST`, default `0.0.0.0`. |
+| `worker/topics/schema.ts` (phase 3 item 3) | 3 more removal reasons: `invalidItem`, `quoteTooLong` and `unknownRelationPassage`. |
+| `scripts/setup-google.mjs` (phase 6 item 2) | Setup asks for the model of the engine and accepts only `anthropic/<model>`, because the deploy sets `LLM_PROVIDER=anthropic`. |
+| `scripts/phone-check.mjs` (phase 5 item 2) | With no map, or with no lesson that has a topic, the check prints SKIP and not FAIL for the lesson page. The smoke test fails in that case, so CI still finds a lost map. |
+
+Changes after the last phase:
+
+| Change | Record |
+| --- | --- |
+| Prompt 2: a quote is one full sentence, or one full list item, that names the topic. `PROMPT_VERSION` is `2`. | Notes, phase 6, rows 6.5 and 6.6 |
+| The worker image installs `procps`, and the `ci` job checks the worker image. The first production course load failed with `spawn ps ENOENT`. | Notes, phase 6, row 6.8 |
+| `retry_job` refuses a `build_topic_map` job. `topic_map_lesson` hides a link to a passage with a new text. `topic_map_state` counts a lesson whose analysis is newer than the map as changed. One job run sends at most 200 engine requests. | Review findings F1, F2 and F3 |
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.

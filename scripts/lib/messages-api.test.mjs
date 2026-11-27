@@ -3,7 +3,9 @@ import { describe, it } from "node:test";
 import {
   RequestError,
   readMessagesRequest,
+  sameKey,
   schemaFromSystemText,
+  startMessagesServer,
   writeMessagesAnswer,
   writeStoppedAnswer,
 } from "./messages-api.mjs";
@@ -136,5 +138,68 @@ describe("writeMessagesAnswer", () => {
 describe("schemaFromSystemText", () => {
   it("gives null for a broken schema", () => {
     assert.equal(schemaFromSystemText("conforming to this schema:\n```json\n{ broken\n```"), null);
+  });
+});
+
+describe("startMessagesServer", () => {
+  // One server on a free port with the key "test-key". It answers each valid request with the fixed value.
+  async function withServer(run) {
+    const server = await new Promise((resolveServer) => {
+      startMessagesServer({
+        port: 0,
+        key: "test-key",
+        answer: (request) => ({ message: writeMessagesAnswer(request, value, usage) }),
+        onListening: resolveServer,
+      });
+    });
+    const address = `http://127.0.0.1:${server.address().port}/v1/messages`;
+    try {
+      await run(address);
+    } finally {
+      server.closeAllConnections();
+      await new Promise((resolveClose) => server.close(resolveClose));
+    }
+  }
+  const body = JSON.stringify(baseRequest({ output_format: { type: "json_schema", schema } }));
+
+  it("refuses a request from a browser, which sends an Origin header", async () => {
+    await withServer(async (address) => {
+      const response = await fetch(address, {
+        method: "POST",
+        headers: { "content-type": "text/plain", origin: "https://example.com", "x-api-key": "test-key" },
+        body,
+      });
+      assert.equal(response.status, 403);
+    });
+  });
+
+  it("refuses a request with no key or with a wrong key", async () => {
+    await withServer(async (address) => {
+      const missing = await fetch(address, { method: "POST", headers: { "content-type": "application/json" }, body });
+      assert.equal(missing.status, 401);
+      const wrong = await fetch(address, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": "test-kez" },
+        body,
+      });
+      assert.equal(wrong.status, 401);
+    });
+  });
+
+  it("answers a request with the key", async () => {
+    await withServer(async (address) => {
+      const response = await fetch(address, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": "test-key" },
+        body,
+      });
+      assert.equal(response.status, 200);
+    });
+  });
+
+  it("compares the key in full", () => {
+    assert.equal(sameKey("test-key", "test-key"), true);
+    assert.equal(sameKey("test-ke", "test-key"), false);
+    assert.equal(sameKey(undefined, "test-key"), false);
   });
 });
