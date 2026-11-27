@@ -10,7 +10,7 @@
 // The load needs ALLOW_PRIVATE_COURSE_URLS=true on the server, because the course is the local fixture site.
 // Without the setting, the check skips the course page. FIXTURE_COURSE_URL overrides the start page of the course.
 // Run scripts/fixture-server.mjs and the worker to get a course with lessons. Without them, the course does not load,
-// but its page still renders.
+// but its page still renders. A load that ends ready starts a topic job, so the check waits for the end of that job too.
 /* global document, window */
 
 import { setTimeout as sleep } from "node:timers/promises";
@@ -37,6 +37,11 @@ const FIXTURE_COURSE_URL = process.env.FIXTURE_COURSE_URL ?? "http://localhost:8
 const COURSE_LINK = /^\/dashboard\/courses\/([0-9a-f-]{36})\?job=([0-9a-f-]{36})$/;
 // The course page path after the one load of the run. Undefined before the load, null after a failed or skipped load.
 let coursePath;
+// A course id that no course has. The reload route checks for a job in progress before it reads the course.
+// So a reload of this id answers job_active while the learner has a job in progress, and not_found after it.
+// The not_found answer changes no row.
+const NO_COURSE_ID = "00000000-0000-0000-0000-000000000000";
+const NO_JOB_LOCATION = `${COURSES}?error=not_found`;
 
 // Returns the looks to check. The value null means one pass with no look cookie.
 function selectedLooks(value = "") {
@@ -241,7 +246,22 @@ async function waitForJobEnd(page, jobId, seconds) {
   return false;
 }
 
-// Loads the fixture course through the form and waits for the end of its load job.
+// Waits until the learner has no job in progress, at most `seconds`. Returns false when the time runs out.
+// A crawl load that ends ready starts a topic job, and a learner has one job in progress at a time.
+async function waitForNoJob(page, seconds) {
+  const deadline = Date.now() + seconds * 1000;
+  while (Date.now() < deadline) {
+    const response = await page.request.post(`${BASE_URL}/api/courses/${NO_COURSE_ID}/reload`, {
+      headers: { Origin: BASE_URL },
+      maxRedirects: 0,
+    });
+    if (response.status() === 302 && response.headers().location === NO_JOB_LOCATION) return true;
+    await sleep(1000);
+  }
+  return false;
+}
+
+// Loads the fixture course through the form and waits for the end of its load job and of the topic job after it.
 // Returns the path of the course page, or null when the load did not start.
 async function loadCourse(page, width) {
   const started = await submitForm(page, {
@@ -259,6 +279,8 @@ async function loadCourse(page, width) {
   // Without a worker the job never ends. Then the page does not reload, and the check can measure it anyway.
   if (jobId && !(await waitForJobEnd(page, jobId, 60))) {
     report("WAIT", "load course", width, "the load job did not end in 60s, check the page anyway");
+  } else if (!(await waitForNoJob(page, 60))) {
+    report("WAIT", "load course", width, "a job was still in progress after 60s, check the page anyway");
   }
   return landed.pathname;
 }

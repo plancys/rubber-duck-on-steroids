@@ -345,6 +345,24 @@ async function loadFixtureCourse() {
   return { result, linkedCourseId: match?.[1] ?? null };
 }
 
+// A course id that no course has. The reload route checks for a job in progress before it reads the course.
+// So a reload of this id answers job_active while the learner has a job in progress, and not_found after it.
+// The not_found answer changes no row.
+const NO_COURSE_ID = "00000000-0000-0000-0000-000000000000";
+const JOB_ACTIVE_LOCATION = `/dashboard/courses/${NO_COURSE_ID}?error=job_active`;
+
+// Asks about once a second until the learner of `cookies` has no job in progress, or until `seconds` pass.
+// A crawl load that ends ready starts a topic job, and a learner has one job in progress at a time.
+// Returns the last answer of the reload route.
+async function waitForNoJob(seconds, cookies) {
+  const deadline = Date.now() + seconds * 1000;
+  for (;;) {
+    const result = await request(`/api/courses/${NO_COURSE_ID}/reload`, { method: "POST", cookies });
+    if (result.location !== JOB_ACTIVE_LOCATION || Date.now() >= deadline) return result;
+    await sleep(1000);
+  }
+}
+
 // Puts a JSON summary in place of the HTML body, so that the json check can compare it. Status and location stay.
 function summarize(result, summary) {
   return { ...result, body: JSON.stringify(summary(result.body)) };
@@ -381,6 +399,8 @@ async function extensionRequest(path, token, body) {
 // The course steps. The course learner loads the fixture course through the worker, with the rule fallback.
 // The worker has no ANTHROPIC_API_KEY in CI, so the lesson finder picks the links under the course path in page order.
 // The fixture course has 3 lessons. The second lesson answers 404, so it fails and the other two load.
+// A load that ends ready starts a topic job. After each load, the steps wait until the learner has no job in progress,
+// so the next load can start. The end state of the topic job does not matter here.
 // The extension routes allow 10 calls per minute. These steps send 3 extension calls.
 // No step here sends a sign-in call. The sign-up route has its own bucket "signup".
 const courseSteps = COURSES
@@ -404,6 +424,11 @@ const courseSteps = COURSES
         "course load ends done",
         () => withValue(courseJobId, "no job id from the course load", (id) => waitForJob(id, 90, courseJar)),
         { status: 200, json: { status: "done" } },
+      ],
+      [
+        "course learner has no job in progress after the load",
+        () => waitForNoJob(60, courseJar),
+        { status: 302, location: "/dashboard/courses?error=not_found", exact: true },
       ],
       [
         "course has 2 loaded lessons and 1 failed lesson in order",
@@ -438,6 +463,11 @@ const courseSteps = COURSES
         "second course load ends done",
         () => withValue(courseJobId, "no job id from the second course load", (id) => waitForJob(id, 90, courseJar)),
         { status: 200, json: { status: "done" } },
+      ],
+      [
+        "course learner has no job in progress after the second load",
+        () => waitForNoJob(60, courseJar),
+        { status: 302, location: "/dashboard/courses?error=not_found", exact: true },
       ],
       [
         "course list keeps one course",

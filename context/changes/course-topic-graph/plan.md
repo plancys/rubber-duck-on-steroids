@@ -833,34 +833,34 @@ This phase gives production its engine, and the owner accepts the quality of the
 
 #### Automated
 
-- [x] 1.1 Unit tests pass
-- [x] 1.2 Engine tests pass
-- [x] 1.3 The engine answers through the fake model
-- [x] 1.4 Lint passes
-- [x] 1.5 Type checks pass
+- [x] 1.1 Unit tests pass — 84431bc
+- [x] 1.2 Engine tests pass — 84431bc
+- [x] 1.3 The engine answers through the fake model — 84431bc
+- [x] 1.4 Lint passes — 84431bc
+- [x] 1.5 Type checks pass — 84431bc
 
 #### Manual
 
-- [x] 1.6 With no API key, one real lesson returns topics through Claude Code
-- [x] 1.7 You accept the output of 3 real lessons with Haiku 5.5
-- [x] 1.8 One real lesson returns a valid answer through the API key path, and the Notes record the request form
-- [x] 1.9 The Notes record the memory of the engine process after 3 lessons
+- [x] 1.6 With no API key, one real lesson returns topics through Claude Code — 84431bc
+- [x] 1.7 You accept the output of 3 real lessons with Haiku 5.5 — 84431bc
+- [x] 1.8 One real lesson returns a valid answer through the API key path, and the Notes record the request form — 84431bc
+- [x] 1.9 The Notes record the memory of the engine process after 3 lessons — 84431bc
 
 ### Phase 2: Knowledge tables and job rules
 
 #### Automated
 
-- [ ] 2.1 The migrations apply to a clean local database
-- [ ] 2.2 The policy and rule tests pass
-- [ ] 2.3 The generated types are current
-- [ ] 2.4 Lint passes
-- [ ] 2.5 Type checks pass
-- [ ] 2.6 The course smoke steps still pass
+- [x] 2.1 The migrations apply to a clean local database
+- [x] 2.2 The policy and rule tests pass
+- [x] 2.3 The generated types are current
+- [x] 2.4 Lint passes
+- [x] 2.5 Type checks pass
+- [x] 2.6 The course smoke steps still pass
 
 #### Manual
 
-- [ ] 2.7 The 8 new tables show row level security as on
-- [ ] 2.8 After a local crawl load, the jobs table holds one build_topic_map job for that course
+- [x] 2.7 The 8 new tables show row level security as on
+- [x] 2.8 After a local crawl load, the jobs table holds one build_topic_map job for that course
 
 ### Phase 3: Topic job in the worker
 

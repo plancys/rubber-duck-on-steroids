@@ -33,3 +33,14 @@ archived_at: null
   - The quote check removed 1 paraphrased quote (`SQL` in lesson 1). The topic then had no link left.
 - Input for phase 3: when the quote check removes the last link of a topic, the topic goes, and each relation to that topic must go too. In lesson 1 the relation `Window functions -> SQL` (`part_of`) points at such a topic.
 - Input for phase 3: lesson 5 holds `ClickHouse -> ReplacingMergeTree` as a prerequisite and `ReplacingMergeTree` as a part of `ClickHouse`. The ancestor rule removes the prerequisite.
+
+### Phase 2: knowledge tables and job rules (2026-11-27)
+
+- Migration: `supabase/migrations/20261127120000_create_topic_map.sql`. It was applied to the local database with `npx supabase migration up`. No existing row changed.
+- `save_lesson_analysis` replaces the passages of a lesson by position. A passage keeps its id while its position stays, so the links of the visible map stay valid until `finish_topic_map` runs. `topic_links.passage_hash` shows a link to an old text.
+- Input for phase 3: `save_lesson_analysis` takes the named arguments `course_id`, `lesson_url`, `content_hash`, `status`, `run_id`, and optional `error`, `engine`, `prompt_version`, `model`, `input_tokens`, `output_tokens`, `result`, `passages`. `passages` is `[{ position, heading_path, start_offset, end_offset, content_hash }]` with no text. An analysed lesson needs `result` and `passages`, and a failed lesson needs `error`, else the function raises 23514.
+- Input for phase 3: `finish_topic_map(course_id, run_id, state)` takes `state` as `{ topics: [{ id, name, description, aliases: [{ alias, normalized }], home_lesson_url, merged_into, retired }], links: [{ topic_id, lesson_url, position, role, quote, quote_start }], relations: [{ kind, from_topic_id, to_topic_id, reason, lesson_url, position }], overview, report }`. The worker makes the uuid of each new topic. A topic that the state leaves out loses its `course_topics` row, so the state must keep retired and merged topics.
+- Input for phase 3: `start_topic_map` returns `{ course, lessons, analyses, topics }`, or null for a course that does not exist. It returns no passages, so the report must take passage counts from the stored `result`.
+- Input for phase 3: the extension can save a page between `start_topic_map` and `read_lesson_text`. The handler hashes the text that it reads with MD5, which gives the same value as `md5()` in Postgres, and sends that hash.
+- The topic quota counts the jobs that the crawl trigger starts. After 5 crawl loads in one hour, a crawl load starts no topic job, and nothing tells the learner. In phase 4 the course page then shows no map or an old map, and the button gives the quota error.
+- The smoke test and the phone check use the reload route with an empty course id to see if a job is in progress: the route answers `job_active` or `not_found`. They wait at most 60 seconds.
