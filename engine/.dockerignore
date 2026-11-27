@@ -1,0 +1,8 @@
+# The image holds only the files that the engine runs. The tests, the local environment and the caches stay out.
+# The image installs its own packages with uv sync, so the local .venv stays out too.
+.venv
+.pytest_cache
+**/__pycache__
+tests
+Dockerfile
+.dockerignore

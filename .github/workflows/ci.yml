@@ -60,6 +60,16 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
+      # uv installs the locked Python packages of the topic engine in engine/. The cache keeps the downloads out of most runs.
+      # setup-uv has no major version tag, so the step names a full version. The uv version matches engine/Dockerfile.
+      # Change both together.
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.7"
+          enable-cache: true
+          cache-dependency-glob: engine/uv.lock
+      - name: Install the engine packages
+        run: uv sync --directory engine --frozen
       # BEGIN sample-resource
       - name: Remove the sample resource, then lint and check types
         if: matrix.variant == 'without-sample'
@@ -79,7 +89,8 @@ jobs:
       # The wake values are the local defaults of npm run worker. SMOKE_JOB_CHECK turns on the job steps.
       # ALLOW_PRIVATE_COURSE_URLS lets the app accept the localhost URL of the fixture course site. Production keeps it off.
       # SMOKE_COURSES turns on the course steps and the extension steps of the smoke test.
-      - name: Write a test Send Email Hook secret, the look override, the OAuth providers, the job check and the courses
+      # SMOKE_TOPICS turns on the topic steps of the smoke test. They need the engine with the fake model.
+      - name: Write a test Send Email Hook secret, the look override, the OAuth providers, the job check, the courses and the topics
         run: |
           secret="v1,whsec_$(openssl rand -base64 32)"
           echo "::add-mask::$secret"
@@ -93,6 +104,7 @@ jobs:
           echo "SMOKE_HOOK_SECRET=$secret" >> "$GITHUB_ENV"
           echo "SMOKE_JOB_CHECK=1" >> "$GITHUB_ENV"
           echo "SMOKE_COURSES=1" >> "$GITHUB_ENV"
+          echo "SMOKE_TOPICS=1" >> "$GITHUB_ENV"
       - name: Run database policy tests
         run: |
           if compgen -G "supabase/tests/*.sql" > /dev/null; then
@@ -102,6 +114,8 @@ jobs:
           fi
       - name: Run the worker and extension unit tests
         run: npm run test:unit
+      - name: Run the engine tests
+        run: npm run test:engine
       - name: Build the extension
         run: npm run build:extension
       - run: npm run build
@@ -112,14 +126,26 @@ jobs:
           nohup node scripts/fixture-server.mjs > "$RUNNER_TEMP/fixture.log" 2>&1 < /dev/null &
           for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:8799/robots.txt && break; sleep 1; done
           curl -sf -o /dev/null http://localhost:8799/robots.txt || { echo "fixture site did not start"; cat "$RUNNER_TEMP/fixture.log"; exit 1; }
+      # The topic engine starts before the worker, so the first topic job finds it. It listens on 127.0.0.1:8790.
+      # --fake gives it the fake model of scripts/fake-model.mjs on 127.0.0.1:8791. The fake model needs no key and no
+      # network. No step sets a model key. The first start imports Cognee, so the wait is longer than for the worker.
+      # Its output goes to a file, so the step does not hold the output stream open. The last step shows the file.
+      - name: Start the topic engine with the fake model
+        run: |
+          nohup npm run engine -- --fake > "$RUNNER_TEMP/engine.log" 2>&1 < /dev/null &
+          for i in $(seq 1 120); do curl -sf -o /dev/null http://127.0.0.1:8790/health && break; sleep 1; done
+          curl -sf -o /dev/null http://127.0.0.1:8790/health || { echo "engine did not start"; cat "$RUNNER_TEMP/engine.log"; exit 1; }
       # The worker reads the local Supabase values into memory and never prints the key.
       # The job sets no ANTHROPIC_API_KEY, so the lesson finder uses its rule and the course steps need no model call.
       # ALLOW_PRIVATE_COURSE_URLS turns off the address check of the crawl, so the worker reads the fixture site on localhost.
       # The deploy-worker job does not set it.
+      # The worker sends each topic job to the local engine of the step before, with the local secret of npm run engine.
       # Its output goes to a file, so the step does not hold the output stream open. The last step shows the file.
       - name: Start the worker
         env:
           ALLOW_PRIVATE_COURSE_URLS: "true"
+          TOPIC_ENGINE_URL: http://127.0.0.1:8790
+          TOPIC_ENGINE_SECRET: local-engine-secret
         run: |
           nohup npm run worker > "$RUNNER_TEMP/worker.log" 2>&1 < /dev/null &
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8788/health && break; sleep 1; done
@@ -142,6 +168,12 @@ jobs:
           if [ -f "$RUNNER_TEMP/fixture.log" ]; then
             echo "::group::Fixture course site log"
             cat "$RUNNER_TEMP/fixture.log"
+            echo "::endgroup::"
+          fi
+          # The engine log holds the lines of the fake model and of the engine. Neither logs the lesson text or a key.
+          if [ -f "$RUNNER_TEMP/engine.log" ]; then
+            echo "::group::Topic engine and fake model log"
+            cat "$RUNNER_TEMP/engine.log"
             echo "::endgroup::"
           fi
           npx supabase stop --no-backup

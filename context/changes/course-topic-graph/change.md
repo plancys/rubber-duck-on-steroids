@@ -74,3 +74,14 @@ archived_at: null
   - 4.5 and 4.6 on a test account with an extension course and the fake engine: the states `none`, `building`, `current`, `partial` and `stale`, and the build button.
   - 4.7 to 4.12 on a second test account, `verify-map+1795799108339@example.com` with the password `Verify-map-password-1`, local only. It loaded the docs course, and its topic job ran through the Claude Code bridge in 6 minutes. Results: 16 lesson boxes with 5 arrows. Lesson 2 with 19 topics, 4 parent boxes, 14 arrows and 6 marks of other lessons. A panel with quotes and links. The Tab key reaches a topic after 6 presses, and Enter opens the panel. The outline with no script shows 16 lessons, 19 topics and 34 quotes. 30 phone page views in 5 looks with 0 failures.
 - The course of the earlier checks belongs to a test account with no sign-in identity, so nobody can sign in to view its map.
+
+### Phase 5: CI path (2026-11-27)
+
+- The plan asks for a direct insert of a topic job for the course of another learner. The smoke test has no Supabase URL or key for an insert through REST. So it sends the insert through the start route with the session of the second learner. The route inserts the job and reads nothing before the insert, so the job rule of the database gives the answer `course_not_ready`. The pgTAP test in `supabase/tests/topic_map_test.sql` covers the raw insert.
+- The smoke test cannot see the id of a topic job that a crawl load starts. So the step for the crawl course checks the course page: the status `current` and no failed topic job. The smoke test follows only the job of the extension course to `done`.
+- Topic jobs for each learner in one smoke run: the course learner starts 3, the main smoke user starts 0, and the phone check learner starts 1. The quota is 5 in one hour.
+- `astral-sh/setup-uv` has no major version tag, so CI pins `v10.3.3` with uv `0.13.7`. `engine/Dockerfile` copies uv `0.13.7` too. Change both together.
+- The engine image is 2.33 GB unpacked. The packages take 1.5 GB: litellm 206 MB, lance 180 MB, pyarrow 155 MB and lancedb 149 MB. The image runs as uid 10001.
+- The phone check skips an element inside the map canvas for the tap size rule only when no part of the element is inside the canvas box.
+- Local gates on ports that keep the engine and the bridge of the owner free: the engine with the fake model on 8792 and 8793, the worker with `TOPIC_ENGINE_URL=http://127.0.0.1:8792`, and the preview on 4322. Results: the smoke test passed 89 steps in 45 seconds, with the 9 topic steps. The phone check passed 20 map page checks in 5 looks at 320 and 375 px. The engine tests passed 39 tests.
+- Break check: a canvas of 150vw made the phone check fail on 4 map pages. A map state with no links made the smoke step "open lesson lists a topic with a quote" fail.

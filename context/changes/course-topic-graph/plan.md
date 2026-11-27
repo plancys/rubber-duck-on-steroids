@@ -883,30 +883,30 @@ This phase gives production its engine, and the owner accepts the quality of the
 
 #### Automated
 
-- [x] 4.1 Lint passes
-- [x] 4.2 Type checks pass
-- [x] 4.3 The production build passes
-- [x] 4.4 Unit tests pass, with the layout tests
+- [x] 4.1 Lint passes — aab3f46
+- [x] 4.2 Type checks pass — aab3f46
+- [x] 4.3 The production build passes — aab3f46
+- [x] 4.4 Unit tests pass, with the layout tests — aab3f46
 
 #### Manual
 
-- [x] 4.5 The course page shows the right section for no map, a running job, a current map, a stale map and a partial map
-- [x] 4.6 The button starts a topic job for an extension course, and the page follows the job
-- [x] 4.7 The overview shows one box for each lesson with arrows, and a click on a box opens the lesson
-- [x] 4.8 An open lesson shows its topics, a parent box, the prerequisite arrows, and the marks of topics from other lessons
-- [x] 4.9 A click on a topic opens the panel with the description, the parent, the prerequisites, and the quotes with links
-- [x] 4.10 The outline shows the same lessons, topics and quotes with JavaScript off
-- [x] 4.11 The Tab key reaches each node, and the Enter key opens the panel
-- [x] 4.12 The map pages obey the phone rules at 320px in each of the 5 looks
+- [x] 4.5 The course page shows the right section for no map, a running job, a current map, a stale map and a partial map — aab3f46
+- [x] 4.6 The button starts a topic job for an extension course, and the page follows the job — aab3f46
+- [x] 4.7 The overview shows one box for each lesson with arrows, and a click on a box opens the lesson — aab3f46
+- [x] 4.8 An open lesson shows its topics, a parent box, the prerequisite arrows, and the marks of topics from other lessons — aab3f46
+- [x] 4.9 A click on a topic opens the panel with the description, the parent, the prerequisites, and the quotes with links — aab3f46
+- [x] 4.10 The outline shows the same lessons, topics and quotes with JavaScript off — aab3f46
+- [x] 4.11 The Tab key reaches each node, and the Enter key opens the panel — aab3f46
+- [x] 4.12 The map pages obey the phone rules at 320px in each of the 5 looks — aab3f46
 
 ### Phase 5: CI path
 
 #### Automated
 
-- [ ] 5.1 The smoke test passes with the topic steps
-- [ ] 5.2 The phone check passes for the map pages in each look
-- [ ] 5.3 Engine tests pass
-- [ ] 5.4 The engine image builds
+- [x] 5.1 The smoke test passes with the topic steps
+- [x] 5.2 The phone check passes for the map pages in each look
+- [x] 5.3 Engine tests pass
+- [x] 5.4 The engine image builds
 - [ ] 5.5 The pull request shows the ci job and both smoke variants as passed
 
 #### Manual

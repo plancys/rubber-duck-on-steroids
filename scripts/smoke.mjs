@@ -6,6 +6,8 @@
 // The course steps run only when SMOKE_COURSES is set. They need ALLOW_PRIVATE_COURSE_URLS=true on the server,
 // a running worker without ANTHROPIC_API_KEY, and the fixture course site of scripts/fixture-server.mjs.
 // FIXTURE_COURSE_URL overrides the start page of the fixture course.
+// The topic steps run only when SMOKE_TOPICS and SMOKE_COURSES are set. They need the topic engine with the fake model
+// (npm run engine -- --fake), and a worker that sends its topic jobs to that engine.
 
 import { Buffer } from "node:buffer";
 import { createHmac, randomUUID } from "node:crypto";
@@ -57,6 +59,14 @@ let accessToken = null;
 let accessTokenId = null;
 // The course that the extension routes create for the course learner.
 let extensionCourseId = null;
+// The topic steps use the courses of the course steps, so they run only together with the course steps.
+const TOPICS_REQUESTED = Boolean(process.env.SMOKE_TOPICS);
+const TOPICS = TOPICS_REQUESTED && COURSES;
+// The lesson that the topic steps open on the map page. The fixture course has 3 lessons in page order.
+// Lesson 2 answers 404, so the map holds lessons 1 and 3.
+const MAP_LESSON = 1;
+// The newest topic job that the course learner started with the start route.
+let topicJobId = null;
 
 function cookieHeader(cookies) {
   return [...cookies.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
@@ -396,11 +406,141 @@ async function extensionRequest(path, token, body) {
   return { status: response.status, location: "", retryAfter: null, body: await response.text() };
 }
 
+// The state of the topic map on the course page: its status, a failed topic job, and the build button.
+function topicMapSummary(body) {
+  return {
+    map: /data-testid="topic-map-state" data-status="(\w+)"/.exec(body)?.[1] ?? null,
+    failed: body.includes('data-testid="topic-job-failed"'),
+    button: body.includes('data-testid="topic-map-build-button"'),
+  };
+}
+
+// The view of the map page and the lessons of its outline in order, as "position state" pairs.
+function mapSummary(body) {
+  const view = /data-testid="topic-map-page" data-view="(\w+)"/.exec(body)?.[1] ?? null;
+  const lessons = [...body.matchAll(/data-testid="outline-lesson" data-position="(\d+)" data-state="(\w+)"/g)].map(
+    ([, position, state]) => `${position} ${state}`,
+  );
+  return { view, lessons: lessons.join(", ") };
+}
+
+// Starts a topic job of the course learner through the start route, and keeps the id of the job.
+// A failed start clears the id, so that a later step cannot wait for the job of an earlier step.
+async function startTopicJob(id) {
+  const result = await request(`/api/courses/${id}/topics`, { method: "POST", cookies: courseJar });
+  topicJobId = COURSE_LINK.exec(result.location)?.[2] ?? null;
+  return result;
+}
+
+// The topic steps after the first load of the fixture course. The load starts the topic job by itself, and the course
+// step before these steps waits for the end of that job. The fake model gives one topic for each heading of a lesson.
+// A current map and no failed topic job on the course page show that the newest topic job ended done.
+// Topic quota: a learner can start 5 topic jobs in one hour. The course learner gets 3: one after each load of the
+// fixture course and one for the extension course. The main smoke user is the second learner. The database refuses
+// its insert, so it gets no topic job.
+const topicMapSteps = TOPICS
+  ? [
+      [
+        "topic job after the load ends with a current map",
+        () =>
+          withValue(courseId, "no course id from the course load", async (id) =>
+            summarize(await request(`/dashboard/courses/${id}`, { cookies: courseJar }), topicMapSummary),
+          ),
+        { status: 200, json: { map: "current", failed: false } },
+      ],
+      [
+        "map page lists each loaded lesson",
+        () =>
+          withValue(courseId, "no course id from the course load", async (id) =>
+            summarize(await request(`/dashboard/courses/${id}/map`, { cookies: courseJar }), mapSummary),
+          ),
+        { status: 200, json: { view: "overview", lessons: "1 analysed, 3 analysed" } },
+      ],
+      [
+        "open lesson lists a topic with a quote",
+        () =>
+          withValue(courseId, "no course id from the course load", (id) =>
+            request(`/dashboard/courses/${id}/map?lesson=${MAP_LESSON}`, { cookies: courseJar }),
+          ),
+        // Three lookaheads: the lesson view, a topic and a quote must show, in any order.
+        {
+          status: 200,
+          bodyMatches:
+            /^(?=[\s\S]*data-testid="topic-map-page" data-view="lesson")(?=[\s\S]*data-testid="outline-topic")(?=[\s\S]*data-testid="outline-quote")/,
+        },
+      ],
+      // The main smoke user is the second learner. The map page answers 404 for a course of another learner.
+      [
+        "second learner cannot open the map",
+        () => withValue(courseId, "no course id from the course load", (id) => request(`/dashboard/courses/${id}/map`)),
+        { status: 404, bodyExcludes: 'data-testid="topic-map-page"' },
+      ],
+      // The start route inserts the job with the session of the learner and reads nothing before the insert.
+      // So the answer comes from the job rule of the database: a course of another learner gives course_not_ready.
+      [
+        "second learner cannot insert a topic job for the course",
+        () =>
+          withValue(courseId, "no course id from the course load", (id) =>
+            request(`/api/courses/${id}/topics`, { method: "POST" }),
+          ),
+        // A getter, because the id is known only after the first load.
+        {
+          status: 302,
+          exact: true,
+          get location() {
+            return `/dashboard/courses/${courseId}?error=course_not_ready`;
+          },
+        },
+      ],
+    ]
+  : [];
+
+// The topic steps of the extension course. A course from the extension gets no topic job by itself.
+// The learner starts one with the button on the course page, and the button posts to the start route.
+// The saved page has one heading, so the fake model gives one topic.
+const extensionTopicSteps = TOPICS
+  ? [
+      [
+        "extension course offers the topic map button",
+        () =>
+          withValue(extensionCourseId, "no course id from the extension", async (id) =>
+            summarize(await request(`/dashboard/courses/${id}`, { cookies: courseJar }), topicMapSummary),
+          ),
+        { status: 200, json: { map: "none", button: true } },
+      ],
+      [
+        "topic map start redirects to the extension course",
+        () => withValue(extensionCourseId, "no course id from the extension", (id) => startTopicJob(id)),
+        // A getter, because the id is known only after the extension step.
+        {
+          status: 302,
+          get location() {
+            return `/dashboard/courses/${extensionCourseId}?job=`;
+          },
+        },
+      ],
+      [
+        "extension course topic job ends done",
+        () => withValue(topicJobId, "no job id from the topic map start", (id) => waitForJob(id, 90, courseJar)),
+        { status: 200, json: { status: "done" } },
+      ],
+      [
+        "extension course has a current map",
+        () =>
+          withValue(extensionCourseId, "no course id from the extension", async (id) =>
+            summarize(await request(`/dashboard/courses/${id}`, { cookies: courseJar }), topicMapSummary),
+          ),
+        { status: 200, json: { map: "current", failed: false } },
+      ],
+    ]
+  : [];
+
 // The course steps. The course learner loads the fixture course through the worker, with the rule fallback.
 // The worker has no ANTHROPIC_API_KEY in CI, so the lesson finder picks the links under the course path in page order.
 // The fixture course has 3 lessons. The second lesson answers 404, so it fails and the other two load.
 // A load that ends ready starts a topic job. After each load, the steps wait until the learner has no job in progress,
-// so the next load can start. The end state of the topic job does not matter here.
+// so the next load can start. Without SMOKE_TOPICS, the end state of the topic job does not matter here.
+// With SMOKE_TOPICS, the topic steps run after the first load and after the extension steps.
 // The extension routes allow 10 calls per minute. These steps send 3 extension calls.
 // No step here sends a sign-in call. The sign-up route has its own bucket "signup".
 const courseSteps = COURSES
@@ -430,6 +570,7 @@ const courseSteps = COURSES
         () => waitForNoJob(60, courseJar),
         { status: 302, location: "/dashboard/courses?error=not_found", exact: true },
       ],
+      ...topicMapSteps,
       [
         "course has 2 loaded lessons and 1 failed lesson in order",
         () =>
@@ -543,6 +684,7 @@ const courseSteps = COURSES
           ),
         { status: 200, json: { state: "ready", lessons: `loaded ${new URL(EXTENSION_PAGE_URL).pathname}` } },
       ],
+      ...extensionTopicSteps,
       [
         "token revoke redirects to settings",
         () =>
@@ -934,6 +1076,11 @@ if (!JOB_CHECK) {
 }
 if (!COURSES) {
   console.log("SKIP  course steps  -> SMOKE_COURSES is not set");
+}
+if (!TOPICS_REQUESTED) {
+  console.log("SKIP  topic steps  -> SMOKE_TOPICS is not set");
+} else if (!TOPICS) {
+  console.log("SKIP  topic steps  -> SMOKE_TOPICS needs SMOKE_COURSES");
 }
 
 let failed = 0;

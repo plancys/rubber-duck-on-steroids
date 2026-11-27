@@ -11,6 +11,11 @@
 // Without the setting, the check skips the course page. FIXTURE_COURSE_URL overrides the start page of the course.
 // Run scripts/fixture-server.mjs and the worker to get a course with lessons. Without them, the course does not load,
 // but its page still renders. A load that ends ready starts a topic job, so the check waits for the end of that job too.
+// The map pages: the check opens the topic map of that course and one lesson of the map. It waits for the map canvas
+// before it measures. Run the engine (npm run engine -- --fake) to get a map. Without it, the map page shows no map
+// and the check skips the lesson page.
+// One named exception: the map canvas pans, so the elements inside it can reach past the right edge. The right edge
+// rule skips them. The canvas itself stays under the rule, and each element inside it keeps the tap size rule.
 /* global document, window */
 
 import { setTimeout as sleep } from "node:timers/promises";
@@ -26,8 +31,10 @@ const VIEWPORTS = [
 ];
 // The pages that a visitor sees. The signed-in pages come after the sign-in.
 const VISITOR_PAGES = ["/", "/auth/signin", "/auth/signup", "/auth/reset", "/auth/confirm-email"];
+// The map canvas of the topic map pages. It is the only pan area of the app. See the exception in measure().
+const PAN_AREA = '[data-testid="topic-map-canvas"]';
 // The rules. A new page must meet them too.
-const RULES = { maxBarHeight: 64, minTapSize: 44, minFontSize: 16 };
+const RULES = { maxBarHeight: 64, minTapSize: 44, minFontSize: 16, panArea: PAN_AREA };
 const NAV = '[data-testid="shell-nav"]';
 // The looks of the app. This list is a copy of LOOKS in src/lib/looks.ts. Change both together.
 const ALL_LOOKS = ["warm", "editorial", "calm", "swiss", "dock"];
@@ -37,6 +44,9 @@ const FIXTURE_COURSE_URL = process.env.FIXTURE_COURSE_URL ?? "http://localhost:8
 const COURSE_LINK = /^\/dashboard\/courses\/([0-9a-f-]{36})\?job=([0-9a-f-]{36})$/;
 // The course page path after the one load of the run. Undefined before the load, null after a failed or skipped load.
 let coursePath;
+// The path of the lesson page of the map, with a lesson that has a topic. Undefined before the first overview check,
+// null when the map has no lesson with a topic.
+let mapLessonPath;
 // A course id that no course has. The reload route checks for a job in progress before it reads the course.
 // So a reload of this id answers job_active while the learner has a job in progress, and not_found after it.
 // The not_found answer changes no row.
@@ -88,7 +98,7 @@ function record(name, width, failures) {
 // Runs in the browser. Returns the failures of the page as strings.
 // `scope` limits the element checks to one container. `layout` adds the sideways scroll and the bar checks.
 // `expectBar` makes a missing bar a failure. The signed-in pages and the visitor home page have the bar.
-function measure({ maxBarHeight, minTapSize, minFontSize, scope, layout, expectBar }) {
+function measure({ maxBarHeight, minTapSize, minFontSize, panArea, scope, layout, expectBar }) {
   const failures = [];
   const root = scope ? document.querySelector(scope) : document.body;
   if (!root) return [`no element matches ${scope}`];
@@ -121,12 +131,23 @@ function measure({ maxBarHeight, minTapSize, minFontSize, scope, layout, expectB
     if (text) return `${tag} "${text}"`;
     return label ? `${tag}[${label}]` : tag;
   };
+  // The map canvas exception. The canvas pans, so the nodes, the boxes, their buttons and links, the handles and the
+  // arrows inside it can reach past the right edge of a phone. The user pans the map to see them.
+  // This returns the canvas that holds `element`, or null. The canvas itself is not inside a canvas.
+  const panAreaOf = (element) => element.parentElement?.closest(panArea) ?? null;
+  // The canvas clips its content. An element with no part inside the box of its canvas cannot get a tap there.
+  const clippedBy = (rect, area) => {
+    const box = area.getBoundingClientRect();
+    return rect.left >= box.right || rect.right <= box.left || rect.top >= box.bottom || rect.bottom <= box.top;
+  };
   if (layout) {
     // A wrapper with overflow clipping hides a too-wide element from the scroll check, but the user still
     // sees a cut element. The decorative orbs reach past the edge on purpose and have pointer-events: none.
+    // The right edge rule skips each element inside the map canvas. The canvas itself stays under the rule.
     const edge = document.documentElement.clientWidth + 1;
     const wide = [...document.body.querySelectorAll("*")].filter((element) => {
       if (!visible(element) || window.getComputedStyle(element).pointerEvents === "none") return false;
+      if (panAreaOf(element)) return false;
       const rect = element.getBoundingClientRect();
       return rect.width > 0 && rect.right > edge;
     });
@@ -136,9 +157,13 @@ function measure({ maxBarHeight, minTapSize, minFontSize, scope, layout, expectB
       );
     }
   }
+  // The tap size rule stays for each element inside the map canvas. It skips only an element that the canvas clips
+  // fully, because nobody can tap it before a pan.
   for (const element of root.querySelectorAll('a, button, summary, input[type="submit"]')) {
     if (!visible(element)) continue;
     const rect = element.getBoundingClientRect();
+    const area = panAreaOf(element);
+    if (area && clippedBy(rect, area)) continue;
     const width = Math.round(rect.width);
     const height = Math.round(rect.height);
     if (width < minTapSize || height < minTapSize) {
@@ -175,9 +200,19 @@ async function guarded(name, width, step) {
   }
 }
 
+// Waits until the map canvas shows its first view. The canvas is a client-only island, and it sets
+// data-ready="true" after its first view. A map page with no map, and a lesson with no topic, have no canvas.
+async function waitForMapCanvas(page) {
+  const empty = '[data-testid="topic-map-empty"], [data-testid="topic-outline-empty"]';
+  if ((await page.locator(empty).count()) > 0) return;
+  await page.waitForSelector(`${PAN_AREA}[data-ready="true"]`);
+}
+
 // Opens `path` and runs the checks. A 404 counts as skipped. A redirect to another page fails.
+// A path with a query must land on the same query. A path without a query can land with one.
 // For a requested look, the page must render that look in data-theme on <html>. Else the server ignored the cookie.
-async function checkPage(page, path, width, { expectBar = false } = {}) {
+// `map` waits for the map canvas before the checks.
+async function checkPage(page, path, width, { expectBar = false, map = false } = {}) {
   const response = await page.goto(BASE_URL + path);
   const status = response?.status() ?? 0;
   if (status === 404) {
@@ -185,10 +220,12 @@ async function checkPage(page, path, width, { expectBar = false } = {}) {
     return false;
   }
   const landed = new URL(page.url());
-  if (status !== 200 || landed.pathname !== path) {
+  const wanted = new URL(path, BASE_URL);
+  if (status !== 200 || landed.pathname !== wanted.pathname || (wanted.search && landed.search !== wanted.search)) {
     record(path, width, [`answered ${status} at ${landed.pathname}${landed.search}`]);
     return false;
   }
+  if (map) await waitForMapCanvas(page);
   const failures = await page.evaluate(measure, { ...RULES, scope: null, layout: true, expectBar });
   if (currentLook) {
     const rendered = await page.evaluate(() => document.documentElement.dataset.theme ?? "none");
@@ -285,6 +322,33 @@ async function loadCourse(page, width) {
   return landed.pathname;
 }
 
+// The map pages of the loaded course: the overview, and one lesson with a topic. The first overview check picks
+// that lesson from the outline. Its first paragraph holds the topic count of the lesson, for example "2 topics".
+async function checkMapPages(page, width) {
+  const overview = `${coursePath}/map`;
+  if (!(await guarded(overview, width, () => checkPage(page, overview, width, { expectBar: true, map: true })))) {
+    return;
+  }
+  if (mapLessonPath === undefined) {
+    const position = await guarded(`${overview} lesson`, width, () =>
+      page.evaluate(() => {
+        for (const item of document.querySelectorAll('[data-testid="outline-lesson"]')) {
+          if (/^\s*[1-9]\d* topics?\b/.test(item.querySelector("p")?.textContent ?? "")) {
+            return item.dataset.position ?? null;
+          }
+        }
+        return null;
+      }),
+    );
+    mapLessonPath = position ? `${overview}?lesson=${position}` : null;
+  }
+  if (mapLessonPath) {
+    await guarded(mapLessonPath, width, () => checkPage(page, mapLessonPath, width, { expectBar: true, map: true }));
+  } else {
+    report("SKIP", `${overview}?lesson=<position>`, width, "the map has no lesson with a topic");
+  }
+}
+
 // The signed-in pages. The dashboard check also opens the phone menu and measures the open panel.
 async function checkSignedInPages(page, width) {
   await guarded("/", width, () => checkPage(page, "/", width, { expectBar: true }));
@@ -305,13 +369,15 @@ async function checkSignedInPages(page, width) {
   // The job check page. Without ENABLE_JOB_CHECK on the server, it answers 404 and the check skips it.
   const jobCheck = "/dashboard/job-check";
   await guarded(jobCheck, width, () => checkPage(page, jobCheck, width, { expectBar: true }));
-  // The course pages. The first pass loads one course, and every pass checks the list and the page of that course.
+  // The course pages. The first pass loads one course, and every pass checks the list and the page of that course,
+  // then the map pages of that course.
   if (await guarded(COURSES, width, () => checkPage(page, COURSES, width, { expectBar: true }))) {
     if (coursePath === undefined) {
       coursePath = (await guarded("load course", width, () => loadCourse(page, width))) || null;
     }
     if (coursePath) {
       await guarded(coursePath, width, () => checkPage(page, coursePath, width, { expectBar: true }));
+      await checkMapPages(page, width);
     }
   }
   // BEGIN sample-resource
