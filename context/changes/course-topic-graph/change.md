@@ -108,3 +108,15 @@ archived_at: null
 - `deploy-worker` now reads `engine-secret` from Secret Manager. So `deploy-worker` and `deploy-engine` fail when that secret does not exist. Run `npm run setup:prod` before the merge to `main`.
 - With no GitHub variable `TOPIC_ENGINE_URL`, `deploy-worker` sends an empty value. The worker reads an empty value as no engine, and each topic job fails with "The topic engine is not set up." and changes no data.
 - The Cloud Run time limit of the engine and the time limit of the worker for one call are both 300 seconds. A cold start and a long call together can reach the Cloud Run limit first. The worker then gets a gateway error and retries the job.
+- Prompt 2, for rows 6.5 and 6.6: a new rule 6 asks for a quote of one full sentence, or one full list item, that names the topic. Haiku 5.5 through the bridge on lessons 1, 2 and 5:
+
+  | Measure, 3 lessons | Prompt 1 | Prompt 2 |
+  | --- | --- | --- |
+  | Topics | 57 | 43 |
+  | Relations | 34 | 35 |
+  | Quotes that end mid-sentence | 25 of 60 | 2 of 45 |
+  | Quotes with no word of the topic name | 10 of 60 | 3 of 45 |
+  | Quotes that the quote check removed | 0 | 0 |
+  | Cost at API prices | 0.011 USD | 0.016 USD |
+
+- The 2 fragments that remain are cells of a product table in lesson 5. Prompt 2 drops the finest topics, for example `GROUP BY` and `Hash join`. A course of 16 lessons costs about 0.09 USD with prompt 2. The owner selected prompt 2.

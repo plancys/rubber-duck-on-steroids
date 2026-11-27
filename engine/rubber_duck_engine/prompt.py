@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-PROMPT_VERSION = "1"
+PROMPT_VERSION = "2"
 
 _RULES = """You find the topics of one lesson of an online course, and the relations between these topics.
 
@@ -27,15 +27,19 @@ a setting, a command or a tool. A section theme is not a topic. Do not make a to
 passage uses the topic but does not teach it.
 5. A quote is an exact extract of the passage, at most 300 characters. Copy it character for character. \
 Do not shorten, join or change the words of a quote.
-6. Set same_as to the number of a known topic only when the topic and the known topic name the same \
+6. A quote is one full sentence, or one full list item, that names the topic. Start the quote at the \
+start of that sentence or item, and end it at its end. When no sentence of the passage names the topic, \
+quote the full sentence that explains the topic best. When the sentence is longer than 300 characters, \
+quote its start.
+7. Set same_as to the number of a known topic only when the topic and the known topic name the same \
 concept. In doubt, set same_as to null.
 
 Rules for relations:
-7. The kind "prerequisite" means that a learner must know the first topic (from_topic) before the second \
+8. The kind "prerequisite" means that a learner must know the first topic (from_topic) before the second \
 topic (to_topic).
-8. The kind "part_of" means that the first topic (from_topic) is a part of the second topic (to_topic).
-9. A relation names its two topics by name. Each end is a topic of your answer or a known topic.
-10. Give each relation a reason of one sentence and the reference of the passage that supports it."""
+9. The kind "part_of" means that the first topic (from_topic) is a part of the second topic (to_topic).
+10. A relation names its two topics by name. Each end is a topic of your answer or a known topic.
+11. Give each relation a reason of one sentence and the reference of the passage that supports it."""
 
 
 @dataclass(frozen=True)
