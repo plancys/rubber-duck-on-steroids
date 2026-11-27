@@ -1,7 +1,7 @@
 ---
 change_id: course-topic-graph
 title: Course topic graph
-status: implementing
+status: implemented
 created: 2026-11-25
 updated: 2026-11-27
 archived_at: null
@@ -125,3 +125,7 @@ archived_at: null
 - After the second `npm run setup:prod`, GitHub holds `TOPIC_ENGINE_URL` with the engine address. The manual CI run 46055003021 on `main` passed and deployed the worker again. The worker revision `rubber-duck-on-steroids-worker-00003-cpz` is ready, with `TOPIC_ENGINE_URL` set and `TOPIC_ENGINE_SECRET` from `engine-secret:latest`.
 - Row 6.8, first try: the production course load failed with "The course did not load.". The worker log showed 3 starts of the `load_course` job, each with `spawn ps ENOENT` at step 1. Crawlee starts `ps` to measure the memory before it reads a page, and the `node:26-slim` image of the worker has no `ps`. The `systemInfoV2` option of Crawlee also starts `ps`. The bug comes from S-01, whose row 5.5 (a production load) stayed open. CI and the machine of the developer have `ps`, so no test found it.
 - Fix on the branch `worker-procps`: `worker/Dockerfile` installs `procps`, and the `ci` job builds the worker image and measures the memory in it. On this machine the old image failed that check with `spawn ps ENOENT`, and the fixed image passed it and read the docs start page. The image grows by 4 MB.
+- Row 6.8, after the fix (`af7e5eb`, worker revision `rubber-duck-on-steroids-worker-00004-w57`): the production load of `https://clickhouse.com/docs/get-started` ended `ready` at 20:18 UTC. The model found 15 lessons, and all 15 loaded. The topic job started by itself and ended `done` in 4.3 minutes: 15 lessons analysed, 0 failed, 49 topics. The engine made 15 calls to the Anthropic API with `claude-haiku-5-5`, all `ok`, with a median of 12 seconds and a longest call of 30 seconds.
+- Row 6.9: the engine counted 47,509 input and 53,803 output tokens, about 0.032 USD at the list price. The Anthropic usage page showed 0.0079 USD at the time of the check. The page can show a cost late. The owner accepted the cost.
+- Row 6.10: the Google billing page showed a cost of zero.
+- Row 6.11: the owner followed the README section "Deployment > Topic engine", and the steps matched.
