@@ -44,3 +44,21 @@ archived_at: null
 - Input for phase 3: the extension can save a page between `start_topic_map` and `read_lesson_text`. The handler hashes the text that it reads with MD5, which gives the same value as `md5()` in Postgres, and sends that hash.
 - The topic quota counts the jobs that the crawl trigger starts. After 5 crawl loads in one hour, a crawl load starts no topic job, and nothing tells the learner. In phase 4 the course page then shows no map or an old map, and the button gives the quota error.
 - The smoke test and the phone check use the reload route with an empty course id to see if a job is in progress: the route answers `job_active` or `not_found`. They wait at most 60 seconds.
+
+### Phase 3: topic job in the worker (2026-11-27)
+
+- The engine client reads the engine name and the prompt version from `GET /health` before it selects the lessons that need a call.
+- An engine that does not answer (a network error, 429, 503 or 504 after the second try) fails the whole job with a retry, so the course keeps its last map. A 401 fails the job with no retry. A 422, 400, 413, a timeout or a 502 after the second try fails only that lesson.
+- `npm run worker` uses `http://127.0.0.1:8790` and `local-engine-secret` when `TOPIC_ENGINE_URL` and `TOPIC_ENGINE_SECRET` are not set. CI has no engine until phase 5, so each topic job there fails after 3 starts, in about 40 seconds. A local smoke run with no engine passed 69 of 69 steps in 77 seconds.
+- A new topic gets its id from a hash of the course id and its first normalized name, so the map build stays a pure function.
+- The manual checks ran on the local "Get started with ClickHouse" course through the Claude Code bridge:
+
+  | Check | Result |
+  | --- | --- |
+  | 3.5 Reload, then the topic job starts by itself | `done`: 16 lessons analysed, 16 calls, 5.3 minutes, 61,840 input and 77,664 output tokens. 101 topics, 192 links, 62 relations, 86 passages. |
+  | 3.6 Second run with no change | `done`: 0 analysed, 16 reused, no lesson line, the same topic ids. |
+  | 3.7 Lesson 2 changed | `done`: 1 lesson line for lesson 2, 15 reused, the same topic ids, 1 topic retired. |
+  | 3.8 Lessons 3 to 6 changed, worker stopped after the first lesson | Worker 1 analysed lesson 3 and released the job. Worker 2 analysed lessons 4 to 6, with no second call for lesson 3. |
+  | 3.9 No reachable engine | `failed` after 3 starts with "The topic engine is not reachable.". The map and the topic ids did not change. |
+
+- Report of the first build: the quote check removed 2 links, 1 topic and 1 relation. The ancestor rule removed 2 prerequisites, and the parent rule removed 1 second parent. 6 of 86 passages have no topic. 0 of 15 prerequisites point against the lesson order.

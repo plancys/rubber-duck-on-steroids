@@ -850,34 +850,34 @@ This phase gives production its engine, and the owner accepts the quality of the
 
 #### Automated
 
-- [x] 2.1 The migrations apply to a clean local database
-- [x] 2.2 The policy and rule tests pass
-- [x] 2.3 The generated types are current
-- [x] 2.4 Lint passes
-- [x] 2.5 Type checks pass
-- [x] 2.6 The course smoke steps still pass
+- [x] 2.1 The migrations apply to a clean local database — 0376f0f
+- [x] 2.2 The policy and rule tests pass — 0376f0f
+- [x] 2.3 The generated types are current — 0376f0f
+- [x] 2.4 Lint passes — 0376f0f
+- [x] 2.5 Type checks pass — 0376f0f
+- [x] 2.6 The course smoke steps still pass — 0376f0f
 
 #### Manual
 
-- [x] 2.7 The 8 new tables show row level security as on
-- [x] 2.8 After a local crawl load, the jobs table holds one build_topic_map job for that course
+- [x] 2.7 The 8 new tables show row level security as on — 0376f0f
+- [x] 2.8 After a local crawl load, the jobs table holds one build_topic_map job for that course — 0376f0f
 
 ### Phase 3: Topic job in the worker
 
 #### Automated
 
-- [ ] 3.1 Unit tests pass
-- [ ] 3.2 Lint passes
-- [ ] 3.3 Type checks pass
-- [ ] 3.4 The worker image builds
+- [x] 3.1 Unit tests pass
+- [x] 3.2 Lint passes
+- [x] 3.3 Type checks pass
+- [x] 3.4 The worker image builds
 
 #### Manual
 
-- [ ] 3.5 A local docs course ends with a done topic job through Claude Code, and the tables hold topics, links and relations
-- [ ] 3.6 A second run with no lesson change makes no engine call and keeps each topic id
-- [ ] 3.7 After a change of one lesson text, a run calls the engine for that lesson only
-- [ ] 3.8 A stop of the worker and a new start end with a done job and no second call for a stored lesson
-- [ ] 3.9 With the engine stopped, the job fails with the safe reason, and the course keeps its last map
+- [x] 3.5 A local docs course ends with a done topic job through Claude Code, and the tables hold topics, links and relations
+- [x] 3.6 A second run with no lesson change makes no engine call and keeps each topic id
+- [x] 3.7 After a change of one lesson text, a run calls the engine for that lesson only
+- [x] 3.8 A stop of the worker and a new start end with a done job and no second call for a stored lesson
+- [x] 3.9 With the engine stopped, the job fails with the safe reason, and the course keeps its last map
 
 ### Phase 4: Topic map in the web app
 
