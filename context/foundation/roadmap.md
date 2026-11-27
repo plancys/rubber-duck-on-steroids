@@ -3,7 +3,7 @@ project: "Rubber Duck on Steroids"
 version: 1
 status: draft
 created: 2026-11-23
-updated: 2026-11-25
+updated: 2026-11-27
 prd_version: 1
 main_goal: market-feedback
 top_blocker: time
@@ -43,7 +43,7 @@ A working software engineer learns new technologies through online courses. The 
 | ---- | ------------------------------- | ------------------------------------------------------------------------------------ | ------------- | --------------------- | -------- |
 | F-01 | background-work-path            | (foundation) long work runs outside a page request, and the learner sees its progress | —             | FR-002, FR-003        | in-progress |
 | S-01 | load-course-from-url            | load a course from the URL of its web page and see its lessons in order              | F-01          | FR-001, FR-002, US-01 | done |
-| S-02 | course-topic-graph              | see a loaded course as a graph of its topics                                         | S-01          | FR-003                | proposed |
+| S-02 | course-topic-graph              | see a loaded course as a graph of its topics                                         | S-01          | FR-003                | planning |
 | S-03 | mark-known-topics               | mark the topics they believe they already know                                       | S-02          | FR-005                | proposed |
 | S-04 | adjusted-lesson-list            | get a lesson list adjusted to their knowledge, with known lessons marked as skipped  | S-03          | FR-008, US-01         | blocked  |
 | S-05 | collapsed-known-passages        | read a lesson in which the passages on known topics are collapsed                    | S-04          | FR-009, US-01         | blocked  |
@@ -120,7 +120,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
   - Which language-model service does the product use, and what is the spend limit? (Open Roadmap Question 18) — Owner: user. Block: no.
   - Which sub-problems reuse existing open-source projects? (Open Roadmap Question 19) — Owner: user. Block: no.
 - **Risk:** It comes directly after S-01 so that the quality of the topics shows early. Every later slice inherits the errors of this graph. This slice also brings the first language-model work into the product.
-- **Status:** proposed
+- **Status:** planning
 
 ### S-03: Mark known topics
 
@@ -271,6 +271,13 @@ Questions 1 to 16 are a copy of the open questions of the PRD. Questions 17 to 1
 - **Load knowledge from epub, mobi, md and pdf files (FR-012)** — Why parked: the PRD gives it the priority nice-to-have, and the seed idea names it for the next phases.
 - **Manual download fallback when a URL does not load (FR-013)** — Why parked: the PRD gives it the priority nice-to-have. It comes back if the loader of S-01 cannot read the example course site.
 - **Mark lessons as done and see progress on the path (FR-014)** — Why parked: the PRD gives it the priority nice-to-have, and neither primary success outcome depends on it.
+
+The four entries below are the later phases from the research of the change `course-topic-graph` (`research.md`, sections R.9 and P.11). No FR covers them yet. A new milestone must pick them up.
+
+- **Phase B: a deeper learner model** — Why parked: milestone M-01 uses four learner states and no decay. Content: a probability for each topic, decay with `ts-fsrs`, misconception records, and the choice of the next question. Start it when: the owner uses the product on a second course and wants re-checks. Source: `research.md` R.9 and F.6.
+- **Phase C: the shared store** — Why parked: milestone M-01 has one named user and no shared store. Content: spaces, two schemas with separate grants, one role for each job kind of the worker, the promotion gate, and the list of topic events. Start it when: a second person must read the same map. Source: `research.md` R.9, H.5 and H.6.
+- **Phase D: the company scale with the full Cognee pipeline** — Why parked: S-02 uses Cognee only for the extraction call (`extract_content_graph`) with our own graph model and prompt. The Cognee chunker, the loaders for PDF and EPUB (FR-012), and the Cognee stores are not in use. Content: Cognee as the engine for shared sources with `add` and `cognify`, a second database, connectors, access lists for groups, and end dates on relations. Start it when: many sources of many kinds exist, and groups need access lists. Source: `research.md` R.9 and W.6 to W.11.
+- **Phase E: the private brain as a service** — Why parked: it is outside milestone M-01 and outside phases B to D. Content: claims of more kinds, consent with scopes, an audit, the sharing gateway, and share views with labels on claims. Start it when: a second app outside this product needs the data of a person. It needs phase B and a separate private store. Source: `research.md` P.11, G.6 to G.10 and M.4 to M.13.
 
 ## Milestone History
 

@@ -1,9 +1,9 @@
 ---
 change_id: course-topic-graph
 title: Course topic graph
-status: preparing
+status: planned
 created: 2026-11-25
-updated: 2026-11-26
+updated: 2026-11-27
 archived_at: null
 ---
 
