@@ -32,6 +32,13 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      # The smoke job runs the worker with the programs of the runner. Cloud Run runs the worker image, which has
+      # fewer programs. This step builds that image and measures the memory in it, as Crawlee does before each page.
+      # It fails when the image misses a program that Crawlee needs, for example ps.
+      - name: Check the worker image
+        run: |
+          docker build -t worker-check worker/
+          docker run --rm worker-check node -e 'require("@crawlee/utils").getMemoryInfo().then((m) => console.log("Memory info:", m.totalBytes, "bytes"))'
 
   smoke:
     name: smoke (${{ matrix.variant }})
