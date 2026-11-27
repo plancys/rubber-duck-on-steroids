@@ -1,14 +1,16 @@
 // The worker process. It takes jobs from the jobs table one at a time and runs the handler of each job type.
 // It runs the same way on a laptop, in CI and in a container: node main.ts, after npm ci in worker/.
 // The web app sends POST /wake after it inserts a job. GET /health shows that the process runs.
-// The service key, the wake secret and the Anthropic key stay in memory. The worker never writes them to the log.
+// The service key, the wake secret, the engine secret and the Anthropic key stay in memory.
+// The worker never writes them to the log.
 
 import { createServer, type ServerResponse } from "node:http";
 import { createHandlers } from "./handlers/index.ts";
 import { createLessonPicker } from "./llm.ts";
-import { createCourseStore, createQueue } from "./queue.ts";
+import { createCourseStore, createQueue, createTopicStore } from "./queue.ts";
 import { isWakeAuthorized } from "./rules.ts";
 import { createRunner } from "./run.ts";
+import { createTopicEngine, type TopicEngine } from "./topics/engine.ts";
 
 const DEFAULT_PORT = 8788;
 
@@ -46,6 +48,17 @@ function readPollSeconds(): number | null {
   return seconds;
 }
 
+// The client of the topic engine, or null when TOPIC_ENGINE_URL is not set.
+// Without the engine, each build_topic_map job fails with a safe reason and changes no data.
+function readTopicEngine(): TopicEngine | null {
+  const url = process.env.TOPIC_ENGINE_URL;
+  if (!url) return null;
+  if (!URL.canParse(url)) exitWith("TOPIC_ENGINE_URL must be a URL.");
+  const secret = process.env.TOPIC_ENGINE_SECRET;
+  if (!secret) exitWith("Set TOPIC_ENGINE_SECRET together with TOPIC_ENGINE_URL.");
+  return createTopicEngine({ url, secret });
+}
+
 const supabaseUrl = required("SUPABASE_URL");
 const serviceKey = required("SUPABASE_SERVICE_KEY");
 const wakeSecret = required("WORKER_WAKE_SECRET");
@@ -55,6 +68,7 @@ const pollSeconds = readPollSeconds();
 const database = { url: supabaseUrl, key: serviceKey };
 // Without ANTHROPIC_API_KEY the lesson finder uses its rule: the links under the path of the start page.
 const picker = createLessonPicker(process.env.ANTHROPIC_API_KEY);
+const topicEngine = readTopicEngine();
 // The demo job runs only when WORKER_ALLOW_DEMO is "true". Production keeps it off unless a check needs it.
 // ALLOW_PRIVATE_COURSE_URLS "true" lets the crawl read a private address, such as the fixture site on localhost.
 // It is for a local run and CI only. Production never sets it.
@@ -65,6 +79,11 @@ const handlers = createHandlers({
     picker,
     log: writeLog,
     allowPrivateAddresses: process.env.ALLOW_PRIVATE_COURSE_URLS === "true",
+  },
+  buildTopicMap: {
+    topics: createTopicStore(database),
+    engine: topicEngine,
+    log: writeLog,
   },
 });
 
@@ -103,6 +122,7 @@ server.listen(port, () => {
     event: "listening",
     port,
     lessonFinder: picker ? "model" : "rule",
+    topicEngine: topicEngine !== null,
     privateCourseUrls: process.env.ALLOW_PRIVATE_COURSE_URLS === "true",
   });
   // Look for jobs once at the start. A job can wait from a time when no worker ran.

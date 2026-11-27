@@ -60,6 +60,16 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
+      # uv installs the locked Python packages of the topic engine in engine/. The cache keeps the downloads out of most runs.
+      # setup-uv has no major version tag, so the step names a full version. The uv version matches engine/Dockerfile.
+      # Change both together.
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.7"
+          enable-cache: true
+          cache-dependency-glob: engine/uv.lock
+      - name: Install the engine packages
+        run: uv sync --directory engine --frozen
       # BEGIN sample-resource
       - name: Remove the sample resource, then lint and check types
         if: matrix.variant == 'without-sample'
@@ -79,7 +89,8 @@ jobs:
       # The wake values are the local defaults of npm run worker. SMOKE_JOB_CHECK turns on the job steps.
       # ALLOW_PRIVATE_COURSE_URLS lets the app accept the localhost URL of the fixture course site. Production keeps it off.
       # SMOKE_COURSES turns on the course steps and the extension steps of the smoke test.
-      - name: Write a test Send Email Hook secret, the look override, the OAuth providers, the job check and the courses
+      # SMOKE_TOPICS turns on the topic steps of the smoke test. They need the engine with the fake model.
+      - name: Write a test Send Email Hook secret, the look override, the OAuth providers, the job check, the courses and the topics
         run: |
           secret="v1,whsec_$(openssl rand -base64 32)"
           echo "::add-mask::$secret"
@@ -93,6 +104,7 @@ jobs:
           echo "SMOKE_HOOK_SECRET=$secret" >> "$GITHUB_ENV"
           echo "SMOKE_JOB_CHECK=1" >> "$GITHUB_ENV"
           echo "SMOKE_COURSES=1" >> "$GITHUB_ENV"
+          echo "SMOKE_TOPICS=1" >> "$GITHUB_ENV"
       - name: Run database policy tests
         run: |
           if compgen -G "supabase/tests/*.sql" > /dev/null; then
@@ -102,6 +114,8 @@ jobs:
           fi
       - name: Run the worker and extension unit tests
         run: npm run test:unit
+      - name: Run the engine tests
+        run: npm run test:engine
       - name: Build the extension
         run: npm run build:extension
       - run: npm run build
@@ -112,14 +126,26 @@ jobs:
           nohup node scripts/fixture-server.mjs > "$RUNNER_TEMP/fixture.log" 2>&1 < /dev/null &
           for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:8799/robots.txt && break; sleep 1; done
           curl -sf -o /dev/null http://localhost:8799/robots.txt || { echo "fixture site did not start"; cat "$RUNNER_TEMP/fixture.log"; exit 1; }
+      # The topic engine starts before the worker, so the first topic job finds it. It listens on 127.0.0.1:8790.
+      # --fake gives it the fake model of scripts/fake-model.mjs on 127.0.0.1:8791. The fake model needs no key and no
+      # network. No step sets a model key. The first start imports Cognee, so the wait is longer than for the worker.
+      # Its output goes to a file, so the step does not hold the output stream open. The last step shows the file.
+      - name: Start the topic engine with the fake model
+        run: |
+          nohup npm run engine -- --fake > "$RUNNER_TEMP/engine.log" 2>&1 < /dev/null &
+          for i in $(seq 1 120); do curl -sf -o /dev/null http://127.0.0.1:8790/health && break; sleep 1; done
+          curl -sf -o /dev/null http://127.0.0.1:8790/health || { echo "engine did not start"; cat "$RUNNER_TEMP/engine.log"; exit 1; }
       # The worker reads the local Supabase values into memory and never prints the key.
       # The job sets no ANTHROPIC_API_KEY, so the lesson finder uses its rule and the course steps need no model call.
       # ALLOW_PRIVATE_COURSE_URLS turns off the address check of the crawl, so the worker reads the fixture site on localhost.
       # The deploy-worker job does not set it.
+      # The worker sends each topic job to the local engine of the step before, with the local secret of npm run engine.
       # Its output goes to a file, so the step does not hold the output stream open. The last step shows the file.
       - name: Start the worker
         env:
           ALLOW_PRIVATE_COURSE_URLS: "true"
+          TOPIC_ENGINE_URL: http://127.0.0.1:8790
+          TOPIC_ENGINE_SECRET: local-engine-secret
         run: |
           nohup npm run worker > "$RUNNER_TEMP/worker.log" 2>&1 < /dev/null &
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8788/health && break; sleep 1; done
@@ -142,6 +168,12 @@ jobs:
           if [ -f "$RUNNER_TEMP/fixture.log" ]; then
             echo "::group::Fixture course site log"
             cat "$RUNNER_TEMP/fixture.log"
+            echo "::endgroup::"
+          fi
+          # The engine log holds the lines of the fake model and of the engine. Neither logs the lesson text or a key.
+          if [ -f "$RUNNER_TEMP/engine.log" ]; then
+            echo "::group::Topic engine and fake model log"
+            cat "$RUNNER_TEMP/engine.log"
             echo "::endgroup::"
           fi
           npx supabase stop --no-backup
@@ -362,6 +394,9 @@ jobs:
       # --no-invoker-iam-check makes the address public. The wake secret protects POST /wake.
       # The Supabase service key goes only to this service, from Secret Manager. It never goes to the Cloudflare Worker.
       # The Anthropic key also comes from Secret Manager. The lesson finder uses it to pick the lessons of a course.
+      # TOPIC_ENGINE_URL is the engine address that the deploy-engine job shows. When the variable is not set, the value
+      # is empty. The worker reads an empty value as no engine, so it fails each topic job with a safe reason and
+      # changes no data. The worker and the engine read the same secret engine-secret from Secret Manager.
       - name: Deploy the worker to Cloud Run
         id: deploy
         if: steps.changes.outputs.deploy == 'true'
@@ -375,14 +410,128 @@ jobs:
           env_vars: |-
             SUPABASE_URL=${{ secrets.SUPABASE_URL }}
             WORKER_ALLOW_DEMO=${{ vars.ENABLE_JOB_CHECK }}
+            TOPIC_ENGINE_URL=${{ vars.TOPIC_ENGINE_URL }}
           # The secret values come from Google Secret Manager, so the Cloud Run console does not show them.
           secrets: |-
             SUPABASE_SERVICE_KEY=worker-supabase-service-key:latest
             WORKER_WAKE_SECRET=worker-wake-secret:latest
             ANTHROPIC_API_KEY=worker-anthropic-api-key:latest
+            TOPIC_ENGINE_SECRET=engine-secret:latest
       # The first deploy needs this address for the variable WORKER_WAKE_URL.
       - name: Show the worker address
         if: steps.changes.outputs.deploy == 'true'
         env:
           SERVICE_URL: ${{ steps.deploy.outputs.url }}
         run: echo "::notice::The worker is live at $SERVICE_URL. Set WORKER_WAKE_URL to $SERVICE_URL/wake."
+
+  # The topic engine in engine/ runs on Google Cloud Run. This job deploys it. The worker sends each topic job to it.
+  # The deploy job and the deploy-worker job do not wait for it.
+  deploy-engine:
+    needs: [ci, smoke]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    permissions:
+      contents: read
+      # Workload Identity Federation signs in to Google with the GitHub token of the job. The repo holds no Google key.
+      id-token: write
+    # A newer merge waits for the running engine deploy. It does not cancel it.
+    concurrency:
+      group: deploy-engine-production
+      cancel-in-progress: false
+    steps:
+      # GitHub does not allow secrets in a job-level "if". This step checks them and sets "ready".
+      # The engine does not read Supabase, so the step checks only the Google values.
+      - name: Check engine settings
+        id: settings
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+        run: |
+          if [ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ] && [ "$EVENT_NAME" = "push" ]; then
+            echo "::notice::Engine deploy skipped. GCP_WORKLOAD_IDENTITY_PROVIDER is not set. See the README section \"Deployment > Topic engine\"."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          missing=""
+          for name in GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT GCP_PROJECT_ID GCP_REGION; do
+            if [ -z "${!name}" ]; then
+              missing="$missing $name"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Engine deploy cannot start. Set these values in the production environment:$missing"
+            exit 1
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      # The full history lets the next step compare the commit before the push with the new commit.
+      - if: steps.settings.outputs.ready == 'true'
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # A manual run always deploys. A push deploys only when a file in engine/ changed.
+      # When the commit before the push is not known (a new branch, or a commit that the clone does not have), the job deploys.
+      - name: Check for engine changes
+        id: changes
+        if: steps.settings.outputs.ready == 'true'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" != "push" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$BEFORE" ] || [[ "$BEFORE" =~ ^0+$ ]] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "::notice::The commit before the push is not known. The job deploys the engine."
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # git diff --quiet exits 0 when nothing changed. A change or an error deploys.
+          if git diff --quiet "$BEFORE" "$GITHUB_SHA" -- engine/; then
+            echo "::notice::Engine deploy skipped. No file in engine/ changed in this push."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Sign in to Google Cloud
+        if: steps.changes.outputs.deploy == 'true'
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      # Cloud Build builds the image from engine/Dockerfile. The service runs at most one instance and none when idle.
+      # The engine works only inside a request, so the job does not set --no-cpu-throttling.
+      # One instance takes one request at a time. A request can take up to 300 seconds, the time limit of the worker.
+      # The engine used about 420 MB after the Cognee import, so the service gets 1 GiB.
+      # --no-invoker-iam-check makes the address public. The engine secret protects POST /extract.
+      # LLM_MODEL comes from the variable TOPIC_MODEL. Without the variable, the engine uses Claude Haiku 5.5.
+      # The engine gets no LLM_ENDPOINT, so it calls the Anthropic API.
+      - name: Deploy the engine to Cloud Run
+        id: deploy
+        if: steps.changes.outputs.deploy == 'true'
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          service: rubber-duck-on-steroids-engine
+          source: engine
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          region: ${{ vars.GCP_REGION }}
+          flags: --no-invoker-iam-check --min-instances=0 --max-instances=1 --cpu=1 --memory=1Gi --concurrency=1 --timeout=300
+          env_vars: |-
+            LLM_PROVIDER=anthropic
+            LLM_MODEL=${{ vars.TOPIC_MODEL || 'anthropic/claude-haiku-5-5' }}
+          # The secret values come from Google Secret Manager, so the Cloud Run console does not show them.
+          # The engine uses the Anthropic key of the worker. The worker and the engine read the same engine secret.
+          secrets: |-
+            LLM_API_KEY=worker-anthropic-api-key:latest
+            ENGINE_SECRET=engine-secret:latest
+      # The first deploy needs this address for the variable TOPIC_ENGINE_URL of the worker.
+      - name: Show the engine address
+        if: steps.changes.outputs.deploy == 'true'
+        env:
+          SERVICE_URL: ${{ steps.deploy.outputs.url }}
+        run: echo "::notice::The engine is live at $SERVICE_URL. Set TOPIC_ENGINE_URL to $SERVICE_URL."

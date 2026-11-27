@@ -59,6 +59,10 @@ env.WORKER_WAKE_SECRET ??= "local-wake-secret";
 env.WORKER_POLL_SECONDS ??= "5";
 // A local worker and the CI worker run the demo job of the check page.
 env.WORKER_ALLOW_DEMO ??= "true";
+// The local engine of npm run engine listens on this address with this secret. scripts/try-topics.mjs uses the same values.
+// Without a running engine, a topic job fails with a safe reason after its 3 starts.
+env.TOPIC_ENGINE_URL ??= "http://127.0.0.1:8790";
+env.TOPIC_ENGINE_SECRET ??= "local-engine-secret";
 
 // Start the worker with the same Node binary that runs this script.
 const child = spawn(process.execPath, ["worker/main.ts"], { cwd: root, env, stdio: "inherit" });

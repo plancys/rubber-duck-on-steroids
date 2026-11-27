@@ -1,0 +1,176 @@
+---
+import AppLayout from "@/layouts/AppLayout.astro";
+import TopicMap from "@/components/topics/TopicMap";
+import TopicOutline from "@/components/topics/TopicOutline.astro";
+import { createClient } from "@/lib/supabase";
+import { courseErrorText, courseName, isCourseId } from "@/lib/courses";
+import {
+  lessonTitle,
+  parseLessonMap,
+  parseOverview,
+  reportLines,
+  topicMapPath,
+  type LessonMap,
+  type MapOverview,
+  type ReportLine,
+} from "@/lib/topics";
+import type { Tables } from "@/db/database.types";
+
+type Course = Pick<Tables<"courses">, "id" | "title" | "source_url">;
+
+// The map page reads one course_maps row for the overview, and one JSON document for an open lesson.
+// It reads no lesson text and does no graph work. The island computes the layout in the browser.
+// A course of another learner and an id that does not exist give the same result. RLS returns no row for both.
+const { id } = Astro.params;
+const lessonParam = Astro.url.searchParams.get("lesson");
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+let error: string | null = null;
+let course: Course | null = null;
+let overview: MapOverview | null = null;
+let report: ReportLine[] = [];
+let lessonMap: LessonMap | null = null;
+let notFound = false;
+let lessonNotFound = false;
+
+if (!supabase) {
+  error = courseErrorText("not_configured");
+} else if (!isCourseId(id)) {
+  notFound = true;
+} else {
+  const [courseResult, mapResult] = await Promise.all([
+    supabase.from("courses").select("id, title, source_url").eq("id", id).maybeSingle(),
+    supabase.from("course_maps").select("built_at, overview, report").eq("course_id", id).maybeSingle(),
+  ]);
+  if (courseResult.error || mapResult.error) {
+    Astro.response.status = 500;
+    error = courseErrorText("unknown");
+  } else if (!courseResult.data) {
+    notFound = true;
+  } else {
+    course = courseResult.data;
+    if (mapResult.data) {
+      overview = parseOverview(mapResult.data.overview);
+      report = reportLines(mapResult.data.report, mapResult.data.built_at);
+      if (lessonParam !== null) {
+        // The position names a lesson of the map. A lesson that the map does not hold gives 404.
+        const position = /^\d{1,9}$/.test(lessonParam) ? Number(lessonParam) : null;
+        const entry = overview.lessons.find((lesson) => lesson.position === position);
+        if (!entry) {
+          lessonNotFound = true;
+        } else {
+          const lessonResult = await supabase.rpc("topic_map_lesson", { course_id: id, lesson_url: entry.url });
+          if (lessonResult.error) {
+            Astro.response.status = 500;
+            error = courseErrorText("unknown");
+          } else {
+            // The function gives null when the lesson is no longer in the course.
+            lessonMap = parseLessonMap(lessonResult.data);
+            if (!lessonMap) lessonNotFound = true;
+          }
+        }
+      }
+    }
+  }
+}
+
+if (notFound || lessonNotFound) {
+  Astro.response.status = 404;
+}
+
+const lessonHeading = lessonMap
+  ? `Lesson ${lessonMap.lesson.position}: ${lessonTitle(lessonMap.lesson.title, lessonMap.lesson.position)}`
+  : null;
+const backLinkClass =
+  "inline-flex min-h-11 min-w-11 items-center font-semibold text-muted-foreground hover:text-foreground";
+---
+
+<AppLayout title={course ? `Topic map: ${courseName(course)}` : "Course not found"}>
+  {course ? (
+    <div data-testid="topic-map-page" data-view={lessonMap ? "lesson" : "overview"} class="space-y-6">
+      <div>
+        <p class="mb-2 text-sm">
+          {lessonMap || lessonNotFound ? (
+            <a href={topicMapPath(course.id)} data-testid="topic-map-back" class:list={backLinkClass}>
+              All lessons of the map
+            </a>
+          ) : (
+            <a href={`/dashboard/courses/${course.id}`} data-testid="topic-map-course-link" class:list={backLinkClass}>
+              {courseName(course)}
+            </a>
+          )}
+        </p>
+        <h1 class="font-heading text-3xl font-extrabold [overflow-wrap:anywhere] sm:text-4xl">
+          {lessonHeading ?? "Topic map"}
+        </h1>
+        {lessonMap && <p class="mt-2 text-sm text-muted-foreground [overflow-wrap:anywhere]">{courseName(course)}</p>}
+      </div>
+
+      {error && <p class="text-sm text-destructive">{error}</p>}
+
+      {!error && !overview && (
+        <div data-testid="topic-map-empty" class="space-y-3">
+          <p class="text-sm text-muted-foreground">This course has no topic map yet. Build it on the course page.</p>
+          <a
+            href={`/dashboard/courses/${course.id}`}
+            class="inline-flex min-h-11 min-w-11 items-center font-semibold text-primary underline underline-offset-2"
+          >
+            Open the course page
+          </a>
+        </div>
+      )}
+
+      {!error && lessonNotFound && (
+        <p data-testid="topic-map-lesson-missing" class="text-sm text-muted-foreground">
+          This lesson is not in the map.
+        </p>
+      )}
+
+      {!error && overview && !lessonNotFound && (
+        <>
+          {/* A lesson with no topic gets no canvas. The outline below says that the lesson has no topic. */}
+          {(lessonMap ? lessonMap.topics.length > 0 : overview.lessons.length > 0) && (
+            <TopicMap
+              client:only="react"
+              courseId={course.id}
+              overview={lessonMap ? undefined : overview}
+              lesson={lessonMap ?? undefined}
+            >
+              <p
+                slot="fallback"
+                class="flex h-[28rem] items-center justify-center rounded-(--radius) border border-border p-6 text-center text-sm text-muted-foreground sm:h-[36rem]"
+              >
+                The interactive map needs JavaScript. The outline below has the same content.
+              </p>
+            </TopicMap>
+          )}
+
+          <section>
+            <h2 class="mb-3 font-heading text-xl font-extrabold">{lessonMap ? "Topics" : "Lessons"}</h2>
+            <TopicOutline courseId={course.id} overview={overview} lesson={lessonMap ?? undefined} />
+          </section>
+        </>
+      )}
+
+      {overview && report.length > 0 && (
+        <details data-testid="topic-map-report" class="rounded-lg bg-card text-card-foreground shadow-(--shadow-card)">
+          <summary class="flex min-h-11 min-w-11 cursor-pointer items-center px-4 py-2 font-bold">Build report</summary>
+          <dl class="grid gap-x-4 gap-y-2 px-4 pb-4 text-sm sm:grid-cols-[auto_1fr]">
+            {report.map((line) => (
+              <>
+                <dt class="font-semibold">{line.label}</dt>
+                <dd class="text-muted-foreground [overflow-wrap:anywhere]">{line.value}</dd>
+              </>
+            ))}
+          </dl>
+        </details>
+      )}
+    </div>
+  ) : (
+    <>
+      <h1 class="mb-6 font-heading text-3xl font-extrabold sm:text-4xl">
+        {notFound ? "Course not found" : "Topic map"}
+      </h1>
+      <p class="text-sm text-muted-foreground">{notFound ? courseErrorText("not_found") : error}</p>
+    </>
+  )}
+</AppLayout>

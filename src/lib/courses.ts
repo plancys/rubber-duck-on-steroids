@@ -17,7 +17,15 @@ export const COURSE_URL_MAX_LENGTH = 2048;
 export type CourseUrlErrorKey = "url_required" | "url_invalid" | "url_not_http" | "url_credentials" | "url_private";
 
 export type CourseErrorKey =
-  CourseUrlErrorKey | "job_active" | "too_many_loads" | "extension_course" | "not_found" | "not_configured" | "unknown";
+  | CourseUrlErrorKey
+  | "job_active"
+  | "too_many_loads"
+  | "too_many_maps"
+  | "course_not_ready"
+  | "extension_course"
+  | "not_found"
+  | "not_configured"
+  | "unknown";
 
 const COURSE_ERROR_TEXTS: Record<CourseErrorKey, string> = {
   url_required: "Enter the URL of the course start page.",
@@ -27,6 +35,8 @@ const COURSE_ERROR_TEXTS: Record<CourseErrorKey, string> = {
   url_private: "This address is not public. Use the URL of a public site.",
   job_active: "You already have a job in progress. Wait until it ends.",
   too_many_loads: "You can start at most 10 course loads in one hour. Try again later.",
+  too_many_maps: "You can build at most 5 topic maps in one hour. Try again later.",
+  course_not_ready: "The course is not ready. Build the topic map after the course loads.",
   extension_course: "This course comes from the browser extension. Use the extension to add pages.",
   not_found: "This course does not exist or you cannot open it.",
   not_configured: "Courses are not available right now.",

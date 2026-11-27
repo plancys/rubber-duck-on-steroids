@@ -3,7 +3,7 @@ project: "Rubber Duck on Steroids"
 version: 1
 status: draft
 created: 2026-11-23
-updated: 2026-11-25
+updated: 2026-11-27
 prd_version: 1
 main_goal: market-feedback
 top_blocker: time
@@ -43,7 +43,7 @@ A working software engineer learns new technologies through online courses. The 
 | ---- | ------------------------------- | ------------------------------------------------------------------------------------ | ------------- | --------------------- | -------- |
 | F-01 | background-work-path            | (foundation) long work runs outside a page request, and the learner sees its progress | —             | FR-002, FR-003        | in-progress |
 | S-01 | load-course-from-url            | load a course from the URL of its web page and see its lessons in order              | F-01          | FR-001, FR-002, US-01 | done |
-| S-02 | course-topic-graph              | see a loaded course as a graph of its topics                                         | S-01          | FR-003                | proposed |
+| S-02 | course-topic-graph              | see a loaded course as a graph of its topics                                         | S-01          | FR-003                | in-progress |
 | S-03 | mark-known-topics               | mark the topics they believe they already know                                       | S-02          | FR-005                | proposed |
 | S-04 | adjusted-lesson-list            | get a lesson list adjusted to their knowledge, with known lessons marked as skipped  | S-03          | FR-008, US-01         | blocked  |
 | S-05 | collapsed-known-passages        | read a lesson in which the passages on known topics are collapsed                    | S-04          | FR-009, US-01         | blocked  |
@@ -117,10 +117,10 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Parallel with:** —
 - **Blockers:** —
 - **Unknowns:**
-  - Which language-model service does the product use, and what is the spend limit? (Open Roadmap Question 18) — Owner: user. Block: no.
-  - Which sub-problems reuse existing open-source projects? (Open Roadmap Question 19) — Owner: user. Block: no.
+  - Which language-model service does the product use, and what is the spend limit? (Open Roadmap Question 18) — Owner: user. Block: no. Answered: the Anthropic API with `claude-haiku-5-5`, 5 USD each month.
+  - Which sub-problems reuse existing open-source projects? (Open Roadmap Question 19) — Owner: user. Block: no. Answered: Cognee for the extraction call.
 - **Risk:** It comes directly after S-01 so that the quality of the topics shows early. Every later slice inherits the errors of this graph. This slice also brings the first language-model work into the product.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-03: Mark known topics
 
@@ -228,19 +228,21 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 ## Backlog Handoff
 
-| Roadmap ID | Change ID                       | Suggested issue title                                   | Ready for `/10x-plan` | Notes                                                    |
-| ---------- | ------------------------------- | ------------------------------------------------------- | --------------------- | -------------------------------------------------------- |
-| F-01       | background-work-path            | Run long work outside a page request and show progress  | yes                   | Run `/10x-plan background-work-path`                     |
-| S-01       | load-course-from-url            | Load a course from its URL and list its lessons         | no                    | Waits for F-01                                           |
-| S-02       | course-topic-graph              | Show a loaded course as a graph of topics               | no                    | Waits for S-01                                           |
-| S-03       | mark-known-topics               | Let the learner mark known topics                       | no                    | Waits for S-02                                           |
-| S-04       | adjusted-lesson-list            | Give a lesson list adjusted to the learner's knowledge  | no                    | Blocked: the domain rule is missing (Question 1)         |
-| S-05       | collapsed-known-passages        | Collapse the passages on known topics in a lesson       | no                    | Blocked: the domain rule is missing (Question 1)         |
-| S-06       | double-check-questions          | Ask questions that double-check claimed knowledge       | no                    | Blocked: the domain rule is missing (Question 1)         |
-| S-07       | knowledge-on-course-graph       | Show the learner's knowledge on the course graph        | no                    | Waits for S-03                                           |
-| S-08       | navigate-topic-graph            | Navigate the topic graph and open a topic               | no                    | Waits for S-02                                           |
-| S-09       | summaries-of-known-passages     | Replace long known passages with short summaries        | no                    | Waits for S-05                                           |
-| S-10       | second-material-new-topics-only | Assess only the new topics of a second material         | no                    | Blocked: Question 14 is open                             |
+Linear project: [Rubber-duck-on-steroids](https://linear.app/rubber-duck-on-steroids/project/rubber-duck-on-steroids-21899553635e), milestone `M-01: First adjusted course`. The decision issues RUB-5 (Question 1) and RUB-6 (Question 14) block the slices that wait for them.
+
+| Roadmap ID | Linear | Change ID                       | Suggested issue title                                   | Ready for `/10x-plan` | Notes                                                    |
+| ---------- | ------ | ------------------------------- | ------------------------------------------------------- | --------------------- | -------------------------------------------------------- |
+| F-01       | RUB-7  | background-work-path            | Run long work outside a page request and show progress  | yes                   | Run `/10x-plan background-work-path`                     |
+| S-01       | RUB-8  | load-course-from-url            | Load a course from its URL and list its lessons         | no                    | Waits for F-01                                           |
+| S-02       | RUB-9  | course-topic-graph              | Show a loaded course as a graph of topics               | no                    | Waits for S-01                                           |
+| S-03       | RUB-10 | mark-known-topics               | Let the learner mark known topics                       | no                    | Waits for S-02                                           |
+| S-04       | RUB-11 | adjusted-lesson-list            | Give a lesson list adjusted to the learner's knowledge  | no                    | Blocked: the domain rule is missing (Question 1)         |
+| S-05       | RUB-12 | collapsed-known-passages        | Collapse the passages on known topics in a lesson       | no                    | Blocked: the domain rule is missing (Question 1)         |
+| S-06       | RUB-13 | double-check-questions          | Ask questions that double-check claimed knowledge       | no                    | Blocked: the domain rule is missing (Question 1)         |
+| S-07       | RUB-14 | knowledge-on-course-graph       | Show the learner's knowledge on the course graph        | no                    | Waits for S-03                                           |
+| S-08       | RUB-15 | navigate-topic-graph            | Navigate the topic graph and open a topic               | no                    | Waits for S-02                                           |
+| S-09       | RUB-16 | summaries-of-known-passages     | Replace long known passages with short summaries        | no                    | Waits for S-05                                           |
+| S-10       | RUB-17 | second-material-new-topics-only | Assess only the new topics of a second material         | no                    | Blocked: Question 14 is open                             |
 
 ## Open Roadmap Questions
 
@@ -263,14 +265,21 @@ Questions 1 to 16 are a copy of the open questions of the PRD. Questions 17 to 1
 15. **What form does manually downloaded course content take for FR-013?** The user said "somehow manually download"; a saved page, pasted text or a file are all possible. Low urgency, because FR-013 is nice-to-have. — Owner: user. Block: none.
 16. **Has the shaping quality cross-check been run?** No. Shaping stopped after its fourth phase, so business logic, non-functional requirements, product framing and non-goals were never asked, and the closing cross-check is still pending. — Owner: user. Block: none.
 17. **Where does long work run?** The user wants no tight link to one provider and a minimal cost, zero if possible. The hosting of long work is not decided. — Owner: user. Block: none. The plan of F-01 must settle it.
-18. **Which language-model service does the product use, and what is the spend limit?** Calls to a language model cost money for each use, and the user wants a minimal cost. — Owner: user. Block: none. The plan of S-02 must settle it.
-19. **Which sub-problems reuse existing open-source projects?** The user prefers well-known open-source projects for sub-problems. No project is selected. — Owner: user. Block: none. It applies first to the plan of S-02.
+18. **Which language-model service does the product use, and what is the spend limit?** Calls to a language model cost money for each use, and the user wants a minimal cost. — Owner: user. Block: none. The plan of S-02 must settle it. The user answered in the plan of S-02 (`course-topic-graph`): the Anthropic API with the model `claude-haiku-5-5`. The spend limit is 5 USD each month in the Claude Console. The GitHub variable `TOPIC_MODEL` holds the model of the topic engine. The user can select another model after the comparison with Sonnet 5.5.
+19. **Which sub-problems reuse existing open-source projects?** The user prefers well-known open-source projects for sub-problems. No project is selected. — Owner: user. Block: none. It applies first to the plan of S-02. The user answered in the plan of S-02 (`course-topic-graph`): the topic engine uses Cognee for the extraction call (`extract_content_graph`). It uses our own graph model and prompt. The parked phase D lists the parts of Cognee that S-02 does not use.
 
 ## Parked
 
 - **Load knowledge from epub, mobi, md and pdf files (FR-012)** — Why parked: the PRD gives it the priority nice-to-have, and the seed idea names it for the next phases.
 - **Manual download fallback when a URL does not load (FR-013)** — Why parked: the PRD gives it the priority nice-to-have. It comes back if the loader of S-01 cannot read the example course site.
 - **Mark lessons as done and see progress on the path (FR-014)** — Why parked: the PRD gives it the priority nice-to-have, and neither primary success outcome depends on it.
+
+The four entries below are the later phases from the research of the change `course-topic-graph` (`research.md`, sections R.9 and P.11). No FR covers them yet. A new milestone must pick them up.
+
+- **Phase B: a deeper learner model** — Why parked: milestone M-01 uses four learner states and no decay. Content: a probability for each topic, decay with `ts-fsrs`, misconception records, and the choice of the next question. Start it when: the owner uses the product on a second course and wants re-checks. Source: `research.md` R.9 and F.6.
+- **Phase C: the shared store** — Why parked: milestone M-01 has one named user and no shared store. Content: spaces, two schemas with separate grants, one role for each job kind of the worker, the promotion gate, and the list of topic events. Start it when: a second person must read the same map. Source: `research.md` R.9, H.5 and H.6.
+- **Phase D: the company scale with the full Cognee pipeline** — Why parked: S-02 uses Cognee only for the extraction call (`extract_content_graph`) with our own graph model and prompt. The Cognee chunker, the loaders for PDF and EPUB (FR-012), and the Cognee stores are not in use. Content: Cognee as the engine for shared sources with `add` and `cognify`, a second database, connectors, access lists for groups, and end dates on relations. Start it when: many sources of many kinds exist, and groups need access lists. Source: `research.md` R.9 and W.6 to W.11.
+- **Phase E: the private brain as a service** — Why parked: it is outside milestone M-01 and outside phases B to D. Content: claims of more kinds, consent with scopes, an audit, the sharing gateway, and share views with labels on claims. Start it when: a second app outside this product needs the data of a person. It needs phase B and a separate private store. Source: `research.md` P.11, G.6 to G.10 and M.4 to M.13.
 
 ## Milestone History
 

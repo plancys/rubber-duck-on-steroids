@@ -52,6 +52,10 @@ npm start
 - `npm run format` - Run Prettier
 - `npm run smoke` - Smoke test the auth flow against a running server (`BASE_URL`, defaults to `http://localhost:4321`)
 - `npm run worker` - Start the background worker with the local Supabase values
+- `npm run engine` - Start the topic engine on `127.0.0.1:8790`. `--fake` gives it the fake model
+- `npm run test:engine` - Run the engine tests
+- `npm run check:engine` - Send the fixture lesson to the engine with the fake model and check the answer
+- `npm run topics:try -- <file.md>` - Send one lesson to a running engine and show the topics
 - `npm run test:unit` - Run the worker and extension unit tests
 - `npm run build:extension` - Build the browser extension into `extension/dist`
 - `node scripts/fixture-server.mjs` - Serve the fixture course site at `http://localhost:8799/duck-basics`
@@ -357,7 +361,12 @@ This project deploys to [Cloudflare Workers](https://workers.cloudflare.com/). T
 
 `scripts/setup-prod.mjs` does each provider step that a script can do safely. Some steps stay manual. Do the setup in this order:
 
-1. Do the manual steps in the table "Steps that stay manual" below. You need the Cloudflare API token, the `workers.dev` subdomain, the Resend sending-only key, a Supabase access token, and a Google Cloud project with billing.
+1. Do the manual steps in the table [Steps that stay manual](#steps-that-stay-manual). Create these values first, and keep each one ready:
+   - **Cloudflare API token**: [My Profile → API Tokens](https://dash.cloudflare.com/profile/api-tokens) → **Create Token** → template **Edit Cloudflare Workers**. Use it for `CLOUDFLARE_API_TOKEN`.
+   - **Resend API key**: [Resend API Keys](https://resend.com/api-keys) → **Create API Key** → **Sending access** only. Use it for `RESEND_API_KEY`.
+   - **Supabase access token**: [Supabase Access Tokens](https://supabase.com/dashboard/account/tokens) → **Generate new token**. Use it in step 3 only. Revoke it after the setup.
+   - **`workers.dev` subdomain**: [Cloudflare dashboard](https://dash.cloudflare.com) → **Workers & Pages**. The script asks for this value.
+   - **Google Cloud project with billing**: [Google Cloud Console](https://console.cloud.google.com/billing). Needed only for the worker step 5d.
 2. Log in to the CLIs: `gh auth login`, `npx wrangler login`, and `gcloud auth login`. Without `gcloud`, the script skips the worker step and names it as an open step.
 3. Run the setup script. Set the access token for this one command only:
 
@@ -376,7 +385,7 @@ The script runs these steps in this order. Each step reads the current state fir
 4. **Cloudflare**: the account ID from `wrangler whoami`, `PRODUCTION_URL` from the subdomain, and the API token.
 5. **Resend**: `EMAIL_FROM`, `ADMIN_EMAIL`, the API key, and a generated `SEND_EMAIL_HOOK_SECRET`. A new secret goes to Supabase first, with the hook off. If you decline that write, the script stops before GitHub changes.
    - **OAuth providers** (step 5c): it shows the Supabase callback URL, then asks for the GitHub and the Google client ID and secret. An empty client ID skips the provider. A provider that is on stays on unless you answer no. It turns on the providers in Supabase, then puts the providers that are on in `OAUTH_PROVIDERS`. See [OAuth login](#oauth-login).
-   - **Google Cloud worker** (step 5d): it does steps 3 to 9 and 11 of the [One-time Google setup](#one-time-google-setup). It asks for the project ID and the region, turns on the services, and reads the state of each resource. Then it shows the list of changes and asks once before it applies them. It reads the Supabase service key through the Management API and sends it to Secret Manager only. It generates the wake secret and writes the same value to Secret Manager and to GitHub. It asks for the Anthropic key in a hidden prompt. After the first worker deploy, a new run sets `WORKER_WAKE_URL`. A Google error stops only this step.
+   - **Google Cloud worker** (step 5d): it does steps 3 to 9, 11 and 12 of the [One-time Google setup](#one-time-google-setup). It asks for the project ID, the region and the model of the topic engine. It turns on the services and reads the state of each resource. Then it shows the list of changes and asks once before it applies them. It reads the Supabase service key through the Management API and sends it to Secret Manager only. It generates the wake secret and writes the same value to Secret Manager and to GitHub. It generates the engine secret and writes it to Secret Manager only. It asks for the Anthropic key in a hidden prompt. After the first worker deploy, a new run sets `WORKER_WAKE_URL`. After the first engine deploy, a new run sets `TOPIC_ENGINE_URL`. A Google error stops only this step.
 6. **GitHub**: the `production` environment with the branch rule `main`, then the secrets and the variables.
 7. **Supabase auth settings**: Site URL, Redirect URLs with the OAuth callback, Confirm email, and the minimum password length.
 8. **Send Email Hook**: it turns on the hook only when the deployed route answers 401 to a call without a signature. In the run that makes a new secret, the hook stays off, because the deployed Worker does not have the secret yet. Run the deploy, then run setup again. With the hook on, the script sets the email rate limit of 30 an hour. Supabase accepts that value only after the hook is on.
@@ -386,18 +395,18 @@ The script never writes a file. It never prints a key, token, or password, excep
 
 #### Steps that stay manual
 
-| Step                                                                                                                                                                      | Why it stays manual                                                                                                      |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Create the Cloudflare account.                                                                                                                                            | An account needs a person, an email, and the terms of service.                                                           |
-| Create the Cloudflare API token: **My Profile → API Tokens → Create Token**, template **Edit Cloudflare Workers**, only your account, no zones, no DNS or billing access. | A script needs a token that can create tokens. That token has more access than the deploy needs.                         |
-| Find the `workers.dev` subdomain: **Workers & Pages** → account subdomain.                                                                                                | The script cannot read it without the API token. It asks you for the value.                                              |
-| Create the Resend account.                                                                                                                                                | An account needs a person, an email, and the terms of service.                                                           |
-| Add the domain in Resend and set its DNS records at your DNS provider.                                                                                                    | The records go to a DNS provider that the script has no access to. Resend verifies the domain after the records go live. |
-| Create the Resend API key with **Sending access** only.                                                                                                                   | Resend shows a key only once. You paste it into the hidden prompt.                                                       |
-| Create the Supabase access token: **Account → Access Tokens**. Revoke it after the setup.                                                                                 | The token has access to all your Supabase projects. You create it, you use it for one run, and you revoke it.            |
-| Create the Google Cloud project, link a billing account, and set a budget alert (Google steps 1 and 2).                                                                   | A project with billing needs a person, a payment card, and the terms of service.                                         |
-| Set the Anthropic spend limit, and create the key `rubber-duck-worker` (Google step 10).                                                                                  | The Claude Console has no API for the limit. You paste the key into the hidden prompt.                                   |
-| Save the database password in a password manager.                                                                                                                         | The script shows the password only once and never writes it to a file.                                                   |
+| Step                                                                                                                                                                                                                            | Why it stays manual                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Create the [Cloudflare account](https://dash.cloudflare.com/sign-up).                                                                                                                                                           | An account needs a person, an email, and the terms of service.                                                           |
+| Create the Cloudflare API token: [**My Profile → API Tokens**](https://dash.cloudflare.com/profile/api-tokens) → **Create Token**, template **Edit Cloudflare Workers**, only your account, no zones, no DNS or billing access. | A script needs a token that can create tokens. That token has more access than the deploy needs.                         |
+| Find the `workers.dev` subdomain: [**Workers & Pages**](https://dash.cloudflare.com) → account subdomain.                                                                                                                       | The script cannot read it without the API token. It asks you for the value.                                              |
+| Create the [Resend account](https://resend.com/signup).                                                                                                                                                                         | An account needs a person, an email, and the terms of service.                                                           |
+| Add the domain in [Resend](https://resend.com/domains) and set its DNS records at your DNS provider.                                                                                                                            | The records go to a DNS provider that the script has no access to. Resend verifies the domain after the records go live. |
+| Create the [Resend API key](https://resend.com/api-keys) with **Sending access** only.                                                                                                                                          | Resend shows a key only once. You paste it into the hidden prompt.                                                       |
+| Create the Supabase access token: [**Account → Access Tokens**](https://supabase.com/dashboard/account/tokens). Revoke it after the setup.                                                                                      | The token has access to all your Supabase projects. You create it, you use it for one run, and you revoke it.            |
+| Create the [Google Cloud project](https://console.cloud.google.com/), link a billing account, and set a budget alert (Google steps 1 and 2).                                                                                    | A project with billing needs a person, a payment card, and the terms of service.                                         |
+| Set the [Anthropic spend limit](https://platform.claude.com/settings/spend-limits), and create the [key](https://platform.claude.com/settings/keys) `rubber-duck-worker` (Google step 10).                                      | The Claude Console has no API for the limit. You paste the key into the hidden prompt.                                   |
+| Save the database password in a password manager.                                                                                                                                                                               | The script shows the password only once and never writes it to a file.                                                   |
 
 #### Secrets and variables
 
@@ -434,6 +443,8 @@ On each push to `main`, the workflow runs these jobs:
 5. `deploy` reads `PRODUCTION_URL/healthcheck` every 5 seconds for up to 60 seconds. The job passes when the `version` field equals the commit SHA.
 
 When `ci` and `smoke` pass, `deploy-worker` also starts, next to `deploy`. It deploys the background worker to Google Cloud Run when a file in `worker/` changed, and on each manual run. See [Background worker](#background-worker).
+
+`deploy-engine` starts at the same time. It deploys the topic engine to Google Cloud Run when a file in `engine/` changed, and on each manual run. No deploy job waits for another deploy job. See [Topic engine](#topic-engine).
 
 A newer merge waits for a running deploy. It does not cancel it.
 
@@ -529,7 +540,7 @@ Then open `http://localhost:8788/health`. It answers `ok`.
 
 #### One-time Google setup
 
-A human does these steps. An agent does not. `npm run setup:prod` (step 5d) does steps 3 to 9 and 11, and sets the values of [Worker secrets and variables](#worker-secrets-and-variables). Steps 1, 2 and 10 stay manual. The commands below are the manual way, and they show what the script does. You need a Google account with a payment card and the [gcloud CLI](https://cloud.google.com/sdk/docs/install). Replace `<PROJECT_ID>`, `<PROJECT_NUMBER>`, and `<OWNER>/<REPO>` with your values, for example `plancys/rubber-duck-on-steroids`.
+A human does these steps. An agent does not. `npm run setup:prod` (step 5d) does steps 3 to 9, 11 and 12, and sets the values of [Worker secrets and variables](#worker-secrets-and-variables). Steps 1, 2 and 10 stay manual. The commands below are the manual way, and they show what the script does. You need a Google account with a payment card and the [gcloud CLI](https://cloud.google.com/sdk/docs/install). Replace `<PROJECT_ID>`, `<PROJECT_NUMBER>`, and `<OWNER>/<REPO>` with your values, for example `plancys/rubber-duck-on-steroids`.
 
 1. Create a Google Cloud project, and link a billing account to it.
 2. Set a budget alert: **Billing → Budgets & alerts → Create budget**. Select the project, set a small amount, for example 5 USD, and keep the email alerts on. The alert sends an email. It does not stop the service.
@@ -541,7 +552,7 @@ gcloud config set project <PROJECT_ID>
 gcloud projects describe <PROJECT_ID> --format="value(projectNumber)"
 ```
 
-4. Turn on the services. Cloud Run runs the worker. Cloud Build builds the image. Artifact Registry keeps the image. The IAM Credentials API lets GitHub use the deploy service account. Secret Manager keeps the worker secrets.
+4. Turn on the services. Cloud Run runs the worker and the topic engine. Cloud Build builds the images. Artifact Registry keeps the image. The IAM Credentials API lets GitHub use the deploy service account. Secret Manager keeps the worker secrets.
 
 ```bash
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com iamcredentials.googleapis.com secretmanager.googleapis.com
@@ -604,14 +615,14 @@ done
 
 The service key is the `service_role` key or a secret key (`sb_secret_...`): Supabase project → **Settings → API Keys**. To change a value later, run `gcloud secrets versions add <name> --data-file=-`, then deploy the worker again.
 
-10. Set a spend limit for the Anthropic key before you create it. The worker makes one model call for each course load, with only the link texts and the URLs of the start page.
+10. Set a spend limit for the Anthropic key before you create it. The worker makes one model call for each course load, with only the link texts and the URLs of the start page. The topic engine uses the same key. It makes one model call for each new or changed lesson of a topic map, with the lesson text.
     1. Open [Spend limits in the Claude Console](https://platform.claude.com/settings/spend-limits) and select the organization of the key.
     2. Next to **Monthly spend limit**, click **Set limit** or **Adjust limit**. Enter a small value, for example 5 USD.
     3. Open [API keys in the Claude Console](https://platform.claude.com/settings/keys), and create a key with the name `rubber-duck-worker`.
 
-    When the usage reaches the limit, the model call fails. The worker then picks the lessons with its rule, and the load still ends.
+    When the usage reaches the limit, the model call fails. The worker then picks the lessons with its rule, and the load still ends. The topic engine then cannot analyse a lesson. After the limit resets, update the map, and the build tries these lessons again.
 
-11. Store the Anthropic key in Secret Manager, and let the worker read it. The `deploy-worker` job gives it to the worker as `ANTHROPIC_API_KEY`:
+11. Store the Anthropic key in Secret Manager, and let the worker read it. The `deploy-worker` job gives it to the worker as `ANTHROPIC_API_KEY`. The `deploy-engine` job gives it to the engine as `LLM_API_KEY`:
 
 ```bash
 printf '%s' '<ANTHROPIC_API_KEY>' | gcloud secrets create worker-anthropic-api-key --data-file=-
@@ -620,11 +631,22 @@ gcloud secrets add-iam-policy-binding worker-anthropic-api-key \
   --role=roles/secretmanager.secretAccessor
 ```
 
-The `deploy-worker` job fails when the secret `worker-anthropic-api-key` does not exist. Do step 11 before a push that deploys the worker. The key never goes to GitHub, to the Cloudflare Worker, or to a file.
+The `deploy-worker` and `deploy-engine` jobs fail when the secret `worker-anthropic-api-key` does not exist. Do step 11 before a push that deploys the worker or the engine. The key never goes to GitHub, to the Cloudflare Worker, or to a file.
+
+12. Store the engine secret in Secret Manager, and let the worker and the engine read it. The worker sends this secret with each request to the engine. The engine refuses a request with another secret. The value is a new random value, and only Secret Manager holds it:
+
+```bash
+openssl rand -hex 32 | tr -d '\n' | gcloud secrets create engine-secret --data-file=-
+gcloud secrets add-iam-policy-binding engine-secret \
+  --member=serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com \
+  --role=roles/secretmanager.secretAccessor
+```
+
+The `deploy-worker` job gives it to the worker as `TOPIC_ENGINE_SECRET`. The `deploy-engine` job gives it to the engine as `ENGINE_SECRET`. Both jobs fail when the secret `engine-secret` does not exist. Do step 12 before a push that deploys the worker or the engine. After a new version of the secret, run the workflow, so the worker and the engine get the same value.
 
 #### Worker secrets and variables
 
-`npm run setup:prod` sets these values, except `ENABLE_JOB_CHECK`. It sets `WORKER_WAKE_URL` only after the first worker deploy. To set a value by hand, use **Settings → Environments → production**. `SUPABASE_URL` is already there from the [One-time setup](#one-time-setup).
+`npm run setup:prod` sets these values, except `ENABLE_JOB_CHECK`. It sets `WORKER_WAKE_URL` only after the first worker deploy, and `TOPIC_ENGINE_URL` only after the first engine deploy. To set a value by hand, use **Settings → Environments → production**. `SUPABASE_URL` is already there from the [One-time setup](#one-time-setup).
 
 | Name                             | Type     | Where the value comes from                                                                                                                                   |
 | -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -635,6 +657,8 @@ The `deploy-worker` job fails when the secret `worker-anthropic-api-key` does no
 | `GCP_REGION`                     | Variable | The Cloud Run region, for example `europe-west3`. Select a region near the Supabase project.                                                                 |
 | `WORKER_WAKE_URL`                | Variable | The worker address with `/wake` at the end. Set it after the first worker deploy.                                                                            |
 | `ENABLE_JOB_CHECK`               | Variable | Only for the production check. The value is `true`. Remove it after the check.                                                                               |
+| `TOPIC_ENGINE_URL`               | Variable | The engine address, with no path. Set it after the first engine deploy. Without it, the worker fails each topic job with a safe reason.                      |
+| `TOPIC_MODEL`                    | Variable | Optional. The model of the topic engine in the LiteLLM form. The default is `anthropic/claude-haiku-5-5`. The `deploy-engine` job reads it.                  |
 
 #### First deploy of the worker
 
@@ -674,6 +698,88 @@ npx supabase db push --db-url "<SUPABASE_DB_URL>"
 6. One day later, read the cost of that load on the usage page of the Claude Console.
 
 The old worker still works with the new database, because the 4th argument has a default.
+
+### Topic engine
+
+The topic engine finds the topics of each lesson and the relations between them. It is a Python HTTP service in `engine/`, with `GET /health` and `POST /extract`. It asks a model for the topics of one lesson through [Cognee](https://www.cognee.ai/). The worker sends the lessons of a course to the engine in the `build_topic_map` job, one lesson at a time. The worker then checks each quote against the lesson text and stores the map.
+
+In production, the engine runs on Google Cloud Run as the service `rubber-duck-on-steroids-engine`. The `deploy-engine` job in `.github/workflows/ci.yml` deploys it. The service runs at most one instance, one request at a time, and no instance when it has no work. It has 1 GiB of memory. Its address is public. The engine refuses each `POST /extract` request without the engine secret. It calls the Anthropic API with the key of the worker.
+
+#### Run the engine on your machine
+
+The engine needs [uv](https://docs.astral.sh/uv/). On the first start, uv installs the locked Python packages. `npm run engine` starts the engine on `127.0.0.1:8790` with the secret `local-engine-secret`. It has three model sources:
+
+- **Claude Code**: with no key, the script starts the Claude Code bridge on `127.0.0.1:8791`. The bridge uses your Claude Code login. Install [Claude Code](https://code.claude.com/docs) and sign in first. The bridge is only for your own local work. It never runs in CI or in production.
+
+```bash
+npm run engine
+```
+
+- **API key**: with `ANTHROPIC_API_KEY` in the env of the command, the engine calls the Anthropic API. Never write the key to a file.
+
+```bash
+ANTHROPIC_API_KEY=<key> npm run engine
+```
+
+- **Fake model**: `--fake` starts the fake model of `scripts/fake-model.mjs` on `127.0.0.1:8791`. It needs no key and no network. CI uses it.
+
+```bash
+npm run engine -- --fake
+```
+
+The script shows the model source when it starts. It never shows a key. `LLM_MODEL` selects another model, for example `LLM_MODEL=anthropic/claude-sonnet-5-5 npm run engine`. `ENGINE_PORT` and `MODEL_PORT` change the ports. Ctrl+C stops the engine and the model source.
+
+To try one lesson with no database write, start the engine. Then run one of these commands in a second terminal:
+
+```bash
+npm run topics:try -- <lesson.md>
+npm run topics:try -- --course <course id> --lesson <position>
+```
+
+The script shows the topics, the quotes, the relations and the token counts.
+
+`npm run check:engine` starts the engine with the fake model on free ports and sends the fixture lesson `engine/tests/fixtures/lesson.md`. Then it checks the answer and stops the engine.
+
+#### Build a topic map on your machine
+
+1. Do steps 1 and 2 of [Run the worker on your machine](#run-the-worker-on-your-machine).
+2. In a second terminal, start the engine with `npm run engine`, or with one of the other model sources above.
+3. In a third terminal, start the worker with `npm run worker`. The worker sends each topic job to `http://127.0.0.1:8790` with the secret `local-engine-secret`. `TOPIC_ENGINE_URL` and `TOPIC_ENGINE_SECRET` change these values.
+4. Load a course. For the fixture course, follow [Load a course on your machine](#load-a-course-on-your-machine). When the load ends, the topic job of the course starts automatically.
+5. Open the course page. The **Topic map** section shows the progress of the topic job.
+6. When the job ends, click **Open the topic map**. Open a lesson, open a topic, and follow a quote link to the original page.
+
+A course that the extension loaded has no automatic topic job. Click **Build the topic map** on the course page. After a change to the lessons, the course page shows **Update the map**. An update calls the engine only for the new and changed lessons. A learner can start 5 topic jobs in one hour.
+
+#### First deploy of the engine
+
+The worker that builds topic maps needs the tables of the topic map, the engine secret, and the engine address. The `deploy-worker` and `deploy-engine` jobs do not wait for the `deploy` job, which applies the migrations. So do the steps in this order: the migrations, then the engine, then the worker.
+
+1. Run `npm run setup:prod` before you merge. Step 5d creates the Secret Manager secret `engine-secret` and asks for the model of the engine. Both deploy jobs fail without the secret. You can also do step 12 of the [One-time Google setup](#one-time-google-setup) by hand. GitHub holds no copy of the engine secret.
+2. Before you merge, apply the migrations to the production database. Use the value of the GitHub secret `SUPABASE_DB_URL`:
+
+```bash
+npx supabase db push --db-url "<SUPABASE_DB_URL>"
+```
+
+3. Merge to `main`. The `deploy-engine` job deploys the engine and shows its address in a notice. The `deploy-worker` job deploys the worker with no engine address. Until the next step, the worker fails each topic job with the reason "The topic engine is not set up." The job changes no data.
+4. Open the engine address with `/health` at the end. It answers with JSON that has `"status":"ok"`. The first request after an idle time waits for the engine to start.
+5. Run `npm run setup:prod` again. It sets the variable `TOPIC_ENGINE_URL` to the engine address. You can also set it by hand.
+6. Open **Actions → CI → Run workflow** and select `main`. The manual run deploys the worker with the engine address.
+
+After the first deploy, a push to `main` deploys the engine only when a file in `engine/` changed. Before the Google setup, a push skips the engine deploy and shows a notice. The job stays green. A manual run fails the `deploy-engine` job when a value is missing, and the error names each missing value.
+
+To select another model, set the variable `TOPIC_MODEL`, for example to `anthropic/claude-sonnet-5-5`. Then run the workflow. The manual run deploys the engine with the new model.
+
+#### Production check of a topic map
+
+1. Sign in to the production app, open `PRODUCTION_URL/dashboard/courses`, and load a section of `https://clickhouse.com/docs`.
+2. Wait until the **Topic map** section of the course page shows the counts of the map. A course of 16 lessons needs some minutes.
+3. Click **Open the topic map**. Open a lesson, open a topic, and follow a quote link to the original page.
+4. In Cloud Run, read the logs of the engine and of the worker. They show the token counts of each model call, but never the lesson text, a quote or a key.
+5. One day later, read the cost of that build on the usage page of the Claude Console. Then read the cost of the project on the Google billing page.
+
+When the course page shows "The topic engine refused the worker.", the worker and the engine have different engine secrets. Run the workflow, so both read the latest version of `engine-secret`.
 
 ## Browser extension
 
@@ -720,6 +826,15 @@ The password reset steps read the reset email from Mailpit. Local Supabase start
 3. The worker without `ANTHROPIC_API_KEY`: `ALLOW_PRIVATE_COURSE_URLS=true npm run worker`. The steps expect the lessons of the rule.
 4. The smoke test: `SMOKE_COURSES=1 BASE_URL=http://localhost:4321 npm run smoke`.
 
+`SMOKE_TOPICS=1`, together with `SMOKE_COURSES=1`, adds the topic steps:
+
+- The topic job after the first load ends with a current map.
+- The map page lists each loaded lesson, and an open lesson shows a topic with a quote.
+- The main smoke user gets 404 for the map of another learner. That user also cannot insert a topic job for that course.
+- The start route for an extension course starts a topic job that ends `done`.
+
+The topic steps need the engine with the fake model, `npm run engine -- --fake`, before you start the worker. The worker sends its topic jobs to that engine with its local values. Then run `SMOKE_COURSES=1 SMOKE_TOPICS=1 BASE_URL=http://localhost:4321 npm run smoke`. A learner can start 5 topic jobs in one hour, and the steps start 3 for one learner.
+
 > **Note:** this script exists primarily to guard the development of the starter itself — it is a fast sanity check that dependency upgrades did not break the build, the Cloudflare adapter or the Supabase auth flow. It is **not** a substitute for a real test suite. Once you build your own product on top of this starter, add proper tests (unit, integration, end-to-end) suited to your application.
 
 ## Phone check
@@ -753,7 +868,7 @@ The check also loads one course and measures `/dashboard/courses` and the page o
 GitHub Actions runs two jobs on every push and PR to `main`, and on a manual run:
 
 - **ci** — lint, `astro check` and build. Configure `SUPABASE_URL` and `SUPABASE_KEY` as repository secrets for the build step.
-- **smoke** — starts a local Supabase via the Supabase CLI, runs the policy tests with `npx supabase test db`, builds, serves the production preview on the Cloudflare runtime and runs `npm run smoke` against it. No secrets required. The job installs Chromium and runs `npm run phone-check` against the same preview, before the smoke test. It also runs the unit tests, builds the extension, and starts the fixture course site before the worker. It sets `ALLOW_PRIVATE_COURSE_URLS=true` for the app and for the worker, and `SMOKE_COURSES=1`, so the smoke test loads the fixture course and calls the extension routes. The job sets no `ANTHROPIC_API_KEY`. The log shows the worker log and the requests to the fixture site at the end.
+- **smoke** — starts a local Supabase via the Supabase CLI, runs the policy tests with `npx supabase test db`, builds, serves the production preview on the Cloudflare runtime and runs `npm run smoke` against it. No secrets required. The job installs Chromium and runs `npm run phone-check` against the same preview, before the smoke test. It also runs the unit tests, builds the extension, and starts the fixture course site before the worker. It sets `ALLOW_PRIVATE_COURSE_URLS=true` for the app and for the worker, and `SMOKE_COURSES=1`, so the smoke test loads the fixture course and calls the extension routes. The job sets no `ANTHROPIC_API_KEY`. It installs uv and the engine packages, and runs the engine tests. Before the worker, it starts the topic engine with the fake model. It sets `SMOKE_TOPICS=1`, so the smoke test also builds the topic maps. The log shows the worker log, the requests to the fixture site and the engine log at the end.
 
 <!-- BEGIN sample-resource -->
 
@@ -761,7 +876,7 @@ The **smoke** job runs two times. The `full` run uses the code as it is. The `wi
 
 <!-- END sample-resource -->
 
-A third job, **deploy**, runs after both jobs pass, on a push to `main` or a manual run on `main`. It skips on a pull request. See [Deployment](#deployment).
+A third job, **deploy**, runs after both jobs pass, on a push to `main` or a manual run on `main`. It skips on a pull request. See [Deployment](#deployment). Two more jobs start at the same time, with the same rules. **deploy-worker** deploys the background worker. **deploy-engine** deploys the topic engine.
 
 ## License
 

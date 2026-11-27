@@ -54,6 +54,79 @@ export type Database = {
         };
         Relationships: [];
       };
+      course_maps: {
+        Row: {
+          built_at: string;
+          course_id: string;
+          overview: NonNullable<Json>;
+          report: NonNullable<Json>;
+          run_id: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          built_at?: string;
+          course_id: string;
+          overview?: NonNullable<Json>;
+          report?: NonNullable<Json>;
+          run_id?: string | null;
+          user_id: string;
+        };
+        Update: {
+          built_at?: string;
+          course_id?: string;
+          overview?: NonNullable<Json>;
+          report?: NonNullable<Json>;
+          run_id?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "course_maps_course_fkey";
+            columns: ["course_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      course_topics: {
+        Row: {
+          course_id: string;
+          home_lesson_url: string | null;
+          topic_id: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          course_id: string;
+          home_lesson_url?: string | null;
+          topic_id: string;
+          user_id: string;
+        };
+        Update: {
+          course_id?: string;
+          home_lesson_url?: string | null;
+          topic_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "course_topics_course_fkey";
+            columns: ["course_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "course_topics_topic_fkey";
+            columns: ["topic_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
       courses: {
         Row: {
           created_at: string;
@@ -152,8 +225,69 @@ export type Database = {
         };
         Relationships: [];
       };
+      lesson_analyses: {
+        Row: {
+          analysed_at: string;
+          content_hash: string;
+          course_id: string;
+          engine: string | null;
+          error: string | null;
+          input_tokens: number | null;
+          lesson_url: string;
+          model: string | null;
+          output_tokens: number | null;
+          prompt_version: string | null;
+          result: Json | null;
+          run_id: string | null;
+          status: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          analysed_at?: string;
+          content_hash: string;
+          course_id: string;
+          engine?: string | null;
+          error?: string | null;
+          input_tokens?: number | null;
+          lesson_url: string;
+          model?: string | null;
+          output_tokens?: number | null;
+          prompt_version?: string | null;
+          result?: Json | null;
+          run_id?: string | null;
+          status: string;
+          user_id: string;
+        };
+        Update: {
+          analysed_at?: string;
+          content_hash?: string;
+          course_id?: string;
+          engine?: string | null;
+          error?: string | null;
+          input_tokens?: number | null;
+          lesson_url?: string;
+          model?: string | null;
+          output_tokens?: number | null;
+          prompt_version?: string | null;
+          result?: Json | null;
+          run_id?: string | null;
+          status?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lesson_analyses_course_fkey";
+            columns: ["course_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
       lessons: {
         Row: {
+          content_hash: string | null;
           course_id: string;
           created_at: string;
           error: string | null;
@@ -167,6 +301,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          content_hash?: never;
           course_id: string;
           created_at?: string;
           error?: string | null;
@@ -179,6 +314,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          content_hash?: never;
           course_id?: string;
           created_at?: string;
           error?: string | null;
@@ -228,6 +364,234 @@ export type Database = {
         };
         Relationships: [];
       };
+      passages: {
+        Row: {
+          content_hash: string;
+          course_id: string;
+          end_offset: number;
+          heading_path: string[];
+          id: string;
+          lesson_hash: string;
+          lesson_url: string;
+          position: number;
+          start_offset: number;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          content_hash: string;
+          course_id: string;
+          end_offset: number;
+          heading_path?: string[];
+          id?: string;
+          lesson_hash: string;
+          lesson_url: string;
+          position: number;
+          start_offset: number;
+          user_id: string;
+        };
+        Update: {
+          content_hash?: string;
+          course_id?: string;
+          end_offset?: number;
+          heading_path?: string[];
+          id?: string;
+          lesson_hash?: string;
+          lesson_url?: string;
+          position?: number;
+          start_offset?: number;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "passages_course_fkey";
+            columns: ["course_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      topic_aliases: {
+        Row: {
+          alias: string;
+          normalized: string;
+          topic_id: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          alias: string;
+          normalized: string;
+          topic_id: string;
+          user_id: string;
+        };
+        Update: {
+          alias?: string;
+          normalized?: string;
+          topic_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "topic_aliases_topic_fkey";
+            columns: ["topic_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      topic_links: {
+        Row: {
+          id: string;
+          passage_hash: string;
+          passage_id: string;
+          quote: string;
+          quote_start: number;
+          role: string;
+          run_id: string | null;
+          topic_id: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          id?: string;
+          passage_hash: string;
+          passage_id: string;
+          quote: string;
+          quote_start: number;
+          role: string;
+          run_id?: string | null;
+          topic_id: string;
+          user_id: string;
+        };
+        Update: {
+          id?: string;
+          passage_hash?: string;
+          passage_id?: string;
+          quote?: string;
+          quote_start?: number;
+          role?: string;
+          run_id?: string | null;
+          topic_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "topic_links_passage_fkey";
+            columns: ["passage_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "passages";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "topic_links_topic_fkey";
+            columns: ["topic_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      topic_relations: {
+        Row: {
+          from_topic_id: string;
+          id: string;
+          kind: string;
+          reason: string | null;
+          run_id: string | null;
+          source_passage_id: string;
+          to_topic_id: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          from_topic_id: string;
+          id?: string;
+          kind: string;
+          reason?: string | null;
+          run_id?: string | null;
+          source_passage_id: string;
+          to_topic_id: string;
+          user_id: string;
+        };
+        Update: {
+          from_topic_id?: string;
+          id?: string;
+          kind?: string;
+          reason?: string | null;
+          run_id?: string | null;
+          source_passage_id?: string;
+          to_topic_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "topic_relations_from_topic_fkey";
+            columns: ["from_topic_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "topic_relations_source_passage_fkey";
+            columns: ["source_passage_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "passages";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "topic_relations_to_topic_fkey";
+            columns: ["to_topic_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      topics: {
+        Row: {
+          created_at: string;
+          created_by_run: string | null;
+          description: string | null;
+          id: string;
+          merged_into: string | null;
+          name: string;
+          retired_at: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by_run?: string | null;
+          description?: string | null;
+          id?: string;
+          merged_into?: string | null;
+          name: string;
+          retired_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by_run?: string | null;
+          description?: string | null;
+          id?: string;
+          merged_into?: string | null;
+          name?: string;
+          retired_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "topics_merged_into_fkey";
+            columns: ["merged_into", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -269,6 +633,7 @@ export type Database = {
       fail_course_load: { Args: { course_id: string; reason: string }; Returns: boolean };
       fail_job: { Args: { job_id: string; lease: string; reason: string; retry?: boolean }; Returns: boolean };
       finish_course_load: { Args: { course_id: string; lessons: Json; title: string }; Returns: boolean };
+      finish_topic_map: { Args: { course_id: string; run_id: string; state: Json }; Returns: boolean };
       heartbeat_job: {
         Args: {
           job_id: string;
@@ -280,10 +645,29 @@ export type Database = {
         };
         Returns: boolean;
       };
+      read_lesson_text: { Args: { course_id: string; lesson_url: string }; Returns: string };
       release_job: { Args: { job_id: string; lease: string }; Returns: boolean };
       reload_course: { Args: { course_id: string }; Returns: string };
       retry_job: { Args: { job_id: string }; Returns: boolean };
       revoke_access_token: { Args: { id: string }; Returns: boolean };
+      save_lesson_analysis: {
+        Args: {
+          content_hash: string;
+          course_id: string;
+          engine?: string;
+          error?: string;
+          input_tokens?: number;
+          lesson_url: string;
+          model?: string;
+          output_tokens?: number;
+          passages?: Json;
+          prompt_version?: string;
+          result?: Json;
+          run_id: string;
+          status: string;
+        };
+        Returns: boolean;
+      };
       start_course_load: {
         Args: { course_id: string };
         Returns: {
@@ -304,6 +688,20 @@ export type Database = {
           isOneToOne: false;
           isSetofReturn: true;
         };
+      };
+      start_topic_map: { Args: { course_id: string }; Returns: Json };
+      topic_map_lesson: { Args: { course_id: string; lesson_url: string }; Returns: Json };
+      topic_map_state: {
+        Args: { course_id: string };
+        Returns: {
+          analysed_lessons: number;
+          built_at: string;
+          changed_lessons: number;
+          failed_lessons: number;
+          gone_lessons: number;
+          loaded_lessons: number;
+          topic_count: number;
+        }[];
       };
       use_access_token: { Args: { token: string }; Returns: string };
     };

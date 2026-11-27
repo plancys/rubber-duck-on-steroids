@@ -1,0 +1,36 @@
+# The topic engine: one HTTP service that asks a model for the topics of one lesson through Cognee.
+# uv manages it. Run npm run engine from the repository root, or uv run python -m rubber_duck_engine.app here.
+
+[project]
+name = "rubber-duck-engine"
+version = "0.1.0"
+description = "The topic engine of Rubber Duck on Steroids"
+requires-python = ">=3.12,<3.13"
+# Cognee brings the other packages. The engine imports them directly, so they have the same pins as in uv.lock.
+dependencies = [
+    "cognee==1.6.11",
+    "fastapi==0.165.0",
+    "litellm==1.111.0",
+    "pydantic==2.14.4",
+    "tenacity==9.2.1",
+    "uvicorn==0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx==0.29.0",
+    "pytest==9.2.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# Cognee, LiteLLM and Pydantic warn about their own code. The filters keep the test output short.
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::pydantic.warnings.PydanticDeprecatedSince20",
+    "ignore:Item .* is using the `ReadOnly` qualifier:UserWarning",
+]

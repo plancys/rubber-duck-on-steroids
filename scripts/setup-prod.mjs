@@ -1,5 +1,6 @@
 // Production setup: does each provider step that a script can do safely, in a fixed order.
-// Step 5d (scripts/setup-google.mjs) sets up the background worker in Google Cloud. It needs the gcloud CLI.
+// Step 5d (scripts/setup-google.mjs) sets up the background worker and the topic engine in Google Cloud. It needs
+// the gcloud CLI.
 // Zero dependencies on purpose. Run with: SUPABASE_ACCESS_TOKEN=<token> npm run setup:prod
 // The script is safe to run again. Each step reads the current state first and asks before it changes a value.
 // A human runs this script. It never writes a file, and it never prints a key, token or password,
@@ -15,7 +16,7 @@ import { setUpGoogle } from "./setup-google.mjs";
 
 const USAGE = `Usage: SUPABASE_ACCESS_TOKEN=<token> node scripts/setup-prod.mjs [--help]
 
-Sets up the production Supabase project, the background worker in Google Cloud,
+Sets up the production Supabase project, the background worker and the topic engine in Google Cloud,
 the GitHub "production" environment, and the Supabase auth settings. The README section "Deployment > One-time setup" has the full manual.`;
 
 const SUPABASE_API = "https://api.supabase.com";
@@ -47,6 +48,8 @@ const VARIABLE_NAMES = [
   "GCP_PROJECT_ID",
   "GCP_REGION",
   "WORKER_WAKE_URL",
+  "TOPIC_ENGINE_URL",
+  "TOPIC_MODEL",
 ];
 // The OAuth providers that the app knows. The ids match src/lib/oauth.ts and the Supabase auth config fields.
 const OAUTH_PROVIDERS = [
@@ -477,7 +480,8 @@ async function poolerHost(ref) {
     const found = /@([a-z0-9.-]+pooler\.supabase\.com)/.exec(String(entry.connection_string ?? ""));
     if (found) return found[1];
   }
-  console.log("Open the Supabase project, select Connect, then Session pooler. Copy the host from the string.");
+  console.log(`Open https://supabase.com/dashboard/project/${ref}, select Connect, then Session pooler.`);
+  console.log("Copy the host from the string.");
   console.log("Do not use the direct host db.<ref>.supabase.co. GitHub runners cannot reach it.");
   for (;;) {
     const host = await ask("Session pooler host, for example aws-0-eu-central-1.pooler.supabase.com");
@@ -532,7 +536,7 @@ async function readCloudflareValues() {
 
   const current = github.variables.get("PRODUCTION_URL") ?? "";
   const known = new RegExp(`^https://${workerName}\\.([a-z0-9-]+)\\.workers\\.dev/?$`).exec(current);
-  console.log("Find the subdomain in the Cloudflare dashboard: Workers & Pages, then the account subdomain.");
+  console.log("Find the subdomain at https://dash.cloudflare.com: Workers & Pages, then the account subdomain.");
   let subdomain = "";
   while (!/^[a-z0-9-]+$/.test(subdomain)) {
     subdomain = (await ask("The workers.dev subdomain of the account", known ? known[1] : "")).toLowerCase();
@@ -542,7 +546,7 @@ async function readCloudflareValues() {
 
   if (await wantSecret("CLOUDFLARE_API_TOKEN")) {
     console.log("Create the token by hand. A script would need a token that can create tokens.");
-    console.log("1. In the Cloudflare dashboard, go to My Profile, then API Tokens, then Create Token.");
+    console.log("1. Open https://dash.cloudflare.com/profile/api-tokens, then select Create Token.");
     console.log("2. Use the template Edit Cloudflare Workers.");
     console.log("3. Under Account Resources, select only your account. Select no zones.");
     console.log("4. Do not give the token DNS or billing access.");
@@ -562,6 +566,7 @@ async function readCloudflareValues() {
 // Step 5: the Resend values and the Send Email Hook secret. Returns true when the hook secret is new.
 async function readEmailValues() {
   step("Step 5: Resend");
+  console.log("Add and verify the domain at https://resend.com/domains.");
   console.log("Use an address on the domain that Resend verified, for example no-reply@example.com.");
   const from = await ask("EMAIL_FROM (empty to skip)", github.variables.get("EMAIL_FROM") ?? "");
   if (from && !from.includes("@")) throw new StepError("EMAIL_FROM must be an email address.");
@@ -571,7 +576,7 @@ async function readEmailValues() {
   if (admin) variables.ADMIN_EMAIL = admin;
 
   if (await wantSecret("RESEND_API_KEY")) {
-    console.log("Use a Resend API key with the permission Sending access only.");
+    console.log("Create a Resend API key at https://resend.com/api-keys with the permission Sending access only.");
     const key = await askHidden("Resend API key (empty to skip)");
     if (key) {
       secrets.RESEND_API_KEY = key;
@@ -607,6 +612,9 @@ async function readServiceKey(ref) {
 // Step 5d: the background worker in Google Cloud. A failure here does not stop the Supabase and GitHub steps.
 async function setUpWorker(ref) {
   step("Step 5d: Google Cloud worker");
+  console.log("Open https://console.cloud.google.com/billing to link billing, and set a budget alert.");
+  console.log("Set the Anthropic spend limit at https://platform.claude.com/settings/spend-limits.");
+  console.log("Create the key rubber-duck-worker at https://platform.claude.com/settings/keys.");
   const google = await setUpGoogle({
     gcloud: (args, options) => run("gcloud", args, options),
     ask,
@@ -630,6 +638,7 @@ async function setUpWorker(ref) {
 // Step 6: the GitHub environment, the secrets, and the variables.
 async function writeGitHub() {
   step("Step 6: GitHub");
+  console.log(`Environment settings: https://github.com/${repo}/settings/environments`);
   let changed = false;
   const base = `repos/${repo}/environments/${ENVIRONMENT}`;
   const policy = github.environment?.deployment_branch_policy;
@@ -721,6 +730,7 @@ function requireFields(config, fields) {
 // Step 7: the Supabase auth settings. The email rate limit is not here. Step 8 sets it after the hook is on.
 async function setAuthSettings(ref) {
   step("Step 7: Supabase auth settings");
+  console.log(`URL settings: https://supabase.com/dashboard/project/${ref}/auth/url-configuration`);
   const config = await supabaseApi("GET", `/v1/projects/${ref}/config/auth`);
   const desired = {
     site_url: variables.PRODUCTION_URL,
@@ -767,7 +777,12 @@ async function setOAuthProviders(ref) {
 
   console.log("Register one OAuth app at each provider that you want. The README section OAuth login has the steps.");
   console.log(`  Homepage URL: ${variables.PRODUCTION_URL}`);
-  console.log(`  Callback URL: https://${ref}.supabase.co/auth/v1/callback`);
+  console.log(
+    `  GitHub "Authorization callback URL" and Google "Authorized redirect URIs": https://${ref}.supabase.co/auth/v1/callback`,
+  );
+  console.log("  GitHub OAuth app: https://github.com/settings/developers, then New OAuth App");
+  console.log("  Google OAuth client: https://console.cloud.google.com/apis/credentials, then Create credentials");
+  console.log(`  Supabase providers: https://supabase.com/dashboard/project/${ref}/auth/providers`);
 
   const desired = {};
   for (const { id, label } of OAUTH_PROVIDERS) {
@@ -815,6 +830,7 @@ async function setOAuthProviders(ref) {
 // Step 8: the Send Email Hook. The hook turns on only when the deployed route answers 401 to a call without a signature.
 async function setEmailHook(ref, hookSecretIsNew) {
   step("Step 8: Send Email Hook");
+  console.log(`Hooks page: https://supabase.com/dashboard/project/${ref}/auth/hooks`);
   const name = "Send Email Hook";
   const hookUri = `${variables.PRODUCTION_URL}${HOOK_PATH}`;
   const config = await supabaseApi("GET", `/v1/projects/${ref}/config/auth`);
@@ -875,8 +891,8 @@ function printSummary() {
   }
   const manual = [
     ...openSteps,
-    "Revoke the Supabase access token in the Supabase dashboard when you do not need it.",
-    "Check the Resend domain DNS records, if you did not do it yet.",
+    "Revoke the Supabase access token at https://supabase.com/dashboard/account/tokens when you do not need it.",
+    "Check the Resend domain DNS records at https://resend.com/domains, if you did not do it yet.",
   ];
   console.log("\nManual steps that are still open:");
   for (const item of manual) console.log(`  - ${item}`);

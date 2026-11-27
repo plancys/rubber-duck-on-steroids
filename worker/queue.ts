@@ -81,6 +81,145 @@ export interface CourseStore {
   failCourseLoad: (courseId: string, reason: string) => Promise<boolean>;
 }
 
+// The course of a topic job, as start_topic_map returns it.
+export interface TopicCourse {
+  id: string;
+  user_id: string;
+  title: string | null;
+  source_url: string;
+  source_kind: string;
+  status: string;
+}
+
+// One loaded lesson of a topic job, with no text. content_hash is the MD5 of the lesson text.
+export interface TopicLesson {
+  url: string;
+  position: number;
+  title: string | null;
+  content_hash: string | null;
+}
+
+// The last analysis of one lesson. A failed analysis keeps the result and the engine fields of the last good analysis.
+export interface LessonAnalysis {
+  lesson_url: string;
+  content_hash: string;
+  status: "analysed" | "failed";
+  error: string | null;
+  engine: string | null;
+  prompt_version: string | null;
+  model: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  result: Json | null;
+  analysed_at: string;
+  run_id: string | null;
+}
+
+export interface TopicAlias {
+  alias: string;
+  normalized: string;
+}
+
+// One stored topic of the course. home_lesson_url is null for a topic with no link in the course.
+export interface StoredTopic {
+  id: string;
+  name: string;
+  description: string | null;
+  merged_into: string | null;
+  retired_at: string | null;
+  created_at: string;
+  home_lesson_url: string | null;
+  aliases: TopicAlias[];
+}
+
+// The input of a topic job. The lessons are in course order. The topics are in the order of their creation.
+export interface TopicMapInput {
+  course: TopicCourse;
+  lessons: TopicLesson[];
+  analyses: LessonAnalysis[];
+  topics: StoredTopic[];
+}
+
+// One passage for save_lesson_analysis. The row holds no text.
+export interface PassageRow {
+  position: number;
+  heading_path: string[];
+  start_offset: number;
+  end_offset: number;
+  content_hash: string;
+}
+
+// The result of one lesson for save_lesson_analysis.
+// An analysed lesson needs result and passages. A failed lesson needs error, and the database keeps its last result.
+export interface LessonAnalysisWrite {
+  courseId: string;
+  lessonUrl: string;
+  // The MD5 of the lesson text that the worker read.
+  contentHash: string;
+  status: "analysed" | "failed";
+  runId: string;
+  error: string | null;
+  engine: string | null;
+  promptVersion: string | null;
+  model: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  result: object | null;
+  passages: PassageRow[] | null;
+}
+
+// One topic of the map. id is a stored id, or a new id that the worker makes.
+export interface MapTopic {
+  id: string;
+  name: string;
+  description: string | null;
+  aliases: TopicAlias[];
+  home_lesson_url: string | null;
+  merged_into: string | null;
+  retired: boolean;
+}
+
+// A link names its passage by the lesson URL and the position of the passage.
+export interface MapLink {
+  topic_id: string;
+  lesson_url: string;
+  position: number;
+  role: "explains" | "mentions";
+  quote: string;
+  quote_start: number;
+}
+
+// A relation names its source passage by the lesson URL and the position of the passage.
+export interface MapRelation {
+  kind: "prerequisite" | "part_of";
+  from_topic_id: string;
+  to_topic_id: string;
+  reason: string;
+  lesson_url: string;
+  position: number;
+}
+
+// The state for finish_topic_map. It holds each topic of the course, also the retired and the merged topics.
+export interface TopicMapState {
+  topics: MapTopic[];
+  links: MapLink[];
+  relations: MapRelation[];
+  overview: object;
+  report: object;
+}
+
+// The topic calls of the build_topic_map job. A write returns false when the course or the lesson is gone.
+export interface TopicStore {
+  // Return the input of the job, or null when the course is gone.
+  startTopicMap: (courseId: string) => Promise<TopicMapInput | null>;
+  // Return the Markdown of one loaded lesson, or null when the course has no loaded lesson with this URL.
+  readLessonText: (courseId: string, lessonUrl: string) => Promise<string | null>;
+  // Store the result of one lesson. An analysed lesson replaces its passages in the same transaction.
+  saveLessonAnalysis: (write: LessonAnalysisWrite) => Promise<boolean>;
+  // Write the map of the course in one transaction.
+  finishTopicMap: (courseId: string, runId: string, state: TopicMapState) => Promise<boolean>;
+}
+
 export interface QueueSettings {
   url: string;
   key: string;
@@ -88,7 +227,17 @@ export interface QueueSettings {
 
 const TIMEOUT_MS = 10_000;
 // finish_course_load sends the Markdown of up to 200 lessons, so it gets more time.
+// finish_topic_map writes the full map of a course in one transaction, so it gets the same time.
 const FINISH_TIMEOUT_MS = 60_000;
+
+// The typed rows of the topic calls hold only JSON values. TypeScript cannot see that through an interface.
+function asJson(value: object): Json {
+  return value as Json;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 // A legacy service key is a JWT. A new secret key (sb_secret_...) is not a JWT and must not go in the Authorization header.
 function isJwt(key: string): boolean {
@@ -174,5 +323,51 @@ export function createCourseStore(settings: QueueSettings): CourseStore {
       return callBoolean("finish_course_load", { course_id: courseId, title, lessons: rows }, FINISH_TIMEOUT_MS);
     },
     failCourseLoad: (courseId, reason) => callBoolean("fail_course_load", { course_id: courseId, reason }),
+  };
+}
+
+export function createTopicStore(settings: QueueSettings): TopicStore {
+  const { call, callBoolean } = createRpc(settings);
+
+  return {
+    startTopicMap: async (courseId) => {
+      // start_topic_map returns one JSON document, or null when the course is gone.
+      const value = await call("start_topic_map", { course_id: courseId });
+      if (value === null) return null;
+      if (
+        !isRecord(value) ||
+        !isRecord(value.course) ||
+        !Array.isArray(value.lessons) ||
+        !Array.isArray(value.analyses) ||
+        !Array.isArray(value.topics)
+      ) {
+        throw new Error("start_topic_map did not return the course, the lessons, the analyses and the topics.");
+      }
+      return value as unknown as TopicMapInput;
+    },
+    readLessonText: async (courseId, lessonUrl) => {
+      const value = await call("read_lesson_text", { course_id: courseId, lesson_url: lessonUrl });
+      if (value !== null && typeof value !== "string") throw new Error("read_lesson_text did not return a text.");
+      return value;
+    },
+    saveLessonAnalysis: (write) =>
+      // Send exactly the named arguments that save_lesson_analysis reads.
+      callBoolean("save_lesson_analysis", {
+        course_id: write.courseId,
+        lesson_url: write.lessonUrl,
+        content_hash: write.contentHash,
+        status: write.status,
+        run_id: write.runId,
+        error: write.error,
+        engine: write.engine,
+        prompt_version: write.promptVersion,
+        model: write.model,
+        input_tokens: write.inputTokens,
+        output_tokens: write.outputTokens,
+        result: write.result === null ? null : asJson(write.result),
+        passages: write.passages === null ? null : asJson(write.passages),
+      }),
+    finishTopicMap: (courseId, runId, state) =>
+      callBoolean("finish_topic_map", { course_id: courseId, run_id: runId, state: asJson(state) }, FINISH_TIMEOUT_MS),
   };
 }

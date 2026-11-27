@@ -1,5 +1,5 @@
 ---
-import { RotateCcw } from "lucide-react";
+import { Network, RotateCcw, Waypoints } from "lucide-react";
 import AppLayout from "@/layouts/AppLayout.astro";
 import JobStatus from "@/components/jobs/JobStatus";
 import DeleteCourseButton from "@/components/courses/DeleteCourseButton";
@@ -7,6 +7,7 @@ import { ServerError } from "@/components/auth/ServerError";
 import { createClient } from "@/lib/supabase";
 import { JOB_VIEW_COLUMNS, toJobView, type JobView } from "@/lib/jobs";
 import { courseErrorText, courseName, courseStatusText, isCourseId } from "@/lib/courses";
+import { buildTimeText, topicCountText, topicMapPath, topicMapStatus, type TopicMapStateRow } from "@/lib/topics";
 import type { Tables } from "@/db/database.types";
 
 let error = courseErrorText(Astro.url.searchParams.get("error"));
@@ -23,6 +24,8 @@ const supabase = createClient(Astro.request.headers, Astro.cookies);
 let course: Course | null = null;
 let lessons: Lesson[] = [];
 let job: JobView | null = null;
+let topicJob: JobView | null = null;
+let mapState: TopicMapStateRow | null = null;
 let notFound = false;
 if (!supabase) {
   error = courseErrorText("not_configured");
@@ -43,7 +46,7 @@ if (!supabase) {
     course = courseResult.data;
     // The lesson text stays in the database. This page shows the list only.
     // A course holds at most 500 lessons. The limit keeps the read small, also for a course that breaks that rule.
-    const [lessonResult, jobResult] = await Promise.all([
+    const [lessonResult, jobResult, topicJobResult, mapStateResult] = await Promise.all([
       supabase
         .from("lessons")
         .select("id, position, title, url, status, error")
@@ -59,13 +62,26 @@ if (!supabase) {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      // The newest topic job of the course.
+      supabase
+        .from("jobs")
+        .select(JOB_VIEW_COLUMNS)
+        .eq("type", "build_topic_map")
+        .eq("payload->>courseId", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      // The state of the map: the build time and the lesson counts. It reads no lesson text.
+      supabase.rpc("topic_map_state", { course_id: id }),
     ]);
-    if (lessonResult.error || jobResult.error) {
+    if (lessonResult.error || jobResult.error || topicJobResult.error || mapStateResult.error) {
       Astro.response.status = 500;
       error = courseErrorText("unknown");
     } else {
       lessons = lessonResult.data;
       job = jobResult.data ? toJobView(jobResult.data) : null;
+      topicJob = topicJobResult.data ? toJobView(topicJobResult.data) : null;
+      mapState = mapStateResult.data[0] ?? null;
     }
   }
 }
@@ -79,8 +95,14 @@ const jobInProgress = job !== null && (job.status === "waiting" || job.status ==
 const loads = course !== null && (course.status === "loading" || jobInProgress);
 // A course in "loading" without a job in progress does not change any more.
 const stuck = course !== null && course.status === "loading" && !jobInProgress;
-const canReload = course !== null && course.source_kind === "crawl" && !loads;
+// A learner has one job in progress. So the Reload button and the map button stay hidden while a job of the course runs.
+const topicJobInProgress = topicJob !== null && (topicJob.status === "waiting" || topicJob.status === "running");
+const canReload = course !== null && course.source_kind === "crawl" && !loads && !topicJobInProgress;
 const loadedCount = lessons.filter((lesson) => lesson.status === "loaded").length;
+const mapStatus = topicMapStatus(mapState);
+const canBuildMap = course !== null && course.status === "ready" && !loads && !topicJobInProgress;
+// The lessons with no analysis of their current text: failed lessons, new lessons and changed lessons.
+const notAnalysed = mapState ? Math.max(0, mapState.loaded_lessons - mapState.analysed_lessons) : 0;
 ---
 
 <AppLayout title={course ? courseName(course) : "Course not found"}>
@@ -155,6 +177,71 @@ const loadedCount = lessons.filter((lesson) => lesson.status === "loaded").lengt
           )}
           <DeleteCourseButton courseId={course.id} client:load />
         </div>
+      </section>
+
+      <section
+        data-testid="topic-map-state"
+        data-status={topicJobInProgress ? "building" : mapStatus}
+        class="mb-8 space-y-3 rounded-(--radius) bg-card p-6 text-card-foreground shadow-(--shadow-card)"
+      >
+        <h2 class="font-heading text-xl font-extrabold">Topic map</h2>
+        {topicJobInProgress && topicJob && <JobStatus job={topicJob} retry={false} reloadOnEnd client:load />}
+        {!topicJobInProgress && topicJob?.status === "failed" && (
+          <div data-testid="topic-job-failed">
+            <ServerError message={topicJob.error ?? "The topic map did not build."} />
+          </div>
+        )}
+        {mapStatus === "none" && !topicJobInProgress && (
+          <p class="text-sm text-muted-foreground">
+            {course.status === "ready"
+              ? "This course has no topic map yet."
+              : "The topic map needs a ready course. It builds after the course loads."}
+          </p>
+        )}
+        {mapState && mapStatus !== "none" && (
+          <p data-testid="topic-map-counts" class="text-sm text-muted-foreground">
+            {topicCountText(mapState.topic_count)} from {mapState.analysed_lessons} of {mapState.loaded_lessons}{" "}
+            {mapState.loaded_lessons === 1 ? "lesson" : "lessons"}.
+            {mapState.built_at && ` Built on ${buildTimeText(mapState.built_at)}.`}
+          </p>
+        )}
+        {mapStatus === "stale" && !topicJobInProgress && (
+          <p data-testid="topic-map-stale" class="text-sm font-semibold">
+            The map is older than the lessons. Update the map to analyse the new and changed lessons.
+          </p>
+        )}
+        {mapStatus === "partial" && !topicJobInProgress && (
+          <p data-testid="topic-map-partial" class="text-sm font-semibold">
+            The engine did not analyse {notAnalysed} of {mapState?.loaded_lessons ?? 0}{" "}
+            {mapState?.loaded_lessons === 1 ? "lesson" : "lessons"}. Update the map to try these lessons again.
+          </p>
+        )}
+        {(mapStatus !== "none" || canBuildMap) && (
+          <div class="grid gap-3 sm:grid-cols-2">
+            {mapStatus !== "none" && (
+              <a
+                href={topicMapPath(course.id)}
+                data-testid="topic-map-link"
+                class="flex min-h-11 w-full min-w-11 items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
+              >
+                <Waypoints className="size-4" aria-hidden="true" />
+                Open the topic map
+              </a>
+            )}
+            {canBuildMap && mapStatus !== "current" && (
+              <form method="POST" action={`/api/courses/${course.id}/topics`}>
+                <button
+                  type="submit"
+                  data-testid="topic-map-build-button"
+                  class="flex min-h-11 w-full min-w-11 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  <Network className="size-4" aria-hidden="true" />
+                  {mapStatus === "none" ? "Build the topic map" : "Update the map"}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
       </section>
 
       <section>

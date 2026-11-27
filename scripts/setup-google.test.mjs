@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 const quiet = () => undefined;
 const noWait = () => Promise.resolve();
 import {
+  DEFAULT_TOPIC_MODEL,
   GOOGLE_SERVICES,
   WORKER_SECRETS,
   applyGoogleChanges,
@@ -46,6 +47,7 @@ function completeState() {
       Object.values(WORKER_SECRETS).map((name) => [name, { exists: true, policy: secretPolicy }]),
     ),
     serviceUrl: "https://worker.example.run.app",
+    engineUrl: "https://engine.example.run.app",
   };
 }
 
@@ -59,6 +61,7 @@ function emptyState() {
     provider: null,
     secrets: Object.fromEntries(Object.values(WORKER_SECRETS).map((name) => [name, { exists: false, policy: null }])),
     serviceUrl: null,
+    engineUrl: null,
   };
 }
 
@@ -92,6 +95,7 @@ describe("googleIds", () => {
     );
     assert.equal(ids.condition, "assertion.repository == 'owner/rubber-duck-on-steroids'");
     assert.equal(ids.service, "rubber-duck-on-steroids-worker");
+    assert.equal(ids.engineService, "rubber-duck-on-steroids-engine");
   });
 
   it("cuts a long provider ID to 32 characters", () => {
@@ -114,17 +118,30 @@ describe("planGoogleChanges", () => {
   });
 
   it("plans every step of the README for an empty project, in a safe order", () => {
-    const values = { serviceKey: "sb_secret_x", wakeSecret: "wake", anthropicKey: "sk-ant-x" };
+    const values = { serviceKey: "sb_secret_x", wakeSecret: "wake", anthropicKey: "sk-ant-x", engineSecret: "engine" };
     const labels = planGoogleChanges(emptyState(), ids, values).map((change) => change.label);
     const index = (text) => labels.findIndex((label) => label.includes(text));
     assert.ok(index("Create the service account") < index(`${deploy} the role roles/run.admin`));
     assert.ok(index("Create the Workload Identity pool") < index("Create the provider"));
     assert.ok(index("Create the provider") < index("Let GitHub Actions"));
     for (const name of Object.values(WORKER_SECRETS)) {
+      assert.ok(index(`Create the secret ${name}`) >= 0, name);
       assert.ok(index(`Create the secret ${name}`) < index(`Let the worker read the secret ${name}`));
     }
-    // 1 builder role, 1 account, 3 deploy roles, 1 account user, pool, provider, sign-in, 3 secrets, 3 accessors.
-    assert.equal(labels.length, 15);
+    // 1 builder role, 1 account, 3 deploy roles, 1 account user, pool, provider, sign-in, 4 secrets, 4 accessors.
+    assert.equal(labels.length, 17);
+  });
+
+  it("creates the engine secret with its value over stdin only", () => {
+    const state = completeState();
+    state.secrets[WORKER_SECRETS.engineSecret] = { exists: false, policy: null };
+    const changes = planGoogleChanges(state, ids, { engineSecret: "engine-value" });
+    assert.deepEqual(
+      changes.map((change) => change.label),
+      ["Create the secret engine-secret", "Let the worker read the secret engine-secret"],
+    );
+    assert.equal(changes[0].input, "engine-value");
+    assert.ok(!changes[0].args.some((arg) => arg.includes("engine-value")));
   });
 
   it("sends a secret value over stdin only", () => {
@@ -163,7 +180,24 @@ describe("readGoogleState", () => {
     assert.equal(state.pool, null);
     assert.equal(state.provider, null);
     assert.equal(state.serviceUrl, null);
+    assert.equal(state.engineUrl, null);
     assert.equal(state.secrets[WORKER_SECRETS.anthropicKey].exists, false);
+    assert.equal(state.secrets[WORKER_SECRETS.engineSecret].exists, false);
+  });
+
+  it("reads the address of the worker and of the engine", () => {
+    const { gcloud, calls } = fakeGcloud({
+      "projects get-iam-policy": { bindings: [] },
+      "iam service-accounts get-iam-policy 123456789-compute": {},
+      [`secrets get-iam-policy ${WORKER_SECRETS.engineSecret}`]: { bindings: [] },
+      "run services describe rubber-duck-on-steroids-worker": { status: { url: "https://worker.example.run.app" } },
+      "run services describe rubber-duck-on-steroids-engine": { status: { url: "https://engine.example.run.app" } },
+    });
+    const state = readGoogleState(gcloud, ids, "europe-west3");
+    assert.equal(state.serviceUrl, "https://worker.example.run.app");
+    assert.equal(state.engineUrl, "https://engine.example.run.app");
+    assert.equal(state.secrets[WORKER_SECRETS.engineSecret].exists, true);
+    assert.ok(calls.some((call) => call.command.includes("rubber-duck-on-steroids-engine --region=europe-west3")));
   });
 
   it("stops when the default compute account does not exist", () => {
@@ -254,15 +288,76 @@ describe("setUpGoogle", () => {
     assert.equal(result.secrets.GCP_SERVICE_ACCOUNT, ids.deployAccount);
     assert.equal(result.secrets.GCP_WORKLOAD_IDENTITY_PROVIDER, ids.providerName);
     assert.match(result.secrets.WORKER_WAKE_SECRET, /^[0-9a-f]{64}$/);
-    assert.deepEqual(result.variables, { GCP_PROJECT_ID: "duck-prod", GCP_REGION: "europe-west3" });
+    assert.deepEqual(result.variables, {
+      GCP_PROJECT_ID: "duck-prod",
+      GCP_REGION: "europe-west3",
+      TOPIC_MODEL: DEFAULT_TOPIC_MODEL,
+    });
     assert.ok(result.openSteps.some((item) => item.includes("WORKER_WAKE_URL")));
+    assert.ok(result.openSteps.some((item) => item.includes("TOPIC_ENGINE_URL")));
     // The wake secret in Secret Manager is the value that goes to GitHub.
     const wakeCall = calls.find((call) => call.command.startsWith(`secrets create ${WORKER_SECRETS.wakeSecret}`));
     assert.equal(wakeCall.input, result.secrets.WORKER_WAKE_SECRET);
+    // The engine secret is a new random value. It goes only to Secret Manager, not to GitHub.
+    const engineCall = calls.find((call) => call.command.startsWith(`secrets create ${WORKER_SECRETS.engineSecret}`));
+    assert.match(engineCall.input, /^[0-9a-f]{64}$/);
+    assert.notEqual(engineCall.input, result.secrets.WORKER_WAKE_SECRET);
+    assert.ok(!Object.values(result.secrets).includes(engineCall.input));
     // No secret value is on a command line.
     for (const call of calls) {
       assert.ok(!call.command.includes("sk-ant-test") && !call.command.includes("sb_secret_test"), call.command);
+      assert.ok(!call.command.includes(engineCall.input), call.command);
     }
+  });
+
+  it("keeps the engine secret and returns the engine address and the model of a complete project", async () => {
+    const complete = completeState();
+    const { gcloud, calls } = fakeGcloud({
+      "auth list": "me@example.com\n",
+      "config get-value project": "duck-prod\n",
+      "projects describe duck-prod": { projectNumber: "123456789", lifecycleState: "ACTIVE" },
+      "billing projects describe": { billingEnabled: true },
+      "services list": GOOGLE_SERVICES.map((name) => ({ config: { name } })),
+      "projects get-iam-policy": complete.projectPolicy,
+      "iam service-accounts get-iam-policy 123456789-compute": complete.computePolicy,
+      "iam service-accounts describe": {},
+      "iam service-accounts get-iam-policy github-deploy": complete.deployPolicy,
+      "iam workload-identity-pools describe": { state: "ACTIVE" },
+      "iam workload-identity-pools providers describe": complete.provider,
+      "secrets get-iam-policy": { bindings: [{ role: accessor, members: [compute] }] },
+      "run services describe rubber-duck-on-steroids-worker": { status: { url: complete.serviceUrl } },
+      "run services describe rubber-duck-on-steroids-engine": { status: { url: complete.engineUrl } },
+    });
+    const result = await setUpGoogle({
+      ...base,
+      gcloud,
+      github: {
+        variables: new Map([["TOPIC_MODEL", "anthropic/claude-sonnet-5-5"]]),
+        secretNames: new Set(["WORKER_WAKE_SECRET"]),
+      },
+    });
+    assert.equal(result.outcome, "done");
+    assert.equal(result.variables.TOPIC_ENGINE_URL, "https://engine.example.run.app");
+    assert.equal(result.variables.WORKER_WAKE_URL, "https://worker.example.run.app/wake");
+    // The prompt offers the model of GitHub, so a run with no new answer keeps it.
+    assert.equal(result.variables.TOPIC_MODEL, "anthropic/claude-sonnet-5-5");
+    assert.ok(!result.openSteps.some((item) => item.includes("TOPIC_ENGINE_URL")));
+    assert.ok(
+      !calls.some((call) => call.command.startsWith("secrets create") || call.command.startsWith("secrets versions")),
+    );
+  });
+
+  it("stops the Google step on a model that is not an Anthropic model", async () => {
+    const { gcloud } = fakeGcloud({
+      "auth list": "me@example.com\n",
+      "config get-value project": "duck-prod\n",
+      "projects describe duck-prod": { projectNumber: "123456789", lifecycleState: "ACTIVE" },
+      "billing projects describe": { billingEnabled: true },
+    });
+    const ask = async (question, fallback) => (question.includes("topic engine") ? "openai/gpt-5" : fallback);
+    const result = await setUpGoogle({ ...base, gcloud, ask });
+    assert.equal(result.outcome, "failed");
+    assert.match(result.note, /Anthropic model/);
   });
 
   it("keeps the wake secret for GitHub when a later change fails", async () => {
@@ -280,6 +375,7 @@ describe("setUpGoogle", () => {
       "iam workload-identity-pools providers describe": completeState().provider,
       [`secrets get-iam-policy ${WORKER_SECRETS.serviceKey}`]: { bindings: [{ role: accessor, members: [compute] }] },
       [`secrets get-iam-policy ${WORKER_SECRETS.anthropicKey}`]: { bindings: [{ role: accessor, members: [compute] }] },
+      [`secrets get-iam-policy ${WORKER_SECRETS.engineSecret}`]: { bindings: [{ role: accessor, members: [compute] }] },
       [`secrets create ${WORKER_SECRETS.wakeSecret}`]: "",
     });
     // The wake secret is new. Its accessor binding then fails with an error that is not "not found".
