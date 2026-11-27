@@ -1,5 +1,6 @@
-// The Google Cloud part of the production setup: the background worker on Cloud Run, its Secret Manager secrets,
-// and the Workload Identity sign-in of GitHub Actions. scripts/setup-prod.mjs calls setUpGoogle() as step 5d.
+// The Google Cloud part of the production setup: the background worker and the topic engine on Cloud Run, their
+// Secret Manager secrets, and the Workload Identity sign-in of GitHub Actions. scripts/setup-prod.mjs calls
+// setUpGoogle() as step 5d.
 // The steps match the README section "One-time Google setup". Steps 1 (project and billing), 2 (budget alert) and
 // 10 (Anthropic spend limit) stay manual.
 // Each step reads the current state first. The script shows the full list of changes and asks before it applies it.
@@ -15,11 +16,15 @@ export const GOOGLE_SERVICES = [
   "secretmanager.googleapis.com",
 ];
 export const DEFAULT_GCP_REGION = "europe-west3";
-// The Secret Manager names that the deploy-worker job in .github/workflows/ci.yml reads.
+// The model of the topic engine, in the LiteLLM form. The deploy-engine job uses the same default.
+export const DEFAULT_TOPIC_MODEL = "anthropic/claude-haiku-5-5";
+// The Secret Manager names that the deploy-worker and deploy-engine jobs in .github/workflows/ci.yml read.
+// The worker and the engine both read engine-secret. The engine also reads the Anthropic key.
 export const WORKER_SECRETS = {
   serviceKey: "worker-supabase-service-key",
   wakeSecret: "worker-wake-secret",
   anthropicKey: "worker-anthropic-api-key",
+  engineSecret: "engine-secret",
 };
 const POOL = "github";
 const DEPLOY_ACCOUNT = "github-deploy";
@@ -59,7 +64,7 @@ export function isNotFound(stderr) {
   return /NOT_FOUND|not found|does not exist|Cannot find/i.test(stderr);
 }
 
-// The names of the Google resources. They match the README and the deploy-worker job.
+// The names of the Google resources. They match the README and the deploy-worker and deploy-engine jobs.
 export function googleIds({ projectId, projectNumber, repo, workerName }) {
   // A provider ID has at most 32 characters.
   const provider = workerName.slice(0, 32).replace(/-+$/, "");
@@ -75,7 +80,13 @@ export function googleIds({ projectId, projectNumber, repo, workerName }) {
     principalSet: `principalSet://iam.googleapis.com/${poolPath}/attribute.repository/${repo}`,
     condition: `assertion.repository == '${repo}'`,
     service: `${workerName}-worker`,
+    engineService: `${workerName}-engine`,
   };
+}
+
+// The address of a Cloud Run service, or null when the service does not exist.
+function serviceUrl(service) {
+  return typeof service.value?.status?.url === "string" ? service.value.status.url : null;
 }
 
 // True when the policy gives the role to the member without a condition.
@@ -141,6 +152,7 @@ export function readGoogleState(gcloud, ids, region) {
     secrets[name] = { exists: policy.found, policy: policy.value };
   }
   const service = readJson(gcloud, ["run", "services", "describe", ids.service, `--region=${region}`, ...project]);
+  const engine = readJson(gcloud, ["run", "services", "describe", ids.engineService, `--region=${region}`, ...project]);
   return {
     projectPolicy,
     computePolicy: computePolicy.value,
@@ -149,7 +161,8 @@ export function readGoogleState(gcloud, ids, region) {
     pool: pool.value,
     provider: provider.value,
     secrets,
-    serviceUrl: typeof service.value?.status?.url === "string" ? service.value.status.url : null,
+    serviceUrl: serviceUrl(service),
+    engineUrl: serviceUrl(engine),
   };
 }
 
@@ -386,6 +399,13 @@ async function runGoogleSetup(ctx, result) {
   );
   if (!/^[a-z]+-[a-z]+\d+$/.test(region))
     throw new GoogleError(`${region} is not a region name, for example ${DEFAULT_GCP_REGION}.`);
+  // The deploy-engine job sets LLM_PROVIDER=anthropic, so the model must be an Anthropic model.
+  const topicModel = await ask("Model of the topic engine", github.variables.get("TOPIC_MODEL") || DEFAULT_TOPIC_MODEL);
+  if (!/^anthropic\/[a-z0-9][a-z0-9.-]*$/.test(topicModel)) {
+    throw new GoogleError(
+      `${topicModel} is not an Anthropic model in the LiteLLM form, for example ${DEFAULT_TOPIC_MODEL}.`,
+    );
+  }
   const ids = googleIds({ projectId, projectNumber: project.value.projectNumber, repo, workerName });
 
   // The services first. The default compute account exists only after the services are on.
@@ -438,14 +458,23 @@ async function runGoogleSetup(ctx, result) {
   result.secrets.GCP_SERVICE_ACCOUNT = ids.deployAccount;
   result.variables.GCP_PROJECT_ID = projectId;
   result.variables.GCP_REGION = region;
+  result.variables.TOPIC_MODEL = topicModel;
   if (state.serviceUrl) {
     result.variables.WORKER_WAKE_URL = `${state.serviceUrl}/wake`;
   } else {
     result.openSteps.push("After the first worker deploy, run setup again. It then sets WORKER_WAKE_URL.");
   }
+  // The worker reads an empty TOPIC_ENGINE_URL as no engine, so the first worker deploy can come before the engine.
+  if (state.engineUrl) {
+    result.variables.TOPIC_ENGINE_URL = state.engineUrl;
+  } else {
+    result.openSteps.push(
+      "After the first engine deploy, run setup again. It then sets TOPIC_ENGINE_URL. Then run the workflow again.",
+    );
+  }
   if (Object.keys(values).length > 0) {
     result.openSteps.push(
-      "Run Actions > CI > Run workflow on main. The worker reads a new Secret Manager value only after a deploy.",
+      "Run Actions > CI > Run workflow on main. The worker and the engine read a new Secret Manager value only after a deploy.",
     );
   }
   result.openSteps.push("Set the Google budget alert and the Anthropic spend limit, if you did not do it yet.");
@@ -486,6 +515,14 @@ async function readSecretValues(ctx, state, result) {
     log("Generated a new wake secret for Secret Manager and the GitHub secret WORKER_WAKE_SECRET.");
   }
 
+  // The worker and the engine read the engine secret from Secret Manager. GitHub does not hold a copy, so the
+  // script makes a new value only for a missing secret, or when you replace it.
+  const engineName = WORKER_SECRETS.engineSecret;
+  if (!state.secrets[engineName].exists || (await confirm(`Replace the Secret Manager secret ${engineName}?`, false))) {
+    values.engineSecret = randomBytes(32).toString("hex");
+    log(`Generated a new engine secret for the Secret Manager secret ${engineName}.`);
+  }
+
   const anthropicName = WORKER_SECRETS.anthropicKey;
   const anthropicExists = state.secrets[anthropicName].exists;
   if (!anthropicExists || (await confirm(`Replace the Secret Manager secret ${anthropicName}?`, false))) {
@@ -500,7 +537,7 @@ async function readSecretValues(ctx, state, result) {
       values.anthropicKey = key;
     } else if (!anthropicExists) {
       result.openSteps.push(
-        `Create the secret ${anthropicName}: run setup again. The deploy-worker job fails without it.`,
+        `Create the secret ${anthropicName}: run setup again. The deploy-worker and deploy-engine jobs fail without it.`,
       );
     }
   }

@@ -1,5 +1,6 @@
 // Production setup: does each provider step that a script can do safely, in a fixed order.
-// Step 5d (scripts/setup-google.mjs) sets up the background worker in Google Cloud. It needs the gcloud CLI.
+// Step 5d (scripts/setup-google.mjs) sets up the background worker and the topic engine in Google Cloud. It needs
+// the gcloud CLI.
 // Zero dependencies on purpose. Run with: SUPABASE_ACCESS_TOKEN=<token> npm run setup:prod
 // The script is safe to run again. Each step reads the current state first and asks before it changes a value.
 // A human runs this script. It never writes a file, and it never prints a key, token or password,
@@ -15,7 +16,7 @@ import { setUpGoogle } from "./setup-google.mjs";
 
 const USAGE = `Usage: SUPABASE_ACCESS_TOKEN=<token> node scripts/setup-prod.mjs [--help]
 
-Sets up the production Supabase project, the background worker in Google Cloud,
+Sets up the production Supabase project, the background worker and the topic engine in Google Cloud,
 the GitHub "production" environment, and the Supabase auth settings. The README section "Deployment > One-time setup" has the full manual.`;
 
 const SUPABASE_API = "https://api.supabase.com";
@@ -47,6 +48,8 @@ const VARIABLE_NAMES = [
   "GCP_PROJECT_ID",
   "GCP_REGION",
   "WORKER_WAKE_URL",
+  "TOPIC_ENGINE_URL",
+  "TOPIC_MODEL",
 ];
 // The OAuth providers that the app knows. The ids match src/lib/oauth.ts and the Supabase auth config fields.
 const OAUTH_PROVIDERS = [

@@ -85,3 +85,26 @@ archived_at: null
 - The phone check skips an element inside the map canvas for the tap size rule only when no part of the element is inside the canvas box.
 - Local gates on ports that keep the engine and the bridge of the owner free: the engine with the fake model on 8792 and 8793, the worker with `TOPIC_ENGINE_URL=http://127.0.0.1:8792`, and the preview on 4322. Results: the smoke test passed 89 steps in 45 seconds, with the 9 topic steps. The phone check passed 20 map page checks in 5 looks at 320 and 375 px. The engine tests passed 39 tests.
 - Break check: a canvas of 150vw made the phone check fail on 4 map pages. A map state with no links made the smoke step "open lesson lists a topic with a quote" fail.
+- CI on the draft PR #6, run 46045367177: `ci` passed in 2 min 6 s, `smoke (full)` in 4 min 37 s, and `smoke (without-sample)` in 5 min 13 s. Each smoke variant passed 9 of 9 topic steps and 39 engine tests. The engine log group shows the `model_request` lines of the fake model and the `extract` lines of the engine. The two logs hold 0 hits for `sk-ant`, `ANTHROPIC_API_KEY`, `LLM_API_KEY` and `x-api-key`.
+
+### Phase 6: production and quality review (2026-11-27)
+
+- Row 6.4, the model comparison through the Claude Code bridge, with prompt 1, on lessons 1, 2 and 5 of the local docs course "Get started with ClickHouse":
+
+  | Measure, 3 lessons | Haiku 5.5 | Sonnet 5.5 |
+  | --- | --- | --- |
+  | Topics | 57 | 40 |
+  | Relations | 34 | 19 |
+  | Quotes that the quote check removed | 0 | 0 |
+  | Quotes that end mid-sentence | 25 of 60 | 14 of 43 |
+  | Quotes with no word of the topic name | 10 of 60 | 6 of 43 |
+  | Time for each lesson | 15 to 32 s | 13 to 19 s |
+  | Output tokens | 19,001 | 6,294 |
+  | Cost at API prices | 0.011 USD | 0.094 USD |
+
+- Haiku makes finer topics, for example `GROUP BY`, `JOIN` and `Hash join` in lesson 1, where Sonnet keeps `SQL support`. Both models give fragment quotes, mostly in lesson 5, which is a list of products.
+- The cost uses the API prices of 0.10 and 0.50 USD (Haiku) and 2 and 10 USD (Sonnet) for each million input and output tokens. A course of 16 lessons costs about 0.06 USD on Haiku and 0.50 USD on Sonnet.
+- The owner selected Haiku 5.5. `TOPIC_MODEL` keeps the default `anthropic/claude-haiku-5-5`.
+- `deploy-worker` now reads `engine-secret` from Secret Manager. So `deploy-worker` and `deploy-engine` fail when that secret does not exist. Run `npm run setup:prod` before the merge to `main`.
+- With no GitHub variable `TOPIC_ENGINE_URL`, `deploy-worker` sends an empty value. The worker reads an empty value as no engine, and each topic job fails with "The topic engine is not set up." and changes no data.
+- The Cloud Run time limit of the engine and the time limit of the worker for one call are both 300 seconds. A cold start and a long call together can reach the Cloud Run limit first. The worker then gets a gateway error and retries the job.

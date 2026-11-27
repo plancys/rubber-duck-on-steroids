@@ -117,8 +117,8 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Parallel with:** —
 - **Blockers:** —
 - **Unknowns:**
-  - Which language-model service does the product use, and what is the spend limit? (Open Roadmap Question 18) — Owner: user. Block: no.
-  - Which sub-problems reuse existing open-source projects? (Open Roadmap Question 19) — Owner: user. Block: no.
+  - Which language-model service does the product use, and what is the spend limit? (Open Roadmap Question 18) — Owner: user. Block: no. Answered: the Anthropic API with `claude-haiku-5-5`, 5 USD each month.
+  - Which sub-problems reuse existing open-source projects? (Open Roadmap Question 19) — Owner: user. Block: no. Answered: Cognee for the extraction call.
 - **Risk:** It comes directly after S-01 so that the quality of the topics shows early. Every later slice inherits the errors of this graph. This slice also brings the first language-model work into the product.
 - **Status:** in-progress
 
@@ -265,8 +265,8 @@ Questions 1 to 16 are a copy of the open questions of the PRD. Questions 17 to 1
 15. **What form does manually downloaded course content take for FR-013?** The user said "somehow manually download"; a saved page, pasted text or a file are all possible. Low urgency, because FR-013 is nice-to-have. — Owner: user. Block: none.
 16. **Has the shaping quality cross-check been run?** No. Shaping stopped after its fourth phase, so business logic, non-functional requirements, product framing and non-goals were never asked, and the closing cross-check is still pending. — Owner: user. Block: none.
 17. **Where does long work run?** The user wants no tight link to one provider and a minimal cost, zero if possible. The hosting of long work is not decided. — Owner: user. Block: none. The plan of F-01 must settle it.
-18. **Which language-model service does the product use, and what is the spend limit?** Calls to a language model cost money for each use, and the user wants a minimal cost. — Owner: user. Block: none. The plan of S-02 must settle it.
-19. **Which sub-problems reuse existing open-source projects?** The user prefers well-known open-source projects for sub-problems. No project is selected. — Owner: user. Block: none. It applies first to the plan of S-02.
+18. **Which language-model service does the product use, and what is the spend limit?** Calls to a language model cost money for each use, and the user wants a minimal cost. — Owner: user. Block: none. The plan of S-02 must settle it. The user answered in the plan of S-02 (`course-topic-graph`): the Anthropic API with the model `claude-haiku-5-5`. The spend limit is 5 USD each month in the Claude Console. The GitHub variable `TOPIC_MODEL` holds the model of the topic engine. The user can select another model after the comparison with Sonnet 5.5.
+19. **Which sub-problems reuse existing open-source projects?** The user prefers well-known open-source projects for sub-problems. No project is selected. — Owner: user. Block: none. It applies first to the plan of S-02. The user answered in the plan of S-02 (`course-topic-graph`): the topic engine uses Cognee for the extraction call (`extract_content_graph`). It uses our own graph model and prompt. The parked phase D lists the parts of Cognee that S-02 does not use.
 
 ## Parked
 

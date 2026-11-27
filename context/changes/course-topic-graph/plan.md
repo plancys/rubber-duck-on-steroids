@@ -903,27 +903,27 @@ This phase gives production its engine, and the owner accepts the quality of the
 
 #### Automated
 
-- [x] 5.1 The smoke test passes with the topic steps
-- [x] 5.2 The phone check passes for the map pages in each look
-- [x] 5.3 Engine tests pass
-- [x] 5.4 The engine image builds
-- [ ] 5.5 The pull request shows the ci job and both smoke variants as passed
+- [x] 5.1 The smoke test passes with the topic steps — 0782409
+- [x] 5.2 The phone check passes for the map pages in each look — 0782409
+- [x] 5.3 Engine tests pass — 0782409
+- [x] 5.4 The engine image builds — 0782409
+- [x] 5.5 The pull request shows the ci job and both smoke variants as passed — 0782409
 
 #### Manual
 
-- [ ] 5.6 The CI smoke log shows the topic steps, the fake model and the engine, and no key
+- [x] 5.6 The CI smoke log shows the topic steps, the fake model and the engine, and no key — 0782409
 
 ### Phase 6: Production and quality review
 
 #### Automated
 
-- [ ] 6.1 Unit tests pass, with the setup script tests
-- [ ] 6.2 Lint passes
+- [x] 6.1 Unit tests pass, with the setup script tests
+- [x] 6.2 Lint passes
 - [ ] 6.3 The pull request shows the ci job and both smoke variants as passed
 
 #### Manual
 
-- [ ] 6.4 The Sonnet 5.5 comparison on 3 real lessons runs through Claude Code, and you select the model
+- [x] 6.4 The Sonnet 5.5 comparison on 3 real lessons runs through Claude Code, and you select the model
 - [ ] 6.5 You read the map of the docs course of 16 lessons against its text, and you accept it or change the prompt
 - [ ] 6.6 You read the map of the example course lessons that the extension loaded, and you accept it or change the prompt
 - [ ] 6.7 After the Google setup, the deploy-engine job deploys the engine, and its health address replies
