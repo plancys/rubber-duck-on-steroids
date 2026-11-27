@@ -926,7 +926,7 @@ This phase gives production its engine, and the owner accepts the quality of the
 - [x] 6.4 The Sonnet 5.5 comparison on 3 real lessons runs through Claude Code, and you select the model — bd79a65
 - [x] 6.5 You read the map of the docs course of 16 lessons against its text, and you accept it or change the prompt — 28a89d6
 - [x] 6.6 You read the map of the example course lessons that the extension loaded, and you accept it or change the prompt — 28a89d6
-- [ ] 6.7 After the Google setup, the deploy-engine job deploys the engine, and its health address replies
+- [x] 6.7 After the Google setup, the deploy-engine job deploys the engine, and its health address replies — ee01309
 - [ ] 6.8 A production build of the map of a docs course ends done through the API key
 - [ ] 6.9 The Anthropic usage page shows a cost that you accept for that build
 - [ ] 6.10 The Google billing page shows a cost of zero, or a cost that you accept
