@@ -228,19 +228,21 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 ## Backlog Handoff
 
-| Roadmap ID | Change ID                       | Suggested issue title                                   | Ready for `/10x-plan` | Notes                                                    |
-| ---------- | ------------------------------- | ------------------------------------------------------- | --------------------- | -------------------------------------------------------- |
-| F-01       | background-work-path            | Run long work outside a page request and show progress  | yes                   | Run `/10x-plan background-work-path`                     |
-| S-01       | load-course-from-url            | Load a course from its URL and list its lessons         | no                    | Waits for F-01                                           |
-| S-02       | course-topic-graph              | Show a loaded course as a graph of topics               | no                    | Waits for S-01                                           |
-| S-03       | mark-known-topics               | Let the learner mark known topics                       | no                    | Waits for S-02                                           |
-| S-04       | adjusted-lesson-list            | Give a lesson list adjusted to the learner's knowledge  | no                    | Blocked: the domain rule is missing (Question 1)         |
-| S-05       | collapsed-known-passages        | Collapse the passages on known topics in a lesson       | no                    | Blocked: the domain rule is missing (Question 1)         |
-| S-06       | double-check-questions          | Ask questions that double-check claimed knowledge       | no                    | Blocked: the domain rule is missing (Question 1)         |
-| S-07       | knowledge-on-course-graph       | Show the learner's knowledge on the course graph        | no                    | Waits for S-03                                           |
-| S-08       | navigate-topic-graph            | Navigate the topic graph and open a topic               | no                    | Waits for S-02                                           |
-| S-09       | summaries-of-known-passages     | Replace long known passages with short summaries        | no                    | Waits for S-05                                           |
-| S-10       | second-material-new-topics-only | Assess only the new topics of a second material         | no                    | Blocked: Question 14 is open                             |
+Linear project: [Rubber-duck-on-steroids](https://linear.app/rubber-duck-on-steroids/project/rubber-duck-on-steroids-21899553635e), milestone `M-01: First adjusted course`. The decision issues RUB-5 (Question 1) and RUB-6 (Question 14) block the slices that wait for them.
+
+| Roadmap ID | Linear | Change ID                       | Suggested issue title                                   | Ready for `/10x-plan` | Notes                                                    |
+| ---------- | ------ | ------------------------------- | ------------------------------------------------------- | --------------------- | -------------------------------------------------------- |
+| F-01       | RUB-7  | background-work-path            | Run long work outside a page request and show progress  | yes                   | Run `/10x-plan background-work-path`                     |
+| S-01       | RUB-8  | load-course-from-url            | Load a course from its URL and list its lessons         | no                    | Waits for F-01                                           |
+| S-02       | RUB-9  | course-topic-graph              | Show a loaded course as a graph of topics               | no                    | Waits for S-01                                           |
+| S-03       | RUB-10 | mark-known-topics               | Let the learner mark known topics                       | no                    | Waits for S-02                                           |
+| S-04       | RUB-11 | adjusted-lesson-list            | Give a lesson list adjusted to the learner's knowledge  | no                    | Blocked: the domain rule is missing (Question 1)         |
+| S-05       | RUB-12 | collapsed-known-passages        | Collapse the passages on known topics in a lesson       | no                    | Blocked: the domain rule is missing (Question 1)         |
+| S-06       | RUB-13 | double-check-questions          | Ask questions that double-check claimed knowledge       | no                    | Blocked: the domain rule is missing (Question 1)         |
+| S-07       | RUB-14 | knowledge-on-course-graph       | Show the learner's knowledge on the course graph        | no                    | Waits for S-03                                           |
+| S-08       | RUB-15 | navigate-topic-graph            | Navigate the topic graph and open a topic               | no                    | Waits for S-02                                           |
+| S-09       | RUB-16 | summaries-of-known-passages     | Replace long known passages with short summaries        | no                    | Waits for S-05                                           |
+| S-10       | RUB-17 | second-material-new-topics-only | Assess only the new topics of a second material         | no                    | Blocked: Question 14 is open                             |
 
 ## Open Roadmap Questions
 
