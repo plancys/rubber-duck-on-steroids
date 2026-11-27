@@ -9,7 +9,7 @@
 // The answer has the form that the request asked for.
 
 import { Buffer } from "node:buffer";
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { URL } from "node:url";
 
@@ -167,9 +167,20 @@ function readBody(request) {
   });
 }
 
+// True when the x-api-key header holds the key. The compare takes the same time for each wrong key of that length.
+export function sameKey(header, key) {
+  if (typeof header !== "string") return false;
+  const given = Buffer.from(header, "utf8");
+  const wanted = Buffer.from(key, "utf8");
+  return given.length === wanted.length && timingSafeEqual(given, wanted);
+}
+
 // Start a local model address. answer(request, headers) returns { message } with a full Messages API answer.
 // GET /health answers 200. The server listens on 127.0.0.1 only.
-export function startMessagesServer({ port, answer, onListening }) {
+// POST /v1/messages refuses a request with an Origin header, because a web page in the browser of the developer
+// sends one and the engine sends none. With a key, it also refuses a request whose x-api-key header holds another
+// value. LiteLLM sends the LLM_API_KEY of the engine in that header. onStop runs on SIGINT and SIGTERM.
+export function startMessagesServer({ port, answer, onListening, key = null, onStop }) {
   const server = createServer(async (request, response) => {
     const { pathname } = new URL(request.url ?? "/", "http://127.0.0.1");
     if (request.method === "GET" && pathname === "/health") {
@@ -178,6 +189,14 @@ export function startMessagesServer({ port, answer, onListening }) {
     }
     if (request.method !== "POST" || pathname !== "/v1/messages") {
       sendJson(response, 404, errorAnswer("not_found_error", "Only POST /v1/messages exists."));
+      return;
+    }
+    if (request.headers.origin !== undefined) {
+      sendJson(response, 403, errorAnswer("permission_error", "A request from a browser is not allowed."));
+      return;
+    }
+    if (key !== null && !sameKey(request.headers["x-api-key"], key)) {
+      sendJson(response, 401, errorAnswer("authentication_error", "The key of the request is not valid."));
       return;
     }
     try {
@@ -204,6 +223,7 @@ export function startMessagesServer({ port, answer, onListening }) {
   server.listen(port, "127.0.0.1", () => onListening?.(server));
   for (const signal of ["SIGINT", "SIGTERM"]) {
     process.on(signal, () => {
+      onStop?.();
       server.close(() => process.exit(0));
       server.closeAllConnections();
     });

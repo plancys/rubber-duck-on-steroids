@@ -1,6 +1,8 @@
 // Claude Code bridge: a local Messages API address that answers through Claude Code with the login of the developer.
 // Zero dependencies on purpose. Run it with: node scripts/model-bridge.mjs. npm run engine starts it with no API key.
 // It listens on 127.0.0.1:8791 only. MODEL_PORT overrides the port. CLAUDE_BIN overrides the claude command.
+// MODEL_KEY is the key that each request must hold in x-api-key. npm run engine makes a new key for each start.
+// With no MODEL_KEY the bridge does not start, so no other program and no web page can use the login.
 //
 // The bridge is a local tool for one developer. It never runs in CI or in production, because the Claude Code
 // terms do not let a product send the requests of its users through a subscription login.
@@ -13,6 +15,7 @@
 
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
+import { rmSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -27,6 +30,13 @@ import {
 
 const PORT = Number(process.env.MODEL_PORT ?? 8791);
 const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
+const KEY = process.env.MODEL_KEY ?? "";
+if (!KEY) {
+  console.error("The bridge needs MODEL_KEY. Start it with npm run engine, which sets a new key for each start.");
+  process.exit(1);
+}
+// The claude runs in progress, with their temporary folders. A stop of the bridge stops them and removes the folders.
+const running = new Map();
 // The longest claude run. The engine stops a model call after 240 seconds.
 const CALL_TIMEOUT_MS = 300_000;
 const MODEL_NAME = /^[A-Za-z0-9._-]{1,100}$/;
@@ -74,6 +84,7 @@ async function runClaude({ model, system, user, schema }) {
         model,
       ];
       const child = spawn(CLAUDE_BIN, args, { cwd: folder, env: claudeEnvironment(), stdio: ["pipe", "pipe", "pipe"] });
+      running.set(child, folder);
       const out = [];
       let errorBytes = 0;
       const timer = setTimeout(() => child.kill("SIGTERM"), CALL_TIMEOUT_MS);
@@ -84,10 +95,12 @@ async function runClaude({ model, system, user, schema }) {
       });
       child.on("error", (error) => {
         clearTimeout(timer);
+        running.delete(child);
         reject(new ModelError(`Cannot run ${CLAUDE_BIN}: ${error.message}`));
       });
       child.on("close", (code, signal) => {
         clearTimeout(timer);
+        running.delete(child);
         const result = parseObject(Buffer.concat(out).toString("utf8").trim());
         if (result) {
           resolveRun(result);
@@ -119,6 +132,15 @@ function usageOf(result) {
 
 startMessagesServer({
   port: PORT,
+  key: KEY,
+  // Stop each claude run in progress and remove its folder, because the bridge exits before the runs end.
+  onStop() {
+    for (const [child, folder] of running) {
+      child.kill("SIGTERM");
+      rmSync(folder, { recursive: true, force: true });
+    }
+    running.clear();
+  },
   async answer(request) {
     if (!MODEL_NAME.test(request.model)) throw new RequestError("The model name is not valid.");
     if (!request.schema) throw new RequestError("The bridge needs an answer schema in the request.");

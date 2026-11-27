@@ -191,7 +191,11 @@ function fakeEngine(setup: { info?: EngineInfo; replies?: Record<string, Reply>;
   return { engine, calls };
 }
 
-function runJob(store: TopicStore, engine: TopicEngine | null, options: { signal?: AbortSignal; payload?: Json } = {}) {
+function runJob(
+  store: TopicStore,
+  engine: TopicEngine | null,
+  options: { signal?: AbortSignal; payload?: Json; maxRequests?: number } = {},
+) {
   const lines: TopicLog[] = [];
   const steps: [number, number, string][] = [];
   const signal = options.signal ?? new AbortController().signal;
@@ -203,6 +207,7 @@ function runJob(store: TopicStore, engine: TopicEngine | null, options: { signal
     },
     newRunId: () => "11111111-1111-4111-8111-111111111111",
     now: () => 0,
+    ...(options.maxRequests === undefined ? {} : { maxRequests: options.maxRequests }),
   });
   const result = handler({
     jobId: "job-1",
@@ -429,6 +434,39 @@ test("a run with no result for any lesson fails with a retry", async () => {
   await assert.rejects(runJob(store, engine).result, safeError(NO_RESULT_REASON, true));
   assert.equal(db.saves.length, 3);
   assert.equal(db.finishes.length, 0);
+});
+
+test("a run stops at the request limit, builds the map from the stored results, and the next run goes on", async () => {
+  const { db, store } = fakeDatabase();
+  const { engine, calls } = fakeEngine();
+  const { result, lines, steps } = runJob(store, engine, { maxRequests: 2 });
+  assert.deepEqual(await result, {
+    courseId: COURSE_ID,
+    outcome: "ready",
+    analysed: 2,
+    reused: 0,
+    failed: 0,
+    topics: 3,
+  });
+  assert.deepEqual(
+    calls.map((call) => call.lessonPosition),
+    [1, 2],
+  );
+  assert.deepEqual(steps, [
+    [1, 4, ANALYSE_LABEL],
+    [2, 4, ANALYSE_LABEL],
+    [4, 4, BUILD_LABEL],
+  ]);
+  assert.equal(db.finishes.length, 1);
+  assert.equal(lines.find((line) => line.event === "map_built")?.left, 1);
+
+  // The next run calls the engine only for the lesson that the first run did not reach.
+  const next = fakeEngine();
+  await runJob(store, next.engine, { maxRequests: 2 }).result;
+  assert.deepEqual(
+    next.calls.map((call) => call.lessonPosition),
+    [3],
+  );
 });
 
 test("a missing engine address fails with no retry", async () => {

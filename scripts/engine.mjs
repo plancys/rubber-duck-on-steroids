@@ -13,6 +13,7 @@
 // Ctrl+C stops the engine and the model source.
 
 import { spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -51,12 +52,14 @@ env.HOST = "127.0.0.1";
 
 let modelScript = null;
 let source;
+// The key between the engine and the local model source. A new key for each start, so no other program on this
+// machine and no web page in the browser can use the model source. The engine sends it as LLM_API_KEY.
+const modelKey = randomBytes(24).toString("hex");
 if (fake) {
   delete env.ANTHROPIC_API_KEY;
   modelScript = "fake-model.mjs";
   env.LLM_ENDPOINT = modelAddress;
-  // LiteLLM needs a key value. The fake model does not read it.
-  env.LLM_API_KEY = "fake-model-no-key";
+  env.LLM_API_KEY = modelKey;
   source = `the fake model at ${modelAddress}`;
 } else if (env.ANTHROPIC_API_KEY) {
   env.LLM_API_KEY = env.ANTHROPIC_API_KEY;
@@ -68,8 +71,7 @@ if (fake) {
   }
   modelScript = "model-bridge.mjs";
   env.LLM_ENDPOINT = modelAddress;
-  // LiteLLM needs a key value. The bridge does not read it.
-  env.LLM_API_KEY = "claude-code-bridge-no-key";
+  env.LLM_API_KEY = modelKey;
   source = `the Claude Code bridge at ${modelAddress}, with your Claude Code login`;
 }
 console.log(`The engine uses ${source}.`);
@@ -124,8 +126,9 @@ async function waitForModel() {
 }
 
 if (modelScript) {
-  // The model source gets no model key. The bridge also removes the Anthropic keys from each claude run.
-  const modelEnv = { ...process.env, MODEL_PORT: String(modelPort) };
+  // The model source gets no Anthropic key, only MODEL_KEY to check each request of the engine.
+  // The bridge also removes the Anthropic keys from each claude run.
+  const modelEnv = { ...process.env, MODEL_PORT: String(modelPort), MODEL_KEY: modelKey };
   delete modelEnv.LLM_API_KEY;
   startChild(process.execPath, [resolve(root, "scripts", modelScript)], { cwd: root, env: modelEnv }, modelScript);
   await waitForModel();

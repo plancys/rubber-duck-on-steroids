@@ -223,6 +223,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:**
   - Does a finished lesson change what the product records as known? (Open Roadmap Question 14) — Owner: user. Block: yes.
+  - How does a new analysis undo a wrong `sameAs` join? In S-02 a `sameAs` answer of the model joins two topics of a course for good, and joins chain. A wrong join stays when the lesson is analysed again. S-10 changes the identity check, so it decides this rule too. Source: finding F4 of `context/changes/course-topic-graph/reviews/impl-review.md`. — Owner: user. Block: no.
 - **Risk:** It comes last because one course is enough for the north star. Two materials name the same topic in different ways, and a wrong match skips an assessment that the learner needs.
 - **Status:** blocked
 

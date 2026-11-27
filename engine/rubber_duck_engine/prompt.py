@@ -57,15 +57,25 @@ class PassageInput:
     text: str
 
 
+def one_line(text: str) -> str:
+    """The text with each run of white space as one space, so a name cannot add a line to the prompt."""
+    return " ".join(text.split())
+
+
 def build_system_prompt(known_topics: Sequence[KnownTopic]) -> str:
-    """The rules, then the list of known topics. The list is always the end of the prompt."""
+    """The rules, then the list of known topics. The list is always the end of the prompt.
+
+    A known topic name comes from an earlier answer of the model, so each name goes on one line.
+    """
     if not known_topics:
         return f"{_RULES}\n\nKnown topics: none."
     lines = []
     for topic in known_topics:
-        aliases = [alias for alias in topic.aliases if alias and alias != topic.name]
+        name = one_line(topic.name)
+        aliases = [one_line(alias) for alias in topic.aliases]
+        aliases = [alias for alias in aliases if alias and alias != name]
         other_names = f" (other names: {'; '.join(aliases)})" if aliases else ""
-        lines.append(f"{topic.ref}. {topic.name}{other_names}")
+        lines.append(f"{topic.ref}. {name}{other_names}")
     listing = "\n".join(lines)
     return f"{_RULES}\n\nKnown topics (number, name, other names):\n{listing}"
 

@@ -37,6 +37,10 @@ export const BUILD_LABEL = "Building the map";
 export const MAX_REQUEST_CHARACTERS = 60_000;
 // The engine refuses a request with more characters. A longer passage makes the lesson fail.
 export const MAX_PASSAGE_CHARACTERS = 200_000;
+// One run sends at most this many requests to the engine. The worker runs one job at a time, so a large course must
+// not hold the worker for hours. At the limit the run takes no new lesson. It builds the map from the stored results
+// and ends done. The lessons that it did not reach keep the map stale, and "Update the map" continues the work.
+export const MAX_RUN_REQUESTS = 200;
 
 // The failure codes of a lesson: the codes of the engine client, and too_long for a passage above the limit.
 export type LessonFailureCode = Exclude<EngineFailureCode, "unreachable" | "unauthorized"> | "too_long";
@@ -74,6 +78,8 @@ export interface TopicLog {
   analysed?: number;
   reused?: number;
   failed?: number;
+  // The lessons that the run did not reach, because it sent MAX_RUN_REQUESTS requests.
+  left?: number;
   durationMs?: number;
 }
 
@@ -86,6 +92,8 @@ export interface BuildTopicMapOptions {
   newRunId?: () => string;
   // The clock of the durations. The unit tests give a fixed clock.
   now?: () => number;
+  // The limit of engine requests in one run. The unit tests give a small limit.
+  maxRequests?: number;
 }
 
 // The current analysis of one lesson, with its stored result read again.
@@ -167,6 +175,7 @@ export function createBuildTopicMap(options: BuildTopicMapOptions): Handler {
   const { topics: store } = options;
   const newRunId = options.newRunId ?? randomUUID;
   const now = options.now ?? Date.now;
+  const maxRequests = options.maxRequests ?? MAX_RUN_REQUESTS;
 
   return async ({ jobId, payload, step, signal }) => {
     const courseId = readCourseId(payload);
@@ -213,6 +222,8 @@ export function createBuildTopicMap(options: BuildTopicMapOptions): Handler {
     let analysed = 0;
     let inputTokens = 0;
     let outputTokens = 0;
+    // The engine requests of this run, against the limit maxRequests.
+    let requests = 0;
 
     // The candidates of the course for the identity check: the stored result of each lesson, and the checked
     // answers of the lesson that runs now. A lesson that the run analysed already has its new result here.
@@ -310,6 +321,7 @@ export function createBuildTopicMap(options: BuildTopicMapOptions): Handler {
       const outcome: EngineOutcome = passages.some((passage) => passage.text.length > MAX_PASSAGE_CHARACTERS)
         ? { ok: false, code: "too_long", requests: 0, calls: 0 }
         : await callEngine(lesson, passages);
+      requests += outcome.requests;
 
       const old = analyses.get(lesson.url);
       let stored: boolean;
@@ -392,7 +404,14 @@ export function createBuildTopicMap(options: BuildTopicMapOptions): Handler {
     // One step for each lesson that needs a call, then the step of the map build.
     // A step throws when the job must stop, so the job stops between two lessons. The stored results stay.
     const count = pending.length + 1;
+    let left = 0;
     for (const [index, lesson] of pending.entries()) {
+      // At the limit the run takes no new lesson. The lesson in work always ends, so a run can pass the limit by
+      // the requests of one lesson.
+      if (requests >= maxRequests) {
+        left = pending.length - index;
+        break;
+      }
       await step(index + 1, count, ANALYSE_LABEL);
       await analyse(lesson);
     }
@@ -436,7 +455,14 @@ export function createBuildTopicMap(options: BuildTopicMapOptions): Handler {
       failed: map.report.lessons.failed,
       topics: map.report.topics.live,
     };
-    options.log({ event: "map_built", ...ids, pending: pending.length, ...counts, durationMs: now() - started });
+    options.log({
+      event: "map_built",
+      ...ids,
+      pending: pending.length,
+      ...counts,
+      ...(left > 0 ? { left } : {}),
+      durationMs: now() - started,
+    });
     return { courseId, outcome: "ready", ...counts };
   };
 }

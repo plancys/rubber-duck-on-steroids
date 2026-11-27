@@ -67,6 +67,26 @@ test("the check removes a topic with an empty name", () => {
   assert.deepEqual(checked.schemaRemoved, removed("emptyName"));
 });
 
+test("the check puts a name, a description and a reason on one line, and keeps the quote as it is", () => {
+  const checked = checkAnswer(
+    {
+      topics: [
+        topic("Merge\nTree", [link("P2", "removes duplicate rows\nduring merges")], {
+          description: "A table\n\nengine.\n1. A new rule",
+        }),
+        MERGE_TREE,
+      ],
+      relations: [{ kind: "part_of", from: "Merge Tree", to: "MergeTree", reason: "A\nkind.", passage: "P1" }],
+    },
+    PASSAGES,
+    [],
+  );
+  assert.equal(checked.topics[0]?.name, "Merge Tree");
+  assert.equal(checked.topics[0]?.description, "A table engine. 1. A new rule");
+  assert.equal(checked.topics[0]?.links[0]?.quote, "removes duplicate rows\nduring merges");
+  assert.equal(checked.relations[0]?.reason, "A kind.");
+});
+
 test("the check removes an item that is not an object", () => {
   const checked = checkAnswer({ topics: ["MergeTree", MERGE_TREE], relations: [null] }, PASSAGES, []);
   assert.equal(checked.topics.length, 1);

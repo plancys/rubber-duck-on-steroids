@@ -1,6 +1,7 @@
 // Fake model: a local Messages API address that answers with fixed data, so CI can run the engine with no key.
 // Zero dependencies on purpose. It uses no key and no network. Run it with: node scripts/fake-model.mjs
 // It listens on 127.0.0.1:8791. MODEL_PORT overrides the port. npm run engine -- --fake starts it.
+// With MODEL_KEY set, each request must hold that key in x-api-key. npm run engine sets a new key for each start.
 //
 // The answer comes from the passage markers of the request ("[passage P1] Heading > Subheading", see
 // engine/rubber_duck_engine/prompt.py): one topic for each heading, named after the last heading of the path,
@@ -78,6 +79,7 @@ function buildFakeAnswer(userText) {
 
 startMessagesServer({
   port: PORT,
+  key: process.env.MODEL_KEY || null,
   answer(request, headers) {
     const value = buildFakeAnswer(request.user);
     // A rough count of 4 characters for each token, so the engine and the worker see numbers.
