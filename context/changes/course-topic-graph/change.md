@@ -62,3 +62,15 @@ archived_at: null
   | 3.9 No reachable engine | `failed` after 3 starts with "The topic engine is not reachable.". The map and the topic ids did not change. |
 
 - Report of the first build: the quote check removed 2 links, 1 topic and 1 relation. The ancestor rule removed 2 prerequisites, and the parent rule removed 1 second parent. 6 of 86 passages have no topic. 0 of 15 prerequisites point against the lesson order.
+
+### Phase 4: topic map in the web app (2026-11-27)
+
+- `@xyflow/react` 12.12.1 and `@dagrejs/dagre` 3.1.4, pinned. `eslint.config.js` got a block for `src/**/*.test.ts`, as the worker and extension tests have.
+- The map starts at zoom 1 on each screen. A first view that fits the whole map gave nodes of 100 by 24 px on a wide screen, against the 44 px rule. The button "Whole map" fits the whole map on request.
+- The overview places the lessons in one column in course order, with no dagre. With dagre, each lesson with no arrow went into one long row. Each arrow is an arc on the right side, with its count.
+- The map shows the React Flow attribution link, enlarged to 44 px. React Flow asks for a Pro subscription when the attribution is hidden. The owner chose the visible link.
+- A defect that the manual checks found and that this phase fixed: on a 320 px phone, the first view of lesson 2 showed an empty canvas. The top rank of a wide layout sat far from its left side, and the first view showed the top left corner of the layout. Now the first view starts at the left node of the top rank when the map is wider than the canvas.
+- The manual checks ran in a headless browser against the production build:
+  - 4.5 and 4.6 on a test account with an extension course and the fake engine: the states `none`, `building`, `current`, `partial` and `stale`, and the build button.
+  - 4.7 to 4.12 on a second test account, `verify-map+1795799108339@example.com` with the password `Verify-map-password-1`, local only. It loaded the docs course, and its topic job ran through the Claude Code bridge in 6 minutes. Results: 16 lesson boxes with 5 arrows. Lesson 2 with 19 topics, 4 parent boxes, 14 arrows and 6 marks of other lessons. A panel with quotes and links. The Tab key reaches a topic after 6 presses, and Enter opens the panel. The outline with no script shows 16 lessons, 19 topics and 34 quotes. 30 phone page views in 5 looks with 0 failures.
+- The course of the earlier checks belongs to a test account with no sign-in identity, so nobody can sign in to view its map.

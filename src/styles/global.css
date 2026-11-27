@@ -98,3 +98,41 @@
     @apply bg-background font-body text-foreground;
   }
 }
+
+/* The topic map canvas of React Flow. Its colors come from the tokens of the look, so each look works. */
+.topic-map {
+  --xy-background-color: var(--background);
+  --xy-edge-stroke: var(--muted-foreground);
+  --xy-edge-stroke-width: 1.5;
+  --xy-edge-stroke-selected: var(--foreground);
+  --xy-handle-background-color: transparent;
+  --xy-attribution-background-color: var(--card);
+}
+
+/* React Flow asks for a visible attribution link when the project has no Pro subscription.
+   The link gets the tap size of the phone rule and the colors of the look. */
+.topic-map .react-flow__attribution a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0 0.5rem;
+  color: var(--muted-foreground);
+}
+
+/* The map sets no marker color, so the arrowheads take the color of the lines here. */
+.topic-map .react-flow__arrowhead polyline {
+  stroke: var(--muted-foreground);
+  fill: var(--muted-foreground);
+}
+
+/* A handle only anchors the lines. The map has no connection, so the handles stay hidden. */
+.topic-map .react-flow__handle {
+  border: 0;
+  opacity: 0;
+}
+
+/* A part_of relation to a topic of another lesson. */
+.topic-map .react-flow__edge.topic-map-part .react-flow__edge-path {
+  stroke-dasharray: 6 4;
+}

@@ -866,38 +866,38 @@ This phase gives production its engine, and the owner accepts the quality of the
 
 #### Automated
 
-- [x] 3.1 Unit tests pass
-- [x] 3.2 Lint passes
-- [x] 3.3 Type checks pass
-- [x] 3.4 The worker image builds
+- [x] 3.1 Unit tests pass — 1bccbe9
+- [x] 3.2 Lint passes — 1bccbe9
+- [x] 3.3 Type checks pass — 1bccbe9
+- [x] 3.4 The worker image builds — 1bccbe9
 
 #### Manual
 
-- [x] 3.5 A local docs course ends with a done topic job through Claude Code, and the tables hold topics, links and relations
-- [x] 3.6 A second run with no lesson change makes no engine call and keeps each topic id
-- [x] 3.7 After a change of one lesson text, a run calls the engine for that lesson only
-- [x] 3.8 A stop of the worker and a new start end with a done job and no second call for a stored lesson
-- [x] 3.9 With the engine stopped, the job fails with the safe reason, and the course keeps its last map
+- [x] 3.5 A local docs course ends with a done topic job through Claude Code, and the tables hold topics, links and relations — 1bccbe9
+- [x] 3.6 A second run with no lesson change makes no engine call and keeps each topic id — 1bccbe9
+- [x] 3.7 After a change of one lesson text, a run calls the engine for that lesson only — 1bccbe9
+- [x] 3.8 A stop of the worker and a new start end with a done job and no second call for a stored lesson — 1bccbe9
+- [x] 3.9 With the engine stopped, the job fails with the safe reason, and the course keeps its last map — 1bccbe9
 
 ### Phase 4: Topic map in the web app
 
 #### Automated
 
-- [ ] 4.1 Lint passes
-- [ ] 4.2 Type checks pass
-- [ ] 4.3 The production build passes
-- [ ] 4.4 Unit tests pass, with the layout tests
+- [x] 4.1 Lint passes
+- [x] 4.2 Type checks pass
+- [x] 4.3 The production build passes
+- [x] 4.4 Unit tests pass, with the layout tests
 
 #### Manual
 
-- [ ] 4.5 The course page shows the right section for no map, a running job, a current map, a stale map and a partial map
-- [ ] 4.6 The button starts a topic job for an extension course, and the page follows the job
-- [ ] 4.7 The overview shows one box for each lesson with arrows, and a click on a box opens the lesson
-- [ ] 4.8 An open lesson shows its topics, a parent box, the prerequisite arrows, and the marks of topics from other lessons
-- [ ] 4.9 A click on a topic opens the panel with the description, the parent, the prerequisites, and the quotes with links
-- [ ] 4.10 The outline shows the same lessons, topics and quotes with JavaScript off
-- [ ] 4.11 The Tab key reaches each node, and the Enter key opens the panel
-- [ ] 4.12 The map pages obey the phone rules at 320px in each of the 5 looks
+- [x] 4.5 The course page shows the right section for no map, a running job, a current map, a stale map and a partial map
+- [x] 4.6 The button starts a topic job for an extension course, and the page follows the job
+- [x] 4.7 The overview shows one box for each lesson with arrows, and a click on a box opens the lesson
+- [x] 4.8 An open lesson shows its topics, a parent box, the prerequisite arrows, and the marks of topics from other lessons
+- [x] 4.9 A click on a topic opens the panel with the description, the parent, the prerequisites, and the quotes with links
+- [x] 4.10 The outline shows the same lessons, topics and quotes with JavaScript off
+- [x] 4.11 The Tab key reaches each node, and the Enter key opens the panel
+- [x] 4.12 The map pages obey the phone rules at 320px in each of the 5 looks
 
 ### Phase 5: CI path
 

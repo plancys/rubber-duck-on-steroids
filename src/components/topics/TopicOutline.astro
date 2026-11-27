@@ -1,0 +1,180 @@
+---
+// The outline of the topic map: the same content as the graph, rendered on the server.
+// It serves a phone and a screen reader, and it works with no script.
+// With `lesson`, it lists the topics of one lesson. The children of a parent topic form a nested list.
+// Each topic opens with a details element to show its description, its parent, its prerequisites and its quotes.
+// Without `lesson`, it lists the lessons of the overview with their topic counts and their arrows.
+// The component calls itself for the children of a topic, with `parentId`.
+import {
+  arrowsText,
+  lessonStateText,
+  lessonTitle,
+  linkPlaceText,
+  parentLessonPosition,
+  prerequisitesOf,
+  topicAnchor,
+  topicCountText,
+  topicMapPath,
+  topicParents,
+  type LessonMap,
+  type MapOverview,
+  type TopicRef,
+} from "@/lib/topics";
+
+interface Props {
+  courseId: string;
+  overview: MapOverview;
+  lesson?: LessonMap;
+  // The parent topic of a nested list. Only the component itself sets it.
+  parentId?: string;
+}
+
+const { courseId, overview, lesson, parentId } = Astro.props;
+
+const parents = lesson ? topicParents(lesson) : new Map<string, string | null>();
+const topics = lesson ? lesson.topics.filter((topic) => (parents.get(topic.id) ?? null) === (parentId ?? null)) : [];
+const hasChildren = (id: string): boolean => [...parents.values()].includes(id);
+
+// The link of a topic: an anchor in this outline, or the outline of another lesson.
+function refHref(ref: TopicRef): string | null {
+  if (ref.home) return `#${topicAnchor(ref.id)}`;
+  if (ref.lessonPosition === null) return null;
+  return `${topicMapPath(courseId, ref.lessonPosition)}#${topicAnchor(ref.id)}`;
+}
+
+function refText(ref: TopicRef): string {
+  return ref.home || ref.lessonPosition === null ? ref.name : `${ref.name} (lesson ${ref.lessonPosition})`;
+}
+
+const linkClass =
+  "inline-flex min-h-11 min-w-11 items-center font-semibold text-primary underline underline-offset-2 [overflow-wrap:anywhere]";
+---
+
+{!lesson && (
+  <ol data-testid="topic-outline" data-view="overview" class="space-y-2">
+    {overview.lessons.map((item) => {
+      const mark = lessonStateText(item.state);
+      const arrows = arrowsText(overview.arrows.filter((arrow) => arrow.from === item.position));
+      return (
+        <li
+          data-testid="outline-lesson"
+          data-position={item.position}
+          data-state={item.state}
+          class="flex items-start gap-3 rounded-lg bg-card px-4 py-2 text-card-foreground shadow-(--shadow-card)"
+        >
+          <span class="flex min-h-11 min-w-8 flex-none items-center font-heading font-extrabold text-muted-foreground">
+            {item.position}
+          </span>
+          <div class="min-w-0 flex-1 pb-2">
+            <a
+              href={topicMapPath(courseId, item.position)}
+              class="block min-h-11 min-w-11 py-2.5 font-bold [overflow-wrap:anywhere] hover:underline"
+            >
+              {lessonTitle(item.title, item.position)}
+            </a>
+            <p class="text-sm text-muted-foreground">
+              {topicCountText(item.topics)}
+              {mark && <strong class="font-bold text-foreground">{`. ${mark}`}</strong>}
+            </p>
+            {arrows && <p class="text-sm text-muted-foreground">{arrows}</p>}
+          </div>
+        </li>
+      );
+    })}
+  </ol>
+)}
+
+{lesson && topics.length > 0 && (
+  <ul
+    data-testid={parentId ? undefined : "topic-outline"}
+    data-view={parentId ? undefined : "lesson"}
+    class:list={["space-y-2", parentId && "mt-2 border-l-2 border-border pl-3 sm:pl-4"]}
+  >
+    {topics.map((topic) => {
+      const prerequisites = prerequisitesOf(lesson, topic.id);
+      const parentPosition = parentLessonPosition(lesson, topic);
+      const homeParent = parents.get(topic.id) ?? null;
+      return (
+        <li id={topicAnchor(topic.id)} data-testid="outline-topic" class="scroll-mt-4">
+          <details class="rounded-lg bg-card text-card-foreground shadow-(--shadow-card)">
+            <summary class="flex min-h-11 min-w-11 cursor-pointer items-center px-4 py-2 font-bold [overflow-wrap:anywhere]">
+              {topic.name}
+            </summary>
+            <div class="space-y-4 px-4 pb-4 text-sm">
+              {topic.description && <p>{topic.description}</p>}
+              {topic.parent && (
+                <div>
+                  <h3 class="font-bold">Part of</h3>
+                  {homeParent ? (
+                    <a href={`#${topicAnchor(homeParent)}`} class:list={linkClass}>
+                      {topic.parent.name}
+                    </a>
+                  ) : parentPosition !== null ? (
+                    <a
+                      href={`${topicMapPath(courseId, parentPosition)}#${topicAnchor(topic.parent.id)}`}
+                      class:list={linkClass}
+                    >
+                      {topic.parent.name} (lesson {parentPosition})
+                    </a>
+                  ) : (
+                    <p>{topic.parent.name}</p>
+                  )}
+                </div>
+              )}
+              {prerequisites.length > 0 && (
+                <div>
+                  <h3 class="font-bold">Comes after</h3>
+                  <ul>
+                    {prerequisites.map((ref) => {
+                      const href = refHref(ref);
+                      return (
+                        <li data-testid="outline-prerequisite">
+                          {href ? (
+                            <a href={href} class:list={linkClass}>
+                              {refText(ref)}
+                            </a>
+                          ) : (
+                            <p>{refText(ref)}</p>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+              <div>
+                <h3 class="font-bold">In the lessons</h3>
+                {topic.links.length === 0 ? (
+                  <p class="text-muted-foreground">No quote.</p>
+                ) : (
+                  <ul class="space-y-3">
+                    {topic.links.map((link) => (
+                      <li data-testid="outline-quote" data-role={link.role} class="space-y-1">
+                        <p class="text-muted-foreground">{linkPlaceText(link)}</p>
+                        <blockquote class="border-l-2 border-primary pl-3 [overflow-wrap:anywhere]">
+                          {link.quote}
+                        </blockquote>
+                        <a href={link.lessonUrl} target="_blank" rel="noopener noreferrer" class:list={linkClass}>
+                          Open the original page
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </details>
+          {hasChildren(topic.id) && (
+            <Astro.self courseId={courseId} overview={overview} lesson={lesson} parentId={topic.id} />
+          )}
+        </li>
+      );
+    })}
+  </ul>
+)}
+
+{lesson && !parentId && topics.length === 0 && (
+  <p data-testid="topic-outline-empty" class="text-sm text-muted-foreground">
+    The engine found no topic in this lesson.
+  </p>
+)}

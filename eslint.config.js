@@ -117,6 +117,19 @@ const extensionConfig = defineConfig({
   },
 });
 
+// The unit tests of the web app modules in src/ run on Node with node:test, as the worker tests do.
+const webUnitTestConfig = defineConfig({
+  files: ["src/**/*.test.ts"],
+  rules: {
+    "@typescript-eslint/no-floating-promises": [
+      "error",
+      {
+        allowForKnownSafeCalls: [{ from: "package", name: ["describe", "it", "suite", "test"], package: "node:test" }],
+      },
+    ],
+  },
+});
+
 export default defineConfig(
   includeIgnoreFile(gitignorePath),
   // Agent toolkit files are not app code and sit outside tsconfig.json.
@@ -131,5 +144,6 @@ export default defineConfig(
   scriptsConfig,
   workerConfig,
   extensionConfig,
+  webUnitTestConfig,
   eslintPluginPrettier,
 );
