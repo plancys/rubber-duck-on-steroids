@@ -120,3 +120,4 @@ archived_at: null
   | Cost at API prices | 0.011 USD | 0.016 USD |
 
 - The 2 fragments that remain are cells of a product table in lesson 5. Prompt 2 drops the finest topics, for example `GROUP BY` and `Hash join`. A course of 16 lessons costs about 0.09 USD with prompt 2. The owner selected prompt 2.
+- Rows 6.5 and 6.6: the owner read the maps of prompt 2 and accepted both. The docs course of the local test account `verify-map+1795799108339@example.com` gave 16 of 16 lessons, 101 topics, 195 quotes and 65 relations in 7.5 minutes, for 0.060 USD at API prices. 20 quotes end mid-sentence, against 94 of 202 in the prompt 1 map of the same course. The extension course "Real-time Analytics with ClickHouse" gave 4 of 4 lessons, 39 topics, 46 quotes and 18 relations in 1 minute, for 0.010 USD. 0 quotes end mid-sentence.

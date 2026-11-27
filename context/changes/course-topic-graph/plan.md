@@ -919,13 +919,13 @@ This phase gives production its engine, and the owner accepts the quality of the
 
 - [x] 6.1 Unit tests pass, with the setup script tests — bd79a65
 - [x] 6.2 Lint passes — bd79a65
-- [ ] 6.3 The pull request shows the ci job and both smoke variants as passed
+- [x] 6.3 The pull request shows the ci job and both smoke variants as passed — bd79a65
 
 #### Manual
 
 - [x] 6.4 The Sonnet 5.5 comparison on 3 real lessons runs through Claude Code, and you select the model — bd79a65
-- [ ] 6.5 You read the map of the docs course of 16 lessons against its text, and you accept it or change the prompt
-- [ ] 6.6 You read the map of the example course lessons that the extension loaded, and you accept it or change the prompt
+- [x] 6.5 You read the map of the docs course of 16 lessons against its text, and you accept it or change the prompt — 28a89d6
+- [x] 6.6 You read the map of the example course lessons that the extension loaded, and you accept it or change the prompt — 28a89d6
 - [ ] 6.7 After the Google setup, the deploy-engine job deploys the engine, and its health address replies
 - [ ] 6.8 A production build of the map of a docs course ends done through the API key
 - [ ] 6.9 The Anthropic usage page shows a cost that you accept for that build
