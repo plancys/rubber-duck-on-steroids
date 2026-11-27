@@ -69,3 +69,7 @@ pnpm-debug.log*
 # jetbrains setting folder
 # Playwright MCP output: screenshots and snapshots of a browser session. Never commit it.
 .playwright-mcp/
+# The Python environment of the topic engine and the Python caches. ESLint and Prettier skip each path in this file.
+engine/.venv/
+__pycache__/
+.pytest_cache/

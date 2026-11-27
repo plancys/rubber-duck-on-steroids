@@ -833,18 +833,18 @@ This phase gives production its engine, and the owner accepts the quality of the
 
 #### Automated
 
-- [ ] 1.1 Unit tests pass
-- [ ] 1.2 Engine tests pass
-- [ ] 1.3 The engine answers through the fake model
-- [ ] 1.4 Lint passes
-- [ ] 1.5 Type checks pass
+- [x] 1.1 Unit tests pass
+- [x] 1.2 Engine tests pass
+- [x] 1.3 The engine answers through the fake model
+- [x] 1.4 Lint passes
+- [x] 1.5 Type checks pass
 
 #### Manual
 
-- [ ] 1.6 With no API key, one real lesson returns topics through Claude Code
-- [ ] 1.7 You accept the output of 3 real lessons with Haiku 5.5
-- [ ] 1.8 One real lesson returns a valid answer through the API key path, and the Notes record the request form
-- [ ] 1.9 The Notes record the memory of the engine process after 3 lessons
+- [x] 1.6 With no API key, one real lesson returns topics through Claude Code
+- [x] 1.7 You accept the output of 3 real lessons with Haiku 5.5
+- [x] 1.8 One real lesson returns a valid answer through the API key path, and the Notes record the request form
+- [x] 1.9 The Notes record the memory of the engine process after 3 lessons
 
 ### Phase 2: Knowledge tables and job rules
 

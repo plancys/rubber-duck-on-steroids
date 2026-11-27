@@ -43,7 +43,7 @@ A working software engineer learns new technologies through online courses. The 
 | ---- | ------------------------------- | ------------------------------------------------------------------------------------ | ------------- | --------------------- | -------- |
 | F-01 | background-work-path            | (foundation) long work runs outside a page request, and the learner sees its progress | —             | FR-002, FR-003        | in-progress |
 | S-01 | load-course-from-url            | load a course from the URL of its web page and see its lessons in order              | F-01          | FR-001, FR-002, US-01 | done |
-| S-02 | course-topic-graph              | see a loaded course as a graph of its topics                                         | S-01          | FR-003                | planning |
+| S-02 | course-topic-graph              | see a loaded course as a graph of its topics                                         | S-01          | FR-003                | in-progress |
 | S-03 | mark-known-topics               | mark the topics they believe they already know                                       | S-02          | FR-005                | proposed |
 | S-04 | adjusted-lesson-list            | get a lesson list adjusted to their knowledge, with known lessons marked as skipped  | S-03          | FR-008, US-01         | blocked  |
 | S-05 | collapsed-known-passages        | read a lesson in which the passages on known topics are collapsed                    | S-04          | FR-009, US-01         | blocked  |
@@ -120,7 +120,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
   - Which language-model service does the product use, and what is the spend limit? (Open Roadmap Question 18) — Owner: user. Block: no.
   - Which sub-problems reuse existing open-source projects? (Open Roadmap Question 19) — Owner: user. Block: no.
 - **Risk:** It comes directly after S-01 so that the quality of the topics shows early. Every later slice inherits the errors of this graph. This slice also brings the first language-model work into the product.
-- **Status:** planning
+- **Status:** in-progress
 
 ### S-03: Mark known topics
 
