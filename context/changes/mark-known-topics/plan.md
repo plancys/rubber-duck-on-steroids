@@ -490,24 +490,24 @@ The migration adds one table, one trigger and two functions. It changes no exist
 
 #### Automated
 
-- [x] 3.1 The unit tests pass: `npm run test:unit`
-- [x] 3.2 Lint, types and the build pass: `npm run lint`, `npx astro check` and `npm run build`
-- [x] 3.3 The phone check passes with the checklist page in all five looks: `LOOKS=all npm run phone-check`
-- [x] 3.4 The smoke test passes with the page steps: `SMOKE_COURSES=1 SMOKE_TOPICS=1 npm run smoke`
+- [x] 3.1 The unit tests pass: `npm run test:unit` — e7fc7ef
+- [x] 3.2 Lint, types and the build pass: `npm run lint`, `npx astro check` and `npm run build` — e7fc7ef
+- [x] 3.3 The phone check passes with the checklist page in all five looks: `LOOKS=all npm run phone-check` — e7fc7ef
+- [x] 3.4 The smoke test passes with the page steps: `SMOKE_COURSES=1 SMOKE_TOPICS=1 npm run smoke` — e7fc7ef
 
 #### Manual
 
 - [ ] 3.5 On the local docs course, the owner marks the known topics with the checklist and the lesson buttons, and finds the marking quick
-- [x] 3.6 "Undo" after "Mark all" brings back the marks of the lesson as they were
-- [x] 3.7 The "Known" control in the panel saves a mark, and the checklist shows it after a reload
-- [x] 3.8 With JavaScript off, a click on a toggle saves the mark, and the page comes back at the same lesson
-- [x] 3.9 A mark on a parent leaves its children unchanged
+- [x] 3.6 "Undo" after "Mark all" brings back the marks of the lesson as they were — e7fc7ef
+- [x] 3.7 The "Known" control in the panel saves a mark, and the checklist shows it after a reload — e7fc7ef
+- [x] 3.8 With JavaScript off, a click on a toggle saves the mark, and the page comes back at the same lesson — e7fc7ef
+- [x] 3.9 A mark on a parent leaves its children unchanged — e7fc7ef
 
 ### Phase 4: Production and records
 
 #### Automated
 
-- [ ] 4.1 The roadmap holds the four records: `grep -c "general to detailed\|two values, known or no mark" context/foundation/roadmap.md` gives at least 3
+- [x] 4.1 The roadmap holds the four records: `grep -c "general to detailed\|two values, known or no mark" context/foundation/roadmap.md` gives at least 3
 - [ ] 4.2 The CI run on `main` after the merge passes, the `deploy` job included: `gh run list --branch main --limit 1`
 
 #### Manual

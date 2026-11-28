@@ -45,3 +45,13 @@ The owner asked on 2026-11-28 to run all phases with `/10x-implement` with no in
   | 3.9 | A mark on a parent topic kept its child with no mark after a reload. |
 
 - The course ended with 0 of 101 marks. The checks wrote events for the test account only.
+
+### Phase 4: production and records (2026-11-28)
+
+- The roadmap holds the four records: the answer to the S-03 unknown, the S-03 part of Open Roadmap Question 13, the S-06 note about questions from general to detailed topics, and the parked map idea.
+- Rows 4.2 to 4.4 are human actions. The agent did not push the branch, did not run `npx supabase db push`, and did not merge.
+- The owner steps, in this order:
+  1. Review the branch `mark-known-topics`. It starts from `course-topic-graph-review` (`4cc6827`, the archive commit of S-02, which is not on `origin` yet).
+  2. Apply the migration to production with `npx supabase db push`.
+  3. Push the branch, open the pull request, and merge it after CI passes.
+  4. Check row 4.2 with `gh run list --branch main --limit 1`, then mark topics of a real course in production (row 4.4).
