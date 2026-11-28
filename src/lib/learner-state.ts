@@ -83,6 +83,8 @@ function liveEnd(topicId: string, merges: ReadonlyMap<string, string>): string |
  * The newest event of a topic by (createdAt, id) decides, as learner_course_events orders them:
  * mark_known gives claimed, and unmark_known gives unknown. A topic with no event is not in the result.
  * It reads as unknown. A retired topic is not merged, so its events stay on its id.
+ * The live end of a chain can be a topic outside the course, where finalTarget of the worker gives null.
+ * So a caller keeps only the live topics of the course from the result, as readTopicMarks does.
  */
 export function topicStates(
   events: readonly LearnerEvent[],

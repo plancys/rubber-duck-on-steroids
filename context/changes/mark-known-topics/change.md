@@ -1,7 +1,7 @@
 ---
 change_id: mark-known-topics
 title: Mark known topics
-status: implementing
+status: impl_reviewed
 created: 2026-11-27
 updated: 2026-11-28
 archived_at: null
@@ -55,3 +55,12 @@ The owner asked on 2026-11-28 to run all phases with `/10x-implement` with no in
   2. Apply the migration to production with `npx supabase db push`.
   3. Push the branch, open the pull request, and merge it after CI passes.
   4. Check row 4.2 with `gh run list --branch main --limit 1`, then mark topics of a real course in production (row 4.4).
+
+### Implementation review (2026-11-28)
+
+- The full review is `reviews/impl-review.md`: verdict NEEDS ATTENTION, with 0 critical findings, 3 warnings and 6 observations. Plan drift: 0 DRIFT, 0 MISSING, no scope creep.
+- The agent took the recommended option of each finding: 7 fixed (F1 to F6, F9), F7 skipped, F8 accepted.
+- `supabase/migrations/20261128020000_fix_learner_events_review.sql` (F1, F2): two indexes, and a limit of 2,000 events of one learner in one hour (RD005, HTTP 429). The production push of row 4.3 must apply both migrations.
+- `KnownTopicList.tsx` (F3): the focus goes to "Undo" after "Mark all" or "Clear all", to the lesson heading after "Undo", and back to the button after a failure. The lesson count is a polite live region.
+- Tests (F4, F5): pgTAP for the server time, the indexes and the limit, a unit test of `topicParents`, and a smoke step that expects 403 for a form post from another site.
+- `AGENTS.md` (F6) and the comment of `topicStates` (F9).

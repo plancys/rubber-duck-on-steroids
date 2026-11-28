@@ -15,6 +15,7 @@ function answer(body: { error: MarkErrorKey } | { saved: number }, status: numbe
 function insertErrorStatus(key: MarkErrorKey): number {
   if (key === "marks_stale") return 409;
   if (key === "not_found") return 404;
+  if (key === "too_many_marks") return 429;
   return 500;
 }
 

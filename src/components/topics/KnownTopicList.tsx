@@ -1,4 +1,4 @@
-import { useState, type SubmitEvent } from "react";
+import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { Undo2 } from "lucide-react";
 import { ServerError } from "@/components/auth/ServerError";
 import { useTopicMarks } from "@/components/hooks/useTopicMarks";
@@ -24,13 +24,16 @@ interface LessonUndo {
 }
 
 // Saves the marks of one click in a lesson. lessonAction is null for a click on one topic.
-// After a 200 answer, the undo of the lesson becomes `undo`. Null removes it.
+// After a 200 answer, the undo of the lesson becomes `undo`. Null removes it. It gives true after a 200 answer.
 type WriteMarks = (
   lessonAction: LessonAction | null,
   mark: string[],
   unmark: string[],
   undo: LessonUndo | null,
-) => void;
+) => Promise<boolean>;
+
+// The control of a lesson that gets the focus after a lesson action.
+type FocusTarget = "heading" | "mark_all" | "clear_all" | "undo";
 
 const lessonButtonClass =
   "flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-semibold text-card-foreground transition-colors enabled:hover:bg-secondary disabled:opacity-50 aria-busy:cursor-wait";
@@ -155,27 +158,50 @@ function LessonSection({
   const busy = running !== undefined || ids.some((id) => isPending(id));
   const headingId = `lesson-${lesson.position}-title`;
 
-  function markAll(event: SubmitEvent<HTMLFormElement>) {
+  // A lesson button is disabled while its write runs, and the browser then moves the focus to the page body.
+  // After the write, the focus goes to "Undo" after "Mark all" or "Clear all", to the heading after "Undo",
+  // and back to the button after a failure. So a keyboard user keeps the place in the lesson.
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const markAllRef = useRef<HTMLButtonElement>(null);
+  const clearAllRef = useRef<HTMLButtonElement>(null);
+  const undoRef = useRef<HTMLButtonElement>(null);
+  // Each lesson action sets a new request object, so the effect runs once for each request.
+  const [focusRequest, setFocusRequest] = useState<{ target: FocusTarget } | null>(null);
+
+  useEffect(() => {
+    if (focusRequest === null) return;
+    const refs = { heading: headingRef, mark_all: markAllRef, clear_all: clearAllRef, undo: undoRef };
+    const target = refs[focusRequest.target].current;
+    // A disabled button cannot take the focus, so the heading takes it.
+    if (target && !(target instanceof HTMLButtonElement && target.disabled)) target.focus();
+    else headingRef.current?.focus();
+  }, [focusRequest]);
+
+  async function markAll(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || unmarked.length === 0) return;
-    onWrite("mark_all", unmarked, [], { mark: [], unmark: unmarked });
+    const saved = await onWrite("mark_all", unmarked, [], { mark: [], unmark: unmarked });
+    setFocusRequest({ target: saved ? "undo" : "mark_all" });
   }
 
-  function clearAll(event: SubmitEvent<HTMLFormElement>) {
+  async function clearAll(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || marked.length === 0) return;
-    onWrite("clear_all", [], marked, { mark: marked, unmark: [] });
+    const saved = await onWrite("clear_all", [], marked, { mark: marked, unmark: [] });
+    setFocusRequest({ target: saved ? "undo" : "clear_all" });
   }
 
-  function undoLesson() {
+  async function undoLesson() {
     if (busy || !undo) return;
-    onWrite("undo", undo.mark, undo.unmark, null);
+    const saved = await onWrite("undo", undo.mark, undo.unmark, null);
+    setFocusRequest({ target: saved ? "heading" : "undo" });
   }
 
+  // A toggle keeps the focus during its write, because it uses aria-disabled, not disabled.
   function toggle(topicId: string) {
     if (isPending(topicId)) return;
     const known = isKnown(topicId);
-    onWrite(null, known ? [] : [topicId], known ? [topicId] : [], null);
+    void onWrite(null, known ? [] : [topicId], known ? [topicId] : [], null);
   }
 
   return (
@@ -186,11 +212,17 @@ function LessonSection({
       aria-labelledby={headingId}
       className="bg-card text-card-foreground scroll-mt-4 rounded-(--radius) p-4 shadow-(--shadow-card) sm:p-6"
     >
-      <h2 id={headingId} className="font-heading text-xl font-extrabold [overflow-wrap:anywhere]">
+      <h2
+        id={headingId}
+        ref={headingRef}
+        tabIndex={-1}
+        className="font-heading text-xl font-extrabold [overflow-wrap:anywhere] outline-none"
+      >
         {`Lesson ${lesson.position}: ${lessonTitle(lesson.title, lesson.position)}`}
       </h2>
       <div className="mt-1 flex flex-wrap items-center gap-x-4">
-        <p className="text-muted-foreground text-sm">{`${marked.length} of ${ids.length} known`}</p>
+        {/* A polite live region, so a screen reader hears the new count after a lesson action. */}
+        <p aria-live="polite" className="text-muted-foreground text-sm">{`${marked.length} of ${ids.length} known`}</p>
         <a
           href={topicMapPath(courseId, lesson.position)}
           className="text-primary inline-flex min-h-11 min-w-11 items-center text-sm font-semibold underline underline-offset-2"
@@ -200,12 +232,13 @@ function LessonSection({
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         {/* With no script, these forms post the ids of the lesson, and the route redirects back to this lesson. */}
-        <form method="POST" action={action} onSubmit={markAll}>
+        <form method="POST" action={action} onSubmit={(event) => void markAll(event)}>
           {unmarked.map((id) => (
             <input key={id} type="hidden" name="mark" value={id} />
           ))}
           <input type="hidden" name="lesson" value={lesson.position} />
           <button
+            ref={markAllRef}
             type="submit"
             disabled={busy || unmarked.length === 0}
             aria-busy={running === "mark_all" || undefined}
@@ -214,12 +247,13 @@ function LessonSection({
             Mark all
           </button>
         </form>
-        <form method="POST" action={action} onSubmit={clearAll}>
+        <form method="POST" action={action} onSubmit={(event) => void clearAll(event)}>
           {marked.map((id) => (
             <input key={id} type="hidden" name="unmark" value={id} />
           ))}
           <input type="hidden" name="lesson" value={lesson.position} />
           <button
+            ref={clearAllRef}
             type="submit"
             disabled={busy || marked.length === 0}
             aria-busy={running === "clear_all" || undefined}
@@ -230,10 +264,11 @@ function LessonSection({
         </form>
         {undo && (
           <button
+            ref={undoRef}
             type="button"
             disabled={busy}
             aria-busy={running === "undo" || undefined}
-            onClick={undoLesson}
+            onClick={() => void undoLesson()}
             className={lessonButtonClass}
           >
             <Undo2 className="size-4" aria-hidden="true" />
@@ -281,16 +316,17 @@ export default function KnownTopicList({ courseId, lessons, knownTopicIds }: Pro
     mark: string[],
     unmark: string[],
     undo: LessonUndo | null,
-  ) {
+  ): Promise<boolean> {
     if (lessonAction !== null) setRunning((current) => new Map(current).set(position, lessonAction));
     const saved = await save(mark, unmark);
     if (lessonAction !== null) setRunning((current) => withoutKey(current, position));
     if (!saved) {
       // The undo stays, because a failed write changes no mark.
       setErrorLesson(position);
-      return;
+      return false;
     }
     setUndos((current) => (undo ? new Map(current).set(position, undo) : withoutKey(current, position)));
+    return true;
   }
 
   return (
@@ -309,9 +345,7 @@ export default function KnownTopicList({ courseId, lessons, knownTopicIds }: Pro
           running={running.get(lesson.position)}
           undo={undos.get(lesson.position)}
           error={errorLesson === lesson.position ? error : null}
-          onWrite={(lessonAction, mark, unmark, undo) => {
-            void write(lesson.position, lessonAction, mark, unmark, undo);
-          }}
+          onWrite={(lessonAction, mark, unmark, undo) => write(lesson.position, lessonAction, mark, unmark, undo)}
         />
       ))}
     </div>

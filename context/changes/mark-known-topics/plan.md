@@ -453,6 +453,14 @@ The checklist reads two JSON values. For a course of about 100 topics and some h
 
 The migration adds one table, one trigger and two functions. It changes no existing row and no existing object. No backfill exists. To roll back, drop the two functions, the trigger and the table. No other table points at `learner_events`.
 
+## Deviations
+
+The implementation review of 2026-11-28 (`reviews/impl-review.md`) changed three points of this plan:
+
+- F2: "What We're NOT Doing" says no quota on marks. The new migration `supabase/migrations/20261128020000_fix_learner_events_review.sql` limits a learner to 2,000 events in one hour (RD005), and the route answers 429 `too_many_marks`. Anyone can sign up, and the table only grows.
+- F1: the same migration adds indexes on `topic_id` and on `(user_id, created_at)` for the cascades and for the quota. So a rollback also drops the trigger `learner_events_quota`, the function `check_learner_event_quota` and these two indexes.
+- F6: the Implementation Approach says that nobody can change or delete a row. That holds for a learner. `service_role` keeps its rights, and the worker never writes this table.
+
 ## References
 
 - Roadmap item S-03: `context/foundation/roadmap.md:125-136`
@@ -507,7 +515,7 @@ The migration adds one table, one trigger and two functions. It changes no exist
 
 #### Automated
 
-- [x] 4.1 The roadmap holds the four records: `grep -c "general to detailed\|two values, known or no mark" context/foundation/roadmap.md` gives at least 3
+- [x] 4.1 The roadmap holds the four records: `grep -c "general to detailed\|two values, known or no mark" context/foundation/roadmap.md` gives at least 3 — 83b8c5e
 - [ ] 4.2 The CI run on `main` after the merge passes, the `deploy` job included: `gh run list --branch main --limit 1`
 
 #### Manual

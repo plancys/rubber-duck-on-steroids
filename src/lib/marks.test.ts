@@ -104,6 +104,8 @@ test("markErrorKey maps each database code to an error key", () => {
   assert.equal(markErrorKey("23514"), "marks_stale");
   assert.equal(markErrorKey("23503"), "marks_stale");
   assert.equal(markErrorKey("42501"), "not_found");
+  assert.equal(markErrorKey("RD005"), "too_many_marks");
+  assert.equal(markErrorKey("RD004"), "unknown");
   assert.equal(markErrorKey("23505"), "unknown");
   assert.equal(markErrorKey("PGRST301"), "unknown");
   assert.equal(markErrorKey(""), "unknown");

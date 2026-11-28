@@ -19,8 +19,11 @@ const CHECK_VIOLATION = "23514";
 const FOREIGN_KEY_VIOLATION = "23503";
 // No right to insert, for example when the database does not see the session.
 const INSUFFICIENT_PRIVILEGE = "42501";
+// The marks quota: at most 2000 events of one learner in one hour.
+const MARKS_QUOTA = "RD005";
 
-export type MarkErrorKey = "signed_out" | "not_configured" | "not_found" | "invalid_marks" | "marks_stale" | "unknown";
+export type MarkErrorKey =
+  "signed_out" | "not_configured" | "not_found" | "invalid_marks" | "marks_stale" | "too_many_marks" | "unknown";
 
 const MARK_ERROR_TEXTS: Record<MarkErrorKey, string> = {
   signed_out: "Sign in again, then mark the topics.",
@@ -28,6 +31,7 @@ const MARK_ERROR_TEXTS: Record<MarkErrorKey, string> = {
   not_found: "This course does not exist or you cannot open it.",
   invalid_marks: "The marks are not valid. Reload the page and try again.",
   marks_stale: "The page is out of date. Reload the page.",
+  too_many_marks: "You saved many marks in the last hour. Try again later.",
   unknown: "Something went wrong. Try again.",
 };
 
@@ -60,6 +64,7 @@ export function markNoticeText(key: string | null): string | null {
 export function markErrorKey(code: string): MarkErrorKey {
   if (code === CHECK_VIOLATION || code === FOREIGN_KEY_VIOLATION) return "marks_stale";
   if (code === INSUFFICIENT_PRIVILEGE) return "not_found";
+  if (code === MARKS_QUOTA) return "too_many_marks";
   return "unknown";
 }
 

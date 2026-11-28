@@ -4,8 +4,11 @@ import {
   checklistLessons,
   knownTopicsPath,
   parseTopicList,
+  topicParents,
   type ChecklistLesson,
   type ChecklistTopic,
+  type LessonMap,
+  type MapTopic,
   type TopicListTopic,
 } from "./topics.ts";
 
@@ -116,6 +119,25 @@ test("checklistLessons stops a parent loop before the topic where it starts", ()
   assert.deepEqual(outlines(threeTopics), ["1: a(c(b))", "2: "]);
   const ownParent = checklist([topic("self", LESSON_1, "self"), topic("sql", LESSON_1)]);
   assert.deepEqual(outlines(ownParent), ["1: self sql", "2: "]);
+});
+
+// topicParents and checklistLessons share the loop rule. This test proves topicParents of the map view on its own.
+test("topicParents keeps a parent of the same lesson and stops a parent loop", () => {
+  const mapTopic = (id: string, parentId: string | null): MapTopic => ({
+    id,
+    name: `Topic ${id}`,
+    description: null,
+    parent: parentId === null ? null : { id: parentId, name: `Topic ${parentId}`, homeLessonUrl: LESSON_1 },
+    links: [],
+  });
+  const map: LessonMap = {
+    lesson: { url: LESSON_1, position: 1, title: "First steps" },
+    // a and b point at each other. c is a part of a. The parent of d is not a topic of this lesson.
+    topics: [mapTopic("a", "b"), mapTopic("b", "a"), mapTopic("c", "a"), mapTopic("d", "x")],
+    relations: [],
+    others: [],
+  };
+  assert.deepEqual(Object.fromEntries(topicParents(map)), { a: null, b: "a", c: "a", d: null });
 });
 
 test("knownTopicsPath gives the path of the checklist page", () => {

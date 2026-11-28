@@ -558,6 +558,21 @@ const topicMapSteps = TOPICS
           ),
         { status: 400, json: { error: "invalid_marks" } },
       ],
+      // The route accepts only a form body, and Astro refuses a form post from another site (checkOrigin, true by
+      // default). This step proves that refusal, so a change of the default shows here.
+      [
+        "marks route refuses a form post from another site",
+        () =>
+          withValue(markTopicId, "no topic id from the open lesson", (topicId) =>
+            request(`/api/courses/${courseId}/marks`, {
+              method: "POST",
+              form: { mark: topicId },
+              headers: { Origin: "https://attacker.example", Accept: "application/json" },
+              cookies: courseJar,
+            }),
+          ),
+        { status: 403 },
+      ],
       // The main smoke user is the second learner. The route reads nothing before the insert. The insert check of the
       // database cannot see the topics of another learner, so the answer is marks_stale.
       [

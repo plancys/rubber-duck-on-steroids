@@ -9,7 +9,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(25);
+select plan(30);
 
 -- Create two users as the superuser.
 insert into auth.users (id, email)
@@ -124,6 +124,17 @@ select ok(
   'row-level security is on for learner_events'
 );
 
+-- A topic delete and a user delete cascade to the events. Each cascade column has an index.
+select has_index(
+  'public', 'learner_events', 'learner_events_topic_idx', array['topic_id'],
+  'the topic cascade of learner_events uses an index'
+);
+
+select has_index(
+  'public', 'learner_events', 'learner_events_user_created_idx', array['user_id', 'created_at'],
+  'the user cascade and the quota of learner_events use an index'
+);
+
 select is_empty(
   $$ select r.name, f.name
      from unnest(array['anon', 'service_role']) as r(name)
@@ -190,6 +201,16 @@ select throws_ok(
   '42501',
   null,
   'a learner cannot insert an event with an owner of their choice'
+);
+
+-- The newest event decides the state of a topic, so the server sets the time of each event.
+select throws_ok(
+  $$ insert into public.learner_events (course_id, topic_id, kind, created_at)
+     values ('cccccccc-0000-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000001', 'mark_known',
+             '2030-01-01 00:00:00+00') $$,
+  '42501',
+  null,
+  'a learner cannot insert an event with a time of their choice'
 );
 
 select throws_ok(
@@ -331,6 +352,33 @@ select throws_ok(
   '23514',
   'A learner event needs a topic of the course of the event.',
   'a learner cannot insert an event for the course of a different learner'
+);
+
+-- The quota: at most 2000 events of one learner in one hour. The first learner has 4 events of the last hour in
+-- course 1. The 3 events of course 2 are older than one hour, so they do not count. The superuser adds 1995 events,
+-- so the learner has 1999. One more event gives exactly 2000 and passes. The next event gives 2001 and fails.
+reset role;
+
+insert into public.learner_events (user_id, course_id, topic_id, kind)
+select '11111111-1111-1111-1111-111111111111', 'cccccccc-0000-0000-0000-000000000001',
+       'dddddddd-0000-0000-0000-000000000001', 'mark_known'
+from generate_series(1, 1995);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+select lives_ok(
+  $$ insert into public.learner_events (course_id, topic_id, kind)
+     values ('cccccccc-0000-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000001', 'unmark_known') $$,
+  'a learner can save the 2000th event of one hour'
+);
+
+select throws_ok(
+  $$ insert into public.learner_events (course_id, topic_id, kind)
+     values ('cccccccc-0000-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000001', 'mark_known') $$,
+  'RD005',
+  'A learner can save at most 2000 marks in one hour.',
+  'a learner cannot save more than 2000 events in one hour'
 );
 
 -- A course delete removes the events of the course. The delete removes the topics of course 1, and their events go
