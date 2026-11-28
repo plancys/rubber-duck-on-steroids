@@ -383,6 +383,15 @@ The course page adds two RPC reads to its `Promise.all`. For the docs course, th
 
 The migration adds one function. It changes no table, no row and no other function. No backfill exists. To roll back, revert the page and drop the function.
 
+## Deviations
+
+The implementation and its review of 2026-11-28 (`reviews/impl-review.md`) changed four points of this plan:
+
+- The snippet of the walk in Phase 2 moves lesson 3 before lesson 2 when the two lessons need each other. The rule text and the loop test keep the course order. The code follows the text: inside a loop of lessons that need each other, the walk drops each need of an earlier lesson on a later lesson (`src/lib/lesson-path.ts`, the algorithm of Tarjan). A dropped need gives no move and no note.
+- "Current State Analysis" says that the docs course gets two gap notes. It gets six, on lessons 1, 2, 3, 8 and 9. The gap rule counts each prerequisite that no lesson explains, in any direction, and the query behind the plan counted only the backward relations. On lessons 1 and 3, the note says "This lesson mentions it." (review F7).
+- The smoke steps of Phase 3 use fixture lesson 3, not lesson 1, because the checklist steps leave lesson 1 skipped.
+- Review F1: when the reads of the adjusted list fail, the course page keeps the course order and shows a notice. It answers 500 only when a read of the course page itself fails.
+
 ## References
 
 - Roadmap item S-04: `context/foundation/roadmap.md:138-150`
@@ -435,7 +444,7 @@ The migration adds one function. It changes no table, no row and no other functi
 
 #### Automated
 
-- [x] 4.1 The roadmap holds the S-04 records: `grep -c "Answered for S-04\|S-04 answers its part" context/foundation/roadmap.md` gives at least 2
+- [x] 4.1 The roadmap holds the S-04 records: `grep -c "Answered for S-04\|S-04 answers its part" context/foundation/roadmap.md` gives at least 2 — f533273
 - [ ] 4.2 The CI run on `main` after the merge passes, the `deploy` job included: `gh run list --branch main --limit 1`
 
 #### Manual

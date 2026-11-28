@@ -16,7 +16,9 @@
 --   or when the analysis is newer than the map. This is the test of topic_map_state. Else it is current.
 --   A loaded lesson with no analysis has no item.
 -- topics: each live topic of the course with a home lesson, in id order, as { id, name, home_lesson_url }.
---   A live topic is not merged and not retired.
+--   A live topic is not merged and not retired. A topic keeps its home lesson URL until the next map build, also
+--   when a reload removed that lesson. course_topic_list drops such a topic, but this function keeps it. So the
+--   lesson that explains it stays in the adjusted list, and the learner sees nothing hidden until the map build.
 -- explains: each pair of a lesson and a live topic of the course with an explains link from a passage of that lesson,
 --   in the order lesson URL, topic id, as { lesson_url, topic_id }. A mentions link does not count.
 --   A link counts only while its passage keeps the text of the link.

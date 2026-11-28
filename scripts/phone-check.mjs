@@ -326,8 +326,8 @@ async function loadCourse(page, width) {
 }
 
 // Opens the checklist page of the loaded course, clicks "Mark all" in the first lesson section and waits for the save.
-// So the course page shows that lesson as skipped in each look. Without a map, the checklist has no lesson section.
-// Then the step counts as skipped, and the check measures the course page anyway.
+// Then it checks that the course page shows a skipped lesson, so each look measures one. Without a map, the checklist
+// has no lesson section. Then the step counts as skipped, and the check measures the course page anyway.
 async function markFirstLesson(page, width) {
   const name = "mark all";
   await page.goto(`${BASE_URL}${coursePath}/known`);
@@ -345,8 +345,19 @@ async function markFirstLesson(page, width) {
   const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.url() === marksUrl);
   await button.click();
   const status = (await saved).status();
-  record(name, width, status === 200 ? [] : [`the save answered ${status}`]);
-  return status === 200;
+  if (status !== 200) {
+    record(name, width, [`the save answered ${status}`]);
+    return false;
+  }
+  // The course page must show the lesson as skipped, so that each look measures a skipped lesson.
+  await page.goto(`${BASE_URL}${coursePath}`);
+  const skipped = await page.locator('[data-testid="lesson-item"][data-path-state="skipped"]').count();
+  if (skipped === 0) {
+    report("SKIP", name, width, "the course page shows no skipped lesson after the click");
+    return false;
+  }
+  record(name, width, []);
+  return true;
 }
 
 // The map pages of the loaded course: the overview, and one lesson with a topic. The first overview check picks

@@ -146,7 +146,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - When does a lesson count as already known, and when does the order change? This is part of the missing domain rule (Open Roadmap Question 1). — Owner: user. Block: no. Answered for S-04: a lesson is skipped when the learner knows every topic that it explains. A lesson with no current analysis or no explained topic is never skipped. A later lesson that first explains a needed topic moves to the place right before the first lesson that needs it, when the learner knows neither topic. When no lesson explains the needed topic, the lesson that needs it gets a gap note. The plan of S-04 (`adjusted-lesson-list`) records the rule.
   - Which numbers stand for "nearly all" and "noticeably faster"? (Open Roadmap Question 12) — Owner: user. Block: no.
-- **Risk:** It is the north star, so it goes as early as its prerequisites allow. It uses claimed knowledge, and S-06 adds the check later. It cannot be planned before the domain rule exists.
+- **Risk:** It is the north star, so it goes as early as its prerequisites allow. It uses claimed knowledge, and S-06 adds the check later. Its plan (`adjusted-lesson-list`) answers the S-04 part of the domain rule.
 - **Status:** in-progress
 
 ### S-05: Collapsed known passages

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  knownLiveTopicIds,
   knownTopicIds,
   parseLearnerEvents,
   topicStates,
@@ -164,6 +165,20 @@ test("parseLearnerEvents reads the events and drops an item that does not fit", 
     sqlEvent("e1", "mark_known", "2026-11-28T10:00:00.123456+00:00"),
     sqlEvent("e2", "unmark_known", "2026-11-28T10:00:01+00:00"),
   ]);
+});
+
+test("knownLiveTopicIds keeps the live topics in the state claimed, after the merges", () => {
+  const merges = new Map([["old", "new"]]);
+  const events = [
+    // A mark on a merged topic counts for the topic that replaces it.
+    event("e1", "old", "mark_known", 1),
+    // A topic that is not live does not count.
+    event("e2", "gone", "mark_known", 2),
+    // An unmark after a mark gives no known topic.
+    event("e3", "sql", "mark_known", 3),
+    event("e4", "sql", "unmark_known", 4),
+  ];
+  assert.deepEqual([...knownLiveTopicIds(events, merges, new Set(["new", "sql"]))], ["new"]);
 });
 
 test("parseLearnerEvents gives no event for a value that is not a list", () => {

@@ -1,7 +1,7 @@
 ---
 change_id: adjusted-lesson-list
 title: Adjusted lesson list
-status: implementing
+status: impl_reviewed
 created: 2026-11-28
 updated: 2026-11-28
 archived_at: null
@@ -53,3 +53,11 @@ Roadmap item S-04 of milestone M-01 (FR-008, US-01), the north star of the miles
   2. Apply the migration `20261128120000_create_course_lesson_map.sql` to production with `npx supabase db push`.
   3. Push the branch, open the pull request, and merge it after CI passes.
   4. Check row 4.2 with `gh run list --branch main --limit 1`. Then open a real course with marks in production (row 4.4).
+
+### Implementation review (2026-11-28)
+
+- The full review is `reviews/impl-review.md`: verdict NEEDS ATTENTION, with 0 critical findings, 1 warning and 8 observations. Plan drift: 0 DRIFT and 0 MISSING.
+- The agent took the recommended option of each finding: 8 fixed (F1 to F8, F5 through Fix A), and F9 accepted.
+- Gates after the fixes: 283 unit tests, lint, astro check, the build, pgTAP (300 tests), the phone check (180 page checks, and the new check found a skipped lesson), and the smoke test (91 steps). The first smoke run failed one sign-in step with 429, because a browser check used the sign-in limit just before it. The second run passed.
+- The local setup ended clean. `.dev.vars` is back byte for byte, and the build has no test flags. The agent stopped the preview, the worker, the engine and the fixture site.
+- Two skill files changed during the run from outside it, at 09:54: `.claude/skills/10x-archive/SKILL.md` and `.claude/skills/10x-implement/SKILL.md`. They add a Linear status step. The agent did not commit them and did not change Linear.

@@ -4,7 +4,7 @@
 // its tests.
 
 import type { createClient } from "@/lib/supabase";
-import { knownTopicIds, parseLearnerEvents, topicStates, type LearnerEvent } from "./learner-state.ts";
+import { knownLiveTopicIds, parseLearnerEvents, type LearnerEvent } from "./learner-state.ts";
 import type { MergedTopic } from "./topics.ts";
 
 type Client = NonNullable<ReturnType<typeof createClient>>;
@@ -376,13 +376,12 @@ export function pathCounts(path: readonly PathLesson[]): { skipped: number; move
 }
 
 /**
- * The live topics of the map that the learner knows. topicStates follows the merges of the map, and a topic counts
- * when its state is claimed. S-06 decides how the states confirmed and refuted count.
+ * The live topics of the map that the learner knows. knownLiveTopicIds holds the rule, which the checklist also uses:
+ * it follows the merges of the map, and a topic counts when its state is claimed.
  */
 export function knownLiveTopics(events: readonly LearnerEvent[], map: CourseLessonMap): Set<string> {
   const merges = new Map(map.merged.map((topic) => [topic.id, topic.mergedInto]));
-  const live = new Set(map.topics.map((topic) => topic.id));
-  return new Set([...knownTopicIds(topicStates(events, merges))].filter((id) => live.has(id)));
+  return knownLiveTopicIds(events, merges, new Set(map.topics.map((topic) => topic.id)));
 }
 
 /** The lesson map of a course and the known topics of the learner, or an error of a read. */
