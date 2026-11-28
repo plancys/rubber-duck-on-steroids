@@ -64,3 +64,10 @@ The owner asked on 2026-11-28 to run all phases with `/10x-implement` with no in
 - `KnownTopicList.tsx` (F3): the focus goes to "Undo" after "Mark all" or "Clear all", to the lesson heading after "Undo", and back to the button after a failure. The lesson count is a polite live region.
 - Tests (F4, F5): pgTAP for the server time, the indexes and the limit, a unit test of `topicParents`, and a smoke step that expects 403 for a form post from another site.
 - `AGENTS.md` (F6) and the comment of `topicStates` (F9).
+
+### Production (2026-11-28)
+
+- The owner approved the merge, and applied both migrations to production with `npx supabase db push --db-url ...` before the merge (row 4.3).
+- The agent pushed the branch and opened pull request #10. CI passed: `ci` in 1 min 48 s, `smoke (full)` in 4 min 59 s, and `smoke (without-sample)` in 4 min 39 s. The agent merged it as `07ce415`.
+- CI run 46115674645 on `main` passed in all six jobs (row 4.2). The migration step of `deploy` reported "Remote database is up to date.", because the push of the owner came first. GitHub shows the production deployment of `07ce415` at 06:18 UTC.
+- Rows 3.5 (the speed judgment) and 4.4 (the production check) wait for the owner.
