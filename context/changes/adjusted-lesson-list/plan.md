@@ -403,17 +403,17 @@ The migration adds one function. It changes no table, no row and no other functi
 
 #### Automated
 
-- [x] 1.1 The migration applies to the local database: `npx supabase migration up`
-- [x] 1.2 The pgTAP tests pass, the new file included: `npx supabase test db`
-- [x] 1.3 `npm run db:types` adds `course_lesson_map` to `src/db/database.types.ts`
-- [x] 1.4 Lint and types pass: `npm run lint` and `npx astro check`
+- [x] 1.1 The migration applies to the local database: `npx supabase migration up` — 0b74ce6
+- [x] 1.2 The pgTAP tests pass, the new file included: `npx supabase test db` — 0b74ce6
+- [x] 1.3 `npm run db:types` adds `course_lesson_map` to `src/db/database.types.ts` — 0b74ce6
+- [x] 1.4 Lint and types pass: `npm run lint` and `npx astro check` — 0b74ce6
 
 ### Phase 2: Rule function
 
 #### Automated
 
-- [ ] 2.1 The unit tests pass, the new tests included: `npm run test:unit`
-- [ ] 2.2 Lint and types pass: `npm run lint` and `npx astro check`
+- [x] 2.1 The unit tests pass, the new tests included: `npm run test:unit`
+- [x] 2.2 Lint and types pass: `npm run lint` and `npx astro check`
 
 ### Phase 3: Course page
 
