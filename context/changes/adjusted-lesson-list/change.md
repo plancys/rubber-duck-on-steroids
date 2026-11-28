@@ -60,4 +60,10 @@ Roadmap item S-04 of milestone M-01 (FR-008, US-01), the north star of the miles
 - The agent took the recommended option of each finding: 8 fixed (F1 to F8, F5 through Fix A), and F9 accepted.
 - Gates after the fixes: 283 unit tests, lint, astro check, the build, pgTAP (300 tests), the phone check (180 page checks, and the new check found a skipped lesson), and the smoke test (91 steps). The first smoke run failed one sign-in step with 429, because a browser check used the sign-in limit just before it. The second run passed.
 - The local setup ended clean. `.dev.vars` is back byte for byte, and the build has no test flags. The agent stopped the preview, the worker, the engine and the fixture site.
-- Two skill files changed during the run from outside it, at 09:54: `.claude/skills/10x-archive/SKILL.md` and `.claude/skills/10x-implement/SKILL.md`. They add a Linear status step. The agent did not commit them and did not change Linear.
+- During the run, the owner committed `f2059bf` on this branch. It adds a Linear status step to `/10x-implement` and `/10x-archive`. The phases ran with the earlier version of `/10x-implement`, so the agent did not move RUB-11 at the start.
+
+### Production (2026-11-28)
+
+- The owner approved the merge and the archive. The agent pushed the branch and opened pull request #12. CI passed: `ci` in 1 min 21 s, `smoke (full)` in 4 min 16 s, and `smoke (without-sample)` in 5 min 26 s. The agent merged it as `1b9105f`.
+- CI run 46130378573 on `main` passed in all six jobs (row 4.2). The `deploy` job applied `20261128120000_create_course_lesson_map.sql` to production at 09:31 UTC, before it deployed the Worker (row 4.3). The owner did not push the migration by hand, because the deploy job does it first.
+- Rows 3.8 (the judgment of the skips) and 4.4 (a real course with marks in production) wait for the owner.

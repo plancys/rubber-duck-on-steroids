@@ -445,9 +445,9 @@ The implementation and its review of 2026-11-28 (`reviews/impl-review.md`) chang
 #### Automated
 
 - [x] 4.1 The roadmap holds the S-04 records: `grep -c "Answered for S-04\|S-04 answers its part" context/foundation/roadmap.md` gives at least 2 — f533273
-- [ ] 4.2 The CI run on `main` after the merge passes, the `deploy` job included: `gh run list --branch main --limit 1`
+- [x] 4.2 The CI run on `main` after the merge passes, the `deploy` job included: `gh run list --branch main --limit 1` — 1b9105f
 
 #### Manual
 
-- [ ] 4.3 The owner applies the migration to production with `npx supabase db push`, then merges the pull request
+- [x] 4.3 The owner applies the migration to production with `npx supabase db push`, then merges the pull request — 1b9105f
 - [ ] 4.4 In production, the owner opens a real course with marks, and the Lessons section shows the adjusted list with the skips of those marks
