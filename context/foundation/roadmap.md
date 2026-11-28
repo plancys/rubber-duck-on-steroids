@@ -45,7 +45,7 @@ A working software engineer learns new technologies through online courses. The 
 | S-01 | load-course-from-url            | load a course from the URL of its web page and see its lessons in order              | F-01          | FR-001, FR-002, US-01 | done |
 | S-02 | course-topic-graph              | see a loaded course as a graph of its topics                                         | S-01          | FR-003                | done        |
 | S-03 | mark-known-topics               | mark the topics they believe they already know                                       | S-02          | FR-005                | done |
-| S-04 | adjusted-lesson-list            | get a lesson list adjusted to their knowledge, with known lessons marked as skipped  | S-03          | FR-008, US-01         | in-progress |
+| S-04 | adjusted-lesson-list            | get a lesson list adjusted to their knowledge, with known lessons marked as skipped  | S-03          | FR-008, US-01         | done |
 | S-05 | collapsed-known-passages        | read a lesson in which the passages on known topics are collapsed                    | S-04          | FR-009, US-01         | blocked  |
 | S-06 | double-check-questions          | answer questions that double-check the knowledge they claimed                        | S-03          | FR-006                | blocked  |
 | S-07 | knowledge-on-course-graph       | see how their knowledge fits the course graph, one part at a time                    | S-03          | FR-007                | proposed |
@@ -147,7 +147,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
   - When does a lesson count as already known, and when does the order change? This is part of the missing domain rule (Open Roadmap Question 1). — Owner: user. Block: no. Answered for S-04: a lesson is skipped when the learner knows every topic that it explains. A lesson with no current analysis or no explained topic is never skipped. A later lesson that first explains a needed topic moves to the place right before the first lesson that needs it, when the learner knows neither topic. When no lesson explains the needed topic, the lesson that needs it gets a gap note. The plan of S-04 (`adjusted-lesson-list`) records the rule.
   - Which numbers stand for "nearly all" and "noticeably faster"? (Open Roadmap Question 12) — Owner: user. Block: no.
 - **Risk:** It is the north star, so it goes as early as its prerequisites allow. It uses claimed knowledge, and S-06 adds the check later. Its plan (`adjusted-lesson-list`) answers the S-04 part of the domain rule.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-05: Collapsed known passages
 
@@ -295,3 +295,4 @@ The four entries below are the later phases from the research of the change `cou
 - **S-01: Learner can load a course by giving the URL of its web page, and see its lessons in the order of the course.** — Archived 2026-11-25 → `context/archive/2026-11-24-load-course-from-url/`. Lesson: —.
 - **S-02: Learner can see a loaded course as a graph of its topics and how they relate.** — Archived 2026-11-27 → `context/archive/2026-11-25-course-topic-graph/`. Lesson: —.
 - **S-03: Learner can mark the topics they believe they already know.** — Archived 2026-11-28 → `context/archive/2026-11-27-mark-known-topics/`. Lesson: —.
+- **S-04: Learner can get a lesson list for a course adjusted to their knowledge, reordered if needed, with known lessons marked as skipped.** — Archived 2026-11-28 → `context/archive/2026-11-28-adjusted-lesson-list/`. Lesson: —.
