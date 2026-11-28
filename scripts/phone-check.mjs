@@ -12,6 +12,8 @@
 // Without the setting, the check skips the course page. FIXTURE_COURSE_URL overrides the start page of the course.
 // Run scripts/fixture-server.mjs and the worker to get a course with lessons. Without them, the course does not load,
 // but its page still renders. A load that ends ready starts a topic job, so the check waits for the end of that job too.
+// After the load, the check clicks "Mark all" in the first lesson section of the checklist page, so the course page
+// shows a skipped lesson. A course with no map has no lesson section, and the check skips the click.
 // The map pages: the check opens the topic map of that course and one lesson of the map. It waits for the map canvas
 // before it measures. Run the engine (npm run engine -- --fake) to get a map. Without it, the map page shows no map
 // and the check skips the lesson page.
@@ -323,6 +325,41 @@ async function loadCourse(page, width) {
   return landed.pathname;
 }
 
+// Opens the checklist page of the loaded course, clicks "Mark all" in the first lesson section and waits for the save.
+// Then it checks that the course page shows a skipped lesson, so each look measures one. Without a map, the checklist
+// has no lesson section. Then the step counts as skipped, and the check measures the course page anyway.
+async function markFirstLesson(page, width) {
+  const name = "mark all";
+  await page.goto(`${BASE_URL}${coursePath}/known`);
+  // The island saves the click with a script request. Before the hydration, the click posts the form.
+  await waitForIslands(page);
+  const button = page
+    .locator('[data-testid="known-lesson"]')
+    .first()
+    .getByRole("button", { name: "Mark all", exact: true });
+  if ((await button.count()) === 0 || !(await button.isEnabled())) {
+    report("SKIP", name, width, "the checklist has no Mark all button to click");
+    return false;
+  }
+  const marksUrl = `${BASE_URL}${coursePath.replace(/^\/dashboard\/courses\//, "/api/courses/")}/marks`;
+  const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.url() === marksUrl);
+  await button.click();
+  const status = (await saved).status();
+  if (status !== 200) {
+    record(name, width, [`the save answered ${status}`]);
+    return false;
+  }
+  // The course page must show the lesson as skipped, so that each look measures a skipped lesson.
+  await page.goto(`${BASE_URL}${coursePath}`);
+  const skipped = await page.locator('[data-testid="lesson-item"][data-path-state="skipped"]').count();
+  if (skipped === 0) {
+    report("SKIP", name, width, "the course page shows no skipped lesson after the click");
+    return false;
+  }
+  record(name, width, []);
+  return true;
+}
+
 // The map pages of the loaded course: the overview, and one lesson with a topic. The first overview check picks
 // that lesson from the outline. Its first paragraph holds the topic count of the lesson, for example "2 topics".
 async function checkMapPages(page, width) {
@@ -370,11 +407,13 @@ async function checkSignedInPages(page, width) {
   // The job check page. Without ENABLE_JOB_CHECK on the server, it answers 404 and the check skips it.
   const jobCheck = "/dashboard/job-check";
   await guarded(jobCheck, width, () => checkPage(page, jobCheck, width, { expectBar: true }));
-  // The course pages. The first pass loads one course, and every pass checks the list, the page and the checklist
-  // page of that course, then the map pages of that course.
+  // The course pages. The first pass loads one course and marks the topics of its first lesson. Every pass checks the
+  // list, the page and the checklist page of that course, then the map pages of that course.
   if (await guarded(COURSES, width, () => checkPage(page, COURSES, width, { expectBar: true }))) {
     if (coursePath === undefined) {
       coursePath = (await guarded("load course", width, () => loadCourse(page, width))) || null;
+      // The click comes before the first check of the course page, so each look shows a skipped lesson.
+      if (coursePath) await guarded("mark all", width, () => markFirstLesson(page, width));
     }
     if (coursePath) {
       await guarded(coursePath, width, () => checkPage(page, coursePath, width, { expectBar: true }));

@@ -8,11 +8,13 @@ allowed-tools:
   - Edit
   - Bash
   - AskUserQuestion
+  - mcp__linear-server__get_issue
+  - mcp__linear-server__save_issue
 ---
 
 # /10x-archive — Close a Change
 
-Move a completed change folder from `context/changes/<change-id>/` to `context/archive/<created-date>-<change-id>/`, stamp `change.md` with `status: archived` + `archived_at`, use `git mv` so file history follows, and — if `context/foundation/roadmap.md` carries a roadmap item whose `Change ID` equals `<change-id>` — close that item too: flip its `Status` to `done` and append an entry to the roadmap's `## Done` section.
+Move a completed change folder from `context/changes/<change-id>/` to `context/archive/<created-date>-<change-id>/`, stamp `change.md` with `status: archived` + `archived_at`, use `git mv` so file history follows, and — if `context/foundation/roadmap.md` carries a roadmap item whose `Change ID` equals `<change-id>` — close that item too: flip its `Status` to `done` and append an entry to the roadmap's `## Done` section. If the roadmap's `## Backlog Handoff` table maps `<change-id>` to a Linear issue, the skill also moves that issue to a completed status.
 
 The gate is **lenient warn-only** — `/10x-archive` blocks on uncommitted changes inside the change folder or pre-existing staged changes. Everything else (incomplete Progress, missing impl-review, status not in `{implemented, impl_reviewed}`) is surfaced as a warning followed by a confirmation prompt; the user can still archive.
 
@@ -36,7 +38,7 @@ Examples:
 You can list active changes with: `ls context/changes/`
 ```
 
-   Then **wait** for the user to provide an argument.
+Then **wait** for the user to provide an argument.
 
 ## Argument Parsing
 
@@ -107,6 +109,7 @@ Collect the following warnings, then present them all at once with a single conf
    - **If the plan uses Auto/Manual subsections** (any `### Phase N:` block contains a `#### Automated` or `#### Manual` heading) and `<N> > 0`, queue: `<N> Progress items still pending (<X> automated, <Y> manual): <comma-separated list of "N.M <title>" tokens, truncated to 5 with "…" if longer>.` Order the combined token list by automated items first (in document order), then manual items (in document order); the truncation cap of 5 applies to the combined list.
    - **Legacy fallback**: if no `### Phase N:` block in Progress contains either `#### Automated` or `#### Manual` heading, fall back to the original behavior — count `- [ ]` lines under `### Phase` sub-headers; if any remain, queue: `<N> Progress items still pending: <comma-separated list of "N.M <title>" tokens, truncated to 5 with "…" if longer>.` (no parenthetical breakdown). This preserves zero behavior change for plans authored before workflow-v2.
    - If `plan.md` is missing, queue: `No plan.md found in change folder.` and skip the Progress count.
+
 3. **Review coverage check**: collect every phase number from `## Progress` (including pending phases), then read `reviews/impl-review*.md` and union the phase numbers actually reviewed for this plan. New reports declare `Reviewed phases`; a full report listing all phases covers them just like several phase reports. For older reports accept unambiguous scope such as `Phase 3 of 4` (covers only 3), an explicit range/list, or a full review whose body establishes exactly which phases were checked. A filename, `impl_reviewed` status, verdict, or bare “Full plan” label alone is not evidence. Ignore reports for other plans. Conflicting or unclear scope → queue `Uncertain review coverage: <report paths and reason>` without guessing phase numbers. Queue `Missing review coverage for phases: <numbers>` for the difference between Progress and confirmed coverage. If no reports exist, also queue `No impl-review found at reviews/impl-review*.md.` If Progress is absent or unparseable, warn that coverage cannot be determined; do not claim full coverage.
 4. **Missing-SHA check**: parse the `## Progress` section of `plan.md` (if it exists). Count `- [x]` rows whose line does NOT end with ` — <sha>` where `<sha>` is 7+ hexadecimal characters (i.e., the regex ` — [0-9a-f]{7,}$` does not match). If the count is non-zero, queue: `<N> Progress rows missing SHA suffix: <comma-separated "N.M <title>" tokens, truncated to 5 with "…" if longer>.` SHA-less rows are legitimate for empty-diff phases and for plans that completed before the SHA contract shipped — this is a soft signal, not a defect. Skip silently if `plan.md` is missing (the Pending Progress check already covered that case).
 
@@ -140,7 +143,7 @@ Repeat the warnings in the question text (one short line each), so they are visi
     description: `Don't archive. Suggest /10x-implement <change-id> next.`
   - label: `Cancel`
     description: `Don't archive. Exit cleanly without further action.`
-  multiSelect: false
+    multiSelect: false
 
 - **Continue archiving** → proceed to "Move and stamp" below.
 - **Resume implementation** → print `→ /10x-implement <change-id>` and copy that to clipboard via `pbcopy 2>/dev/null || clip.exe 2>/dev/null || xclip -selection clipboard 2>/dev/null || true` (or `Set-Clipboard` on PowerShell) (best effort, cross-platform). STOP.
@@ -170,7 +173,7 @@ If no warnings were queued and no repoint mapping is proposed, skip the prompt a
 
 4. **Stage the stamp into the rename.** The Edit in step 2 modified `change.md` in the working tree, but `git mv` only stages the rename with the file's HEAD content. Run `git add "$DEST/change.md"` so the frontmatter stamp lands in the same commit as the rename. If repointing was approved, also run `git add "$DEST/plan.md" "$DEST/reviews/archive-sha-repoint.md"`. Verify the staged diff includes the approved suffix replacements and mapping note, as well as the move; `git mv` alone does not capture these edits or the new note.
 
-5. **Close the matching roadmap item.** Run this on **every** archive — the roadmap lookup is mandatory. "Best effort" scopes only the *edits*: a missing roadmap or an edit target that isn't found is skipped silently and never blocks, rolls back, or prompts the archive. It does NOT mean "assume there's no roadmap and skip the check." Not looking is a defect — the confirmation (step 7) must report the outcome either way.
+5. **Close the matching roadmap item.** Run this on **every** archive — the roadmap lookup is mandatory. "Best effort" scopes only the _edits_: a missing roadmap or an edit target that isn't found is skipped silently and never blocks, rolls back, or prompts the archive. It does NOT mean "assume there's no roadmap and skip the check." Not looking is a defect — the confirmation (step 8) must report the outcome either way.
 
    1. `test -f context/foundation/roadmap.md`. If absent, skip this step silently.
    2. Capture whether the file is already dirty: `ROADMAP_PREDIRTY=$(git status --porcelain context/foundation/roadmap.md 2>/dev/null)`. (Used in sub-step 7 to decide whether to stage it into the archive commit.)
@@ -179,7 +182,8 @@ If no warnings were queued and no repoint mapping is proposed, skip the prompt a
       - and in the `## Foundations` / `## Slices` bodies — the `### <ID>: …` block that contains a `- **Change ID:** <change-id>` line.
 
       `<ID>` is that item's roadmap-local id (`F-NN` or `S-NN`); `<Outcome>` is the text of its `- **Outcome:**` line (keep a leading `(foundation) ` if present).
-   4. **No match** → print `ℹ context/foundation/roadmap.md has no item with Change ID "<change-id>" — roadmap left untouched.` and skip the rest of this step. Match is exact-string only; a roadmap slice can spawn several changes, so a near-miss is intentionally *not* closed.
+
+   4. **No match** → print `ℹ context/foundation/roadmap.md has no item with Change ID "<change-id>" — roadmap left untouched.` and skip the rest of this step. Match is exact-string only; a roadmap slice can spawn several changes, so a near-miss is intentionally _not_ closed.
    5. **Match found** → apply the three edits below with the Edit tool. Each is independent and best effort: if a target isn't where the `/10x-roadmap` template puts it (hand-edited roadmap, older format), skip that sub-edit, keep going, and note what was skipped — never abort the archive over roadmap shape. Touch only the fields named here; leave `Outcome`, `Prerequisites`, `Parallel with`, `Risk`, etc. alone.
       1. **`## At a glance`** — in the matched table row, set the **Status** column cell to `done`.
       2. **Item body** — in the `### <ID>: …` block, rewrite the `- **Status:**` line to `- **Status:** done`.
@@ -207,7 +211,14 @@ If no warnings were queued and no repoint mapping is proposed, skip the prompt a
 
    Skip this step entirely if `git` is unavailable or the repo is not a git repo (the pre-flight already warned).
 
-7. **Print confirmation**:
+7. **Close the Linear issue** (best effort). Do this step after the commit, so that Linear shows a completed status only for an archived change. Skip it when step 5 found no roadmap item for `<change-id>`.
+   1. In the `## Backlog Handoff` table of `context/foundation/roadmap.md`, find the row whose **Change ID** cell equals `<change-id>`. Read its **Linear** cell, for example `RUB-10`. Use only the ID in that cell. Do not guess an ID from the change-id or the branch name. If the table, the column or the ID is missing, record `no issue ID in the Backlog Handoff table` and stop this step.
+   2. If this session has no Linear MCP tools, record `no Linear MCP in this session` and stop this step.
+   3. Read the issue with `get_issue`. If its status type is `completed` or `canceled`, record `already <status>, left untouched` and stop this step.
+   4. Call `save_issue` with `id: <LINEAR-ID>` and `state: "completed"`. Linear sets a status of that type, for example `Done`. Record `<old status>  →  <new status>`.
+   5. If a call fails, record `not updated: <error>. Move it by hand.` A Linear failure never blocks, prompts or rolls back the archive.
+
+8. **Print confirmation**:
 
 ```
 ✓ Archived <change-id>
@@ -219,6 +230,7 @@ change.md updated:
   updated:      <today>
 
 roadmap.md:     closed <ID> "<Outcome>"  →  Status: done, entry added to ## Done    ← if matched; else print: no item with Change ID "<change-id>" — checked, left untouched. Always print one of the two; it proves the lookup ran.
+linear:         <LINEAR-ID> <old status>  →  <new status>    ← or the result recorded in step 7. Omit this line when step 5 found no roadmap item.
 
 Committed as: <short SHA> chore(archive): close <change-id>
 
@@ -230,6 +242,7 @@ The folder is now read-only by convention. To start a new change: /10x-new <new-
 - Any unexpected filesystem error during the move leaves the source folder in place — the staged `change.md` edits land before the move, so on partial failure the user sees `status: archived` in `context/changes/<change-id>/change.md` but the folder is still in `context/changes/`. `/10x-status` will surface this as a `status drift: archived in wrong folder` warning. Re-running `/10x-archive` is safe: the resolution check at the top will detect `status: archived` and ask the user to inspect manually.
 - Do NOT attempt rollback — the change.md edits are intent-marking, and partial state is recoverable by hand.
 - The roadmap-close step ("Move and stamp" step 5) is isolated: any failure there is caught, noted in the confirmation output, and skipped. It never aborts the archive and never triggers rollback. A half-applied roadmap edit is recoverable by hand.
+- The Linear step ("Move and stamp" step 7) is isolated in the same way. A failure there goes into the confirmation output. It never aborts the archive and never triggers rollback.
 
 ## What this skill does NOT do
 
@@ -239,4 +252,5 @@ The folder is now read-only by convention. To start a new change: /10x-new <new-
 - Does not push. The archive commit lands locally; `git push` is the user's call.
 - Does not rewrite the roadmap beyond closing the one matched item. When `context/foundation/roadmap.md` has an item whose `Change ID` equals the archived `<change-id>`, this skill flips only that item's `Status` (table cell + `### <ID>:` body line), appends one `## Done` bullet, and bumps the `updated:` date. It never reorders slices, recomputes the dependency graph, edits other items, or creates a roadmap that doesn't exist. No match (or no roadmap file) → roadmap untouched.
 - Does not write to `context/archive/<...>/` after the move; archived folders are read-only by convention. Other 10x skills (`/10x-research`, `/10x-frame`, `/10x-plan`, `/10x-plan-review`, `/10x-implement`, `/10x-impl-review`, `/10x-tdd`, `/10x-goal-implement`) refuse when a resolved path starts with `context/archive/`.
+- Does not create, edit or reopen Linear issues. It only moves the one issue that the `## Backlog Handoff` table maps to `<change-id>`, and only forward to a completed status.
 - Does not unarchive. To revisit an archived change, open a new change with `/10x-new` and reference the archived folder for context.

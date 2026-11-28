@@ -668,6 +668,7 @@ export type Database = {
         };
       };
       complete_job: { Args: { job_id: string; lease: string; result: Json }; Returns: boolean };
+      course_lesson_map: { Args: { course_id: string }; Returns: Json };
       course_topic_list: { Args: { course_id: string }; Returns: Json };
       extension_save_page: {
         Args: { course_id: string; markdown: string; title: string; token: string; url: string };

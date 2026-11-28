@@ -115,3 +115,16 @@ export function knownTopicIds(states: ReadonlyMap<string, TopicState>): Set<stri
   }
   return known;
 }
+
+/**
+ * The live topics that the learner knows: the topics in the state claimed after the merges, among the live topics.
+ * The live end of a merge chain can be a topic outside the course, so the caller gives the live topics of the course.
+ * The checklist and the adjusted lesson list both use this rule. S-06 changes it when it adds confirmed and refuted.
+ */
+export function knownLiveTopicIds(
+  events: readonly LearnerEvent[],
+  merges: ReadonlyMap<string, string>,
+  live: ReadonlySet<string>,
+): Set<string> {
+  return new Set([...knownTopicIds(topicStates(events, merges))].filter((id) => live.has(id)));
+}

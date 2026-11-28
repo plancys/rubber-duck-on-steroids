@@ -69,6 +69,12 @@ const MAP_LESSON = 1;
 let topicJobId = null;
 // A topic of the open lesson. The mark steps mark it and remove the mark. The checklist steps mark it again.
 let markTopicId = null;
+// The lesson that the lesson path steps skip and bring back. Lesson 1 has one topic, because Readability drops the
+// heading that repeats the page title. The checklist steps leave that topic marked, so lesson 1 is skipped before
+// the lesson path steps. No step before them marks a topic of lesson 3.
+const PATH_LESSON = 3;
+// The topics of PATH_LESSON on the course page. The lesson path steps mark them, then remove the marks.
+let pathTopicIds = null;
 
 function cookieHeader(cookies) {
   return [...cookies.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
@@ -439,6 +445,45 @@ function knownState(body, topicId) {
   return new RegExp(`data-topic-id="${topicId}"[^>]*data-known="(true|false)"`).exec(body)?.[1] ?? null;
 }
 
+// The markup of the item of one lesson in the lesson path of the course page, up to the next item or the end of the
+// list. The item holds data-testid, data-status and data-position first. A position is a number, so it is safe in a
+// RegExp. An empty text when the page shows no lesson path or no item of the lesson.
+function lessonItem(body, position) {
+  const start = `data-testid="lesson-item" data-status="\\w+" data-position="${position}"`;
+  const item = new RegExp(`${start}[\\s\\S]*?(?=data-testid="lesson-item"|</ol>)`);
+  return item.exec(body)?.[0] ?? "";
+}
+
+// The path state of one lesson on the course page, for example "open" or "skipped". Null without an item.
+function pathState(body, position) {
+  return /data-path-state="(\w+)"/.exec(lessonItem(body, position))?.[1] ?? null;
+}
+
+// The ids of the topics in the item of one lesson on the course page.
+function lessonTopicIds(body, position) {
+  return [...lessonItem(body, position).matchAll(/data-topic-id="([0-9a-f-]{36})"/g)].map(([, id]) => id);
+}
+
+// Saves marks of the course learner with one script request, as the island does: a FormData body with one value for
+// each topic id, and a request for JSON. `field` is "mark" or "unmark".
+function postMarks(id, field, topicIds) {
+  const body = new globalThis.FormData();
+  for (const topicId of topicIds) body.append(field, topicId);
+  return request(`/api/courses/${id}/marks`, {
+    method: "POST",
+    body,
+    headers: { Accept: "application/json" },
+    cookies: courseJar,
+  });
+}
+
+// Opens the course page of the course learner and puts the path state of one lesson in place of the HTML body.
+async function coursePathState(id, position) {
+  return summarize(await request(`/dashboard/courses/${id}`, { cookies: courseJar }), (body) => ({
+    state: pathState(body, position),
+  }));
+}
+
 // Starts a topic job of the course learner through the start route, and keeps the id of the job.
 // A failed start clears the id, so that a later step cannot wait for the job of an earlier step.
 async function startTopicJob(id) {
@@ -626,6 +671,43 @@ const topicMapSteps = TOPICS
           withValue(courseId, "no course id from the course load", (id) => request(`/dashboard/courses/${id}/known`)),
         { status: 404, bodyExcludes: 'data-testid="known-page"' },
       ],
+      // The lesson path steps. The course has a map, so the course page shows the adjusted lesson list.
+      [
+        "course page shows the lesson path",
+        () =>
+          withValue(courseId, "no course id from the course load", async (id) =>
+            summarize(await request(`/dashboard/courses/${id}`, { cookies: courseJar }), (body) => ({
+              path: body.includes('data-testid="lesson-path"'),
+              state: pathState(body, PATH_LESSON),
+            })),
+          ),
+        { status: 200, json: { path: true, state: "open" } },
+      ],
+      // The step reads the topics of the lesson on the course page and marks all of them with one script request.
+      [
+        `marks on the topics of lesson ${PATH_LESSON} skip it`,
+        () =>
+          withValue(courseId, "no course id from the course load", async (id) => {
+            const page = await request(`/dashboard/courses/${id}`, { cookies: courseJar });
+            if (page.status !== 200) return page;
+            const topicIds = lessonTopicIds(page.body, PATH_LESSON);
+            pathTopicIds = topicIds.length > 0 ? topicIds : null;
+            return withValue(pathTopicIds, `no topic id in the item of lesson ${PATH_LESSON}`, async (ids) => {
+              const saved = await postMarks(id, "mark", ids);
+              return saved.status === 200 ? coursePathState(id, PATH_LESSON) : saved;
+            });
+          }),
+        { status: 200, json: { state: "skipped" } },
+      ],
+      [
+        `unmarks bring lesson ${PATH_LESSON} back`,
+        () =>
+          withValue(pathTopicIds, "no topic ids from the step before", async (ids) => {
+            const saved = await postMarks(courseId, "unmark", ids);
+            return saved.status === 200 ? coursePathState(courseId, PATH_LESSON) : saved;
+          }),
+        { status: 200, json: { state: "open" } },
+      ],
       // The main smoke user is the second learner. The map page answers 404 for a course of another learner.
       [
         "second learner cannot open the map",
@@ -728,6 +810,8 @@ const courseSteps = COURSES
         { status: 302, location: "/dashboard/courses?error=not_found", exact: true },
       ],
       ...topicMapSteps,
+      // With SMOKE_TOPICS, the course has a map, and the page shows the lesson path. The fake model gives no
+      // prerequisite between two lessons, so the lesson path keeps the course order.
       [
         "course has 2 loaded lessons and 1 failed lesson in order",
         () =>

@@ -3,7 +3,7 @@
 // so node --test can run its tests, and an island can import it.
 
 import type { createClient } from "@/lib/supabase";
-import { knownTopicIds, parseLearnerEvents, topicStates } from "./learner-state.ts";
+import { knownLiveTopicIds, parseLearnerEvents } from "./learner-state.ts";
 import { parseTopicList, type TopicList } from "./topics.ts";
 
 type Client = NonNullable<ReturnType<typeof createClient>>;
@@ -169,8 +169,6 @@ export async function readTopicMarks(supabase: Client, courseId: string): Promis
   const list = parseTopicList(listResult.data);
   if (!list) return { list: null, known: new Set<string>() };
   const merges = new Map(list.merged.map((topic) => [topic.id, topic.mergedInto]));
-  const states = topicStates(parseLearnerEvents(eventsResult.data), merges);
   const live = new Set(list.topics.map((topic) => topic.id));
-  const known = new Set([...knownTopicIds(states)].filter((id) => live.has(id)));
-  return { list, known };
+  return { list, known: knownLiveTopicIds(parseLearnerEvents(eventsResult.data), merges, live) };
 }
