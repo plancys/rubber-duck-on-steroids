@@ -1,10 +1,10 @@
 ---
 change_id: mark-known-topics
 title: Mark known topics
-status: impl_reviewed
+status: archived
 created: 2026-11-27
 updated: 2026-11-28
-archived_at: null
+archived_at: 2026-11-28T06:25:28Z
 ---
 
 ## Notes
