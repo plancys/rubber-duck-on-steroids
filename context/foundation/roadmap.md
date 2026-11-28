@@ -44,7 +44,7 @@ A working software engineer learns new technologies through online courses. The 
 | F-01 | background-work-path            | (foundation) long work runs outside a page request, and the learner sees its progress | —             | FR-002, FR-003        | in-progress |
 | S-01 | load-course-from-url            | load a course from the URL of its web page and see its lessons in order              | F-01          | FR-001, FR-002, US-01 | done |
 | S-02 | course-topic-graph              | see a loaded course as a graph of its topics                                         | S-01          | FR-003                | done        |
-| S-03 | mark-known-topics               | mark the topics they believe they already know                                       | S-02          | FR-005                | in-progress |
+| S-03 | mark-known-topics               | mark the topics they believe they already know                                       | S-02          | FR-005                | done |
 | S-04 | adjusted-lesson-list            | get a lesson list adjusted to their knowledge, with known lessons marked as skipped  | S-03          | FR-008, US-01         | blocked  |
 | S-05 | collapsed-known-passages        | read a lesson in which the passages on known topics are collapsed                    | S-04          | FR-009, US-01         | blocked  |
 | S-06 | double-check-questions          | answer questions that double-check the knowledge they claimed                        | S-03          | FR-006                | blocked  |
@@ -133,7 +133,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Does a claim have two states, known or not known, or more levels? — Owner: user. Block: no. Answered: two values, known or no mark. The plan of S-03 (`mark-known-topics`) records the decision.
 - **Risk:** It is the smallest way to record knowledge, and the north star needs it. A course can have many topics, so the marking must stay quick.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-04: Adjusted lesson list
 
@@ -294,3 +294,4 @@ The four entries below are the later phases from the research of the change `cou
 
 - **S-01: Learner can load a course by giving the URL of its web page, and see its lessons in the order of the course.** — Archived 2026-11-25 → `context/archive/2026-11-24-load-course-from-url/`. Lesson: —.
 - **S-02: Learner can see a loaded course as a graph of its topics and how they relate.** — Archived 2026-11-27 → `context/archive/2026-11-25-course-topic-graph/`. Lesson: —.
+- **S-03: Learner can mark the topics they believe they already know.** — Archived 2026-11-28 → `context/archive/2026-11-27-mark-known-topics/`. Lesson: —.

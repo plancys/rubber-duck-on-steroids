@@ -516,9 +516,9 @@ The implementation review of 2026-11-28 (`reviews/impl-review.md`) changed three
 #### Automated
 
 - [x] 4.1 The roadmap holds the four records: `grep -c "general to detailed\|two values, known or no mark" context/foundation/roadmap.md` gives at least 3 — 83b8c5e
-- [ ] 4.2 The CI run on `main` after the merge passes, the `deploy` job included: `gh run list --branch main --limit 1`
+- [x] 4.2 The CI run on `main` after the merge passes, the `deploy` job included: `gh run list --branch main --limit 1` — 07ce415
 
 #### Manual
 
-- [ ] 4.3 The owner applies the migration to production with `npx supabase db push`, then merges the pull request
+- [x] 4.3 The owner applies the migration to production with `npx supabase db push`, then merges the pull request — 07ce415
 - [ ] 4.4 In production, the owner marks topics of a real course on the checklist page and in the panel, and sees the marks after a reload
