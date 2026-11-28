@@ -1,5 +1,5 @@
 ---
-import { Network, RotateCcw, Waypoints } from "lucide-react";
+import { ListChecks, Network, RotateCcw, Waypoints } from "lucide-react";
 import AppLayout from "@/layouts/AppLayout.astro";
 import JobStatus from "@/components/jobs/JobStatus";
 import DeleteCourseButton from "@/components/courses/DeleteCourseButton";
@@ -7,7 +7,14 @@ import { ServerError } from "@/components/auth/ServerError";
 import { createClient } from "@/lib/supabase";
 import { JOB_VIEW_COLUMNS, toJobView, type JobView } from "@/lib/jobs";
 import { courseErrorText, courseName, courseStatusText, isCourseId } from "@/lib/courses";
-import { buildTimeText, topicCountText, topicMapPath, topicMapStatus, type TopicMapStateRow } from "@/lib/topics";
+import {
+  buildTimeText,
+  knownTopicsPath,
+  topicCountText,
+  topicMapPath,
+  topicMapStatus,
+  type TopicMapStateRow,
+} from "@/lib/topics";
 import type { Tables } from "@/db/database.types";
 
 let error = courseErrorText(Astro.url.searchParams.get("error"));
@@ -219,14 +226,24 @@ const notAnalysed = mapState ? Math.max(0, mapState.loaded_lessons - mapState.an
         {(mapStatus !== "none" || canBuildMap) && (
           <div class="grid gap-3 sm:grid-cols-2">
             {mapStatus !== "none" && (
-              <a
-                href={topicMapPath(course.id)}
-                data-testid="topic-map-link"
-                class="flex min-h-11 w-full min-w-11 items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
-              >
-                <Waypoints className="size-4" aria-hidden="true" />
-                Open the topic map
-              </a>
+              <>
+                <a
+                  href={topicMapPath(course.id)}
+                  data-testid="topic-map-link"
+                  class="flex min-h-11 w-full min-w-11 items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
+                >
+                  <Waypoints className="size-4" aria-hidden="true" />
+                  Open the topic map
+                </a>
+                <a
+                  href={knownTopicsPath(course.id)}
+                  data-testid="known-link"
+                  class="flex min-h-11 w-full min-w-11 items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
+                >
+                  <ListChecks className="size-4" aria-hidden="true" />
+                  Mark the topics you know
+                </a>
+              </>
             )}
             {canBuildMap && mapStatus !== "current" && (
               <form method="POST" action={`/api/courses/${course.id}/topics`}>

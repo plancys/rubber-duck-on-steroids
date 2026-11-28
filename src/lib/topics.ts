@@ -70,6 +70,11 @@ export function topicMapPath(courseId: string, position?: number): string {
   return position === undefined ? path : `${path}?lesson=${position}`;
 }
 
+/** The path of the checklist page, where the learner marks the topics of a course that they know. */
+export function knownTopicsPath(courseId: string): string {
+  return `/dashboard/courses/${courseId}/known`;
+}
+
 /** The date and the time of a build, in UTC, for example "2026-11-27 16:22 UTC". */
 export function buildTimeText(builtAt: string): string {
   const time = new Date(builtAt);
@@ -311,6 +316,23 @@ export function homeParentId(map: LessonMap, topic: MapTopic): string | null {
   return map.topics.some((other) => other.id === parent.id) ? parent.id : null;
 }
 
+// Removes the parent of each topic whose chain of parents comes back to a topic, so the chain stops before that
+// topic. The topics go in the order of the map, so the same input breaks a loop at the same place.
+function stopParentLoops(parents: Map<string, string | null>): void {
+  for (const id of parents.keys()) {
+    const seen = new Set<string>([id]);
+    let current = parents.get(id) ?? null;
+    while (current !== null) {
+      if (seen.has(current)) {
+        parents.set(id, null);
+        break;
+      }
+      seen.add(current);
+      current = parents.get(current) ?? null;
+    }
+  }
+}
+
 /**
  * The parent of each topic of the lesson, when the parent is a topic of the same lesson.
  * The build allows no cycle of parents. A chain that comes back to a topic still stops before that topic.
@@ -318,18 +340,7 @@ export function homeParentId(map: LessonMap, topic: MapTopic): string | null {
 export function topicParents(map: LessonMap): Map<string, string | null> {
   const parents = new Map<string, string | null>();
   for (const topic of map.topics) parents.set(topic.id, homeParentId(map, topic));
-  for (const topic of map.topics) {
-    const seen = new Set<string>([topic.id]);
-    let current = parents.get(topic.id) ?? null;
-    while (current !== null) {
-      if (seen.has(current)) {
-        parents.set(topic.id, null);
-        break;
-      }
-      seen.add(current);
-      current = parents.get(current) ?? null;
-    }
-  }
+  stopParentLoops(parents);
   return parents;
 }
 
@@ -449,4 +460,127 @@ export function reportLines(report: Json, builtAt: string): ReportLine[] {
     },
     { label: "Duration", value: `${seconds.toLocaleString("en-US")} s` },
   ];
+}
+
+// The form below follows the function course_topic_list. It holds the live topics of a course and no learner data.
+// The checklist page and the map page join it with the events of the learner in src/lib/marks.ts.
+
+/** A lesson of the topic list: the home lesson of at least one live topic. */
+export interface TopicListLesson {
+  url: string;
+  position: number;
+  title: string | null;
+}
+
+/** A live topic of the course: not merged and not retired. */
+export interface TopicListTopic {
+  id: string;
+  name: string;
+  description: string | null;
+  homeLessonUrl: string;
+  // The part_of parent. It can be a topic of another lesson, or a merged or retired topic that is not in the list.
+  parentId: string | null;
+}
+
+/** A merged topic of the course and the topic that replaces it. */
+export interface MergedTopic {
+  id: string;
+  mergedInto: string;
+}
+
+export interface TopicList {
+  // The lessons in course order.
+  lessons: TopicListLesson[];
+  // The order of the home lessons, then the text order of each lesson.
+  topics: TopicListTopic[];
+  merged: MergedTopic[];
+}
+
+/** Reads the document of course_topic_list. Null when the caller cannot see the course. */
+export function parseTopicList(data: unknown): TopicList | null {
+  // The helpers check the type of each value, so any value is safe to read here.
+  const value = data as Json | undefined;
+  if (!isObject(value)) return null;
+
+  const lessons = list(field(value, "lessons")).flatMap((item): TopicListLesson[] => {
+    const url = text(field(item, "url"));
+    const position = wholeNumber(field(item, "position"));
+    if (url === null || position === null) return [];
+    return [{ url, position, title: text(field(item, "title")) }];
+  });
+  lessons.sort((a, b) => a.position - b.position);
+
+  const topics = list(field(value, "topics")).flatMap((item): TopicListTopic[] => {
+    const id = text(field(item, "id"));
+    const name = text(field(item, "name"));
+    const homeLessonUrl = text(field(item, "home_lesson_url"));
+    if (id === null || name === null || homeLessonUrl === null) return [];
+    return [
+      {
+        id,
+        name,
+        description: text(field(item, "description")),
+        homeLessonUrl,
+        parentId: text(field(item, "parent_id")),
+      },
+    ];
+  });
+
+  const merged = list(field(value, "merged")).flatMap((item): MergedTopic[] => {
+    const id = text(field(item, "id"));
+    const mergedInto = text(field(item, "merged_into"));
+    if (id === null || mergedInto === null) return [];
+    return [{ id, mergedInto }];
+  });
+
+  return { lessons, topics, merged };
+}
+
+/** A topic of the checklist, with the topics whose parent it is. */
+export interface ChecklistTopic {
+  id: string;
+  name: string;
+  description: string | null;
+  children: ChecklistTopic[];
+}
+
+/** A lesson of the checklist with its live topics. */
+export interface ChecklistLesson {
+  url: string;
+  position: number;
+  title: string | null;
+  // The topics at the top level of the lesson, in the order of the topic list.
+  topics: ChecklistTopic[];
+}
+
+/**
+ * Groups the topic list by home lesson, one group for each lesson in course order. A child sits under its parent
+ * when both have the same home lesson. Else the child sits at the top level of its home lesson.
+ * A chain of parents that comes back to a topic stops before that topic, as in topicParents.
+ */
+export function checklistLessons(topicList: TopicList): ChecklistLesson[] {
+  return topicList.lessons.map((lesson) => {
+    const topics = topicList.topics.filter((topic) => topic.homeLessonUrl === lesson.url);
+    const nodes = new Map(
+      topics.map((topic): [string, ChecklistTopic] => [
+        topic.id,
+        { id: topic.id, name: topic.name, description: topic.description, children: [] },
+      ]),
+    );
+    const parents = new Map<string, string | null>();
+    for (const topic of topics) {
+      const parentId = topic.parentId;
+      parents.set(topic.id, parentId !== null && parentId !== topic.id && nodes.has(parentId) ? parentId : null);
+    }
+    stopParentLoops(parents);
+
+    const roots: ChecklistTopic[] = [];
+    for (const [id, node] of nodes) {
+      const parentId = parents.get(id) ?? null;
+      const parent = parentId === null ? undefined : nodes.get(parentId);
+      if (parent) parent.children.push(node);
+      else roots.push(node);
+    }
+    return { url: lesson.url, position: lesson.position, title: lesson.title, topics: roots };
+  });
 }

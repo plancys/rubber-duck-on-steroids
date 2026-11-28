@@ -225,6 +225,49 @@ export type Database = {
         };
         Relationships: [];
       };
+      learner_events: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          id: string;
+          kind: string;
+          topic_id: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          kind: string;
+          topic_id: string;
+          user_id?: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          kind?: string;
+          topic_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "learner_events_course_fkey";
+            columns: ["course_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "learner_events_topic_fkey";
+            columns: ["topic_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
       lesson_analyses: {
         Row: {
           analysed_at: string;
@@ -625,6 +668,7 @@ export type Database = {
         };
       };
       complete_job: { Args: { job_id: string; lease: string; result: Json }; Returns: boolean };
+      course_topic_list: { Args: { course_id: string }; Returns: Json };
       extension_save_page: {
         Args: { course_id: string; markdown: string; title: string; token: string; url: string };
         Returns: number;
@@ -645,6 +689,7 @@ export type Database = {
         };
         Returns: boolean;
       };
+      learner_course_events: { Args: { course_id: string }; Returns: Json };
       read_lesson_text: { Args: { course_id: string; lesson_url: string }; Returns: string };
       release_job: { Args: { job_id: string; lease: string }; Returns: boolean };
       reload_course: { Args: { course_id: string }; Returns: string };

@@ -1,0 +1,102 @@
+---
+import AppLayout from "@/layouts/AppLayout.astro";
+import KnownTopicList from "@/components/topics/KnownTopicList";
+import { ServerError } from "@/components/auth/ServerError";
+import { createClient } from "@/lib/supabase";
+import { courseErrorText, courseName, isCourseId } from "@/lib/courses";
+import { markErrorText, markNoticeText, readTopicMarks } from "@/lib/marks";
+import { checklistLessons, type ChecklistLesson } from "@/lib/topics";
+import type { Tables } from "@/db/database.types";
+
+type Course = Pick<Tables<"courses">, "id" | "title" | "source_url">;
+
+// The checklist page reads the course row and the marks in parallel. readTopicMarks reads the topic list of the
+// course and the events of the learner, and joins them in code. The island saves each click at once.
+// A course of another learner and an id that does not exist give the same result. RLS returns no row for both.
+const { id } = Astro.params;
+// The marks route redirects a form post with no script back to this page with a notice or an error key.
+const notice = markNoticeText(Astro.url.searchParams.get("notice"));
+let error = markErrorText(Astro.url.searchParams.get("error"));
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+let course: Course | null = null;
+let lessons: ChecklistLesson[] = [];
+let knownTopicIds: string[] = [];
+let notFound = false;
+
+if (!supabase) {
+  error = courseErrorText("not_configured");
+} else if (!isCourseId(id)) {
+  notFound = true;
+} else {
+  const [courseResult, marks] = await Promise.all([
+    supabase.from("courses").select("id, title, source_url").eq("id", id).maybeSingle(),
+    readTopicMarks(supabase, id),
+  ]);
+  if (courseResult.error || "error" in marks) {
+    Astro.response.status = 500;
+    error = courseErrorText("unknown");
+  } else if (!courseResult.data || !marks.list) {
+    notFound = true;
+  } else {
+    course = courseResult.data;
+    lessons = checklistLessons(marks.list);
+    knownTopicIds = [...marks.known];
+  }
+}
+
+if (notFound) {
+  Astro.response.status = 404;
+}
+
+const backLinkClass =
+  "inline-flex min-h-11 min-w-11 items-center font-semibold text-muted-foreground hover:text-foreground";
+---
+
+<AppLayout title={course ? `Known topics: ${courseName(course)}` : notFound ? "Course not found" : "Known topics"}>
+  {course ? (
+    <div data-testid="known-page" class="space-y-6">
+      <div>
+        <p class="mb-2 text-sm">
+          <a href={`/dashboard/courses/${course.id}`} data-testid="known-course-link" class:list={backLinkClass}>
+            {courseName(course)}
+          </a>
+        </p>
+        <h1 class="font-heading text-3xl font-extrabold sm:text-4xl">Mark the topics you know</h1>
+      </div>
+
+      {notice && (
+        <p data-testid="known-notice" class="rounded-lg bg-success px-3 py-2 text-sm text-success-foreground">
+          {notice}
+        </p>
+      )}
+      {error && (
+        <div data-testid="known-error">
+          <ServerError message={error} />
+        </div>
+      )}
+
+      {lessons.length === 0 ? (
+        <div data-testid="known-empty" class="space-y-3">
+          <p class="text-sm text-muted-foreground">
+            This course has no topics yet. Build the topic map on the course page.
+          </p>
+          <a
+            href={`/dashboard/courses/${course.id}`}
+            class="inline-flex min-h-11 min-w-11 items-center font-semibold text-primary underline underline-offset-2"
+          >
+            Open the course page
+          </a>
+        </div>
+      ) : (
+        <KnownTopicList client:load courseId={course.id} lessons={lessons} knownTopicIds={knownTopicIds} />
+      )}
+    </div>
+  ) : (
+    <>
+      <h1 class="mb-6 font-heading text-3xl font-extrabold sm:text-4xl">
+        {notFound ? "Course not found" : "Mark the topics you know"}
+      </h1>
+      <p class="text-sm text-muted-foreground">{notFound ? courseErrorText("not_found") : error}</p>
+    </>
+  )}
+</AppLayout>

@@ -4,7 +4,9 @@ import TopicMap from "@/components/topics/TopicMap";
 import TopicOutline from "@/components/topics/TopicOutline.astro";
 import { createClient } from "@/lib/supabase";
 import { courseErrorText, courseName, isCourseId } from "@/lib/courses";
+import { readTopicMarks } from "@/lib/marks";
 import {
+  knownTopicsPath,
   lessonTitle,
   parseLessonMap,
   parseOverview,
@@ -19,6 +21,7 @@ import type { Tables } from "@/db/database.types";
 type Course = Pick<Tables<"courses">, "id" | "title" | "source_url">;
 
 // The map page reads one course_maps row for the overview, and one JSON document for an open lesson.
+// For an open lesson, it also reads the marks of the learner for the "Known" control of the topic panel.
 // It reads no lesson text and does no graph work. The island computes the layout in the browser.
 // A course of another learner and an id that does not exist give the same result. RLS returns no row for both.
 const { id } = Astro.params;
@@ -29,6 +32,8 @@ let course: Course | null = null;
 let overview: MapOverview | null = null;
 let report: ReportLine[] = [];
 let lessonMap: LessonMap | null = null;
+// The topics that the learner marked as known. Undefined when the read of the marks fails.
+let knownTopicIds: string[] | undefined;
 let notFound = false;
 let lessonNotFound = false;
 
@@ -58,7 +63,10 @@ if (!supabase) {
         if (!entry) {
           lessonNotFound = true;
         } else {
-          const lessonResult = await supabase.rpc("topic_map_lesson", { course_id: id, lesson_url: entry.url });
+          const [lessonResult, marks] = await Promise.all([
+            supabase.rpc("topic_map_lesson", { course_id: id, lesson_url: entry.url }),
+            readTopicMarks(supabase, id),
+          ]);
           if (lessonResult.error) {
             Astro.response.status = 500;
             error = courseErrorText("unknown");
@@ -66,6 +74,8 @@ if (!supabase) {
             // The function gives null when the lesson is no longer in the course.
             lessonMap = parseLessonMap(lessonResult.data);
             if (!lessonMap) lessonNotFound = true;
+            // A failed read of the marks leaves the map as it is. The panel then shows no "Known" control.
+            if (!("error" in marks) && marks.list) knownTopicIds = [...marks.known];
           }
         }
       }
@@ -103,6 +113,17 @@ const backLinkClass =
           {lessonHeading ?? "Topic map"}
         </h1>
         {lessonMap && <p class="mt-2 text-sm text-muted-foreground [overflow-wrap:anywhere]">{courseName(course)}</p>}
+        {overview && (
+          <p class="mt-2 text-sm">
+            <a
+              href={knownTopicsPath(course.id)}
+              data-testid="known-link-map"
+              class="inline-flex min-h-11 min-w-11 items-center font-semibold text-primary underline underline-offset-2"
+            >
+              Mark the topics you know
+            </a>
+          </p>
+        )}
       </div>
 
       {error && <p class="text-sm text-destructive">{error}</p>}
@@ -134,6 +155,7 @@ const backLinkClass =
               courseId={course.id}
               overview={lessonMap ? undefined : overview}
               lesson={lessonMap ?? undefined}
+              knownTopicIds={knownTopicIds}
             >
               <p
                 slot="fallback"

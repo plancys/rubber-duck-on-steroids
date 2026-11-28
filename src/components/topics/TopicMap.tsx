@@ -16,6 +16,7 @@ import {
   type NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
+import { useTopicMarks } from "@/components/hooks/useTopicMarks";
 import { cn } from "@/lib/utils";
 import {
   BOX_PADDING,
@@ -50,6 +51,8 @@ interface Props {
   overview?: MapOverview;
   // One lesson of the map.
   lesson?: LessonMap;
+  // The topics that the learner marked as known. Without it, the topic panel shows no "Known" control.
+  knownTopicIds?: string[];
 }
 
 // React Flow needs node data with an index signature, so each data interface extends Record<string, unknown>.
@@ -382,7 +385,7 @@ function lessonGraph(courseId: string, map: LessonMap): Graph {
   return { nodes, edges, bounds: layout.bounds, first: firstNode(layout) };
 }
 
-function TopicMapCanvas({ courseId, overview, lesson }: Props) {
+function TopicMapCanvas({ courseId, overview, lesson, knownTopicIds }: Props) {
   const graph = useMemo(
     () => (lesson ? lessonGraph(courseId, lesson) : overviewGraph(courseId, overview ?? { lessons: [], arrows: [] })),
     [courseId, overview, lesson],
@@ -391,6 +394,22 @@ function TopicMapCanvas({ courseId, overview, lesson }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  // The marks show only in the panel. The canvas and the outline show no mark.
+  const { isKnown, isPending, error: markError, save } = useTopicMarks(courseId, knownTopicIds ?? []);
+  // The topic of the last failed write of the panel. The panel of that topic shows the error text.
+  const [markErrorTopic, setMarkErrorTopic] = useState<string | null>(null);
+
+  const toggleKnown = useCallback(
+    (topicId: string) => {
+      // A pending topic waits for its write, so the panel never sends two writes for one topic at the same time.
+      if (isPending(topicId)) return;
+      const known = isKnown(topicId);
+      void save(known ? [] : [topicId], known ? [topicId] : []).then((saved) => {
+        if (!saved) setMarkErrorTopic(topicId);
+      });
+    },
+    [isKnown, isPending, save],
+  );
 
   const onInit = useCallback(() => {
     const box = containerRef.current?.getBoundingClientRect();
@@ -474,7 +493,17 @@ function TopicMapCanvas({ courseId, overview, lesson }: Props) {
             />
           </div>
           {lesson && activeId !== null && (
-            <TopicPanel courseId={courseId} map={lesson} topicId={activeId} onClose={closePanel} onOpen={setActiveId} />
+            <TopicPanel
+              courseId={courseId}
+              map={lesson}
+              topicId={activeId}
+              onClose={closePanel}
+              onOpen={setActiveId}
+              known={isKnown(activeId)}
+              pending={isPending(activeId)}
+              knownError={markErrorTopic === activeId ? markError : null}
+              onToggleKnown={knownTopicIds ? toggleKnown : undefined}
+            />
           )}
         </div>
       </div>

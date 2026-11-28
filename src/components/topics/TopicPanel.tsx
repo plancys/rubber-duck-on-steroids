@@ -1,6 +1,8 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import { ExternalLink, X } from "lucide-react";
+import { ServerError } from "@/components/auth/ServerError";
 import { linkPlaceText, prerequisitesOf, topicMapPath, topicRef, type LessonMap, type TopicRef } from "@/lib/topics";
+import KnownBox from "./KnownBox";
 
 interface Props {
   courseId: string;
@@ -9,6 +11,14 @@ interface Props {
   onClose: () => void;
   // Opens another topic of the same lesson in the panel.
   onOpen: (topicId: string) => void;
+  // True when the topic has the mark "known".
+  known?: boolean;
+  // True while a write of the mark of the topic runs.
+  pending?: boolean;
+  // The text of the last failed write of the mark of this topic.
+  knownError?: string | null;
+  // Saves the mark "known" of the topic, or removes it. Without it, the panel shows no "Known" control.
+  onToggleKnown?: (topicId: string) => void;
 }
 
 export const TOPIC_PANEL_ID = "topic-panel";
@@ -40,11 +50,21 @@ function TopicName({ courseId, topic, onOpen }: { courseId: string; topic: Topic
 }
 
 /**
- * The panel of one topic: the name, the description, the parent, the prerequisites,
+ * The panel of one topic: the name, the "Known" control, the description, the parent, the prerequisites,
  * and each lesson that explains or mentions the topic, with the quote and a link to the original page.
  * The panel takes the focus when it opens. The Escape key and the close button close it.
  */
-export default function TopicPanel({ courseId, map, topicId, onClose, onOpen }: Props) {
+export default function TopicPanel({
+  courseId,
+  map,
+  topicId,
+  onClose,
+  onOpen,
+  known = false,
+  pending = false,
+  knownError = null,
+  onToggleKnown,
+}: Props) {
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -100,6 +120,31 @@ export default function TopicPanel({ courseId, map, topicId, onClose, onOpen }: 
           <X className="size-5" aria-hidden="true" />
         </button>
       </div>
+
+      {onToggleKnown && (
+        <div>
+          {/* A click saves at once. A pending toggle uses aria-disabled, not disabled, so it keeps the focus,
+              and a screen reader reads the new state. */}
+          <button
+            type="button"
+            data-testid="topic-panel-known"
+            aria-pressed={known}
+            aria-disabled={pending || undefined}
+            aria-busy={pending || undefined}
+            onClick={() => {
+              if (!pending) onToggleKnown(topic.id);
+            }}
+            className="border-border bg-card text-card-foreground hover:bg-secondary flex min-h-11 min-w-11 items-center gap-2 rounded-full border px-4 py-2 font-semibold transition-colors aria-busy:cursor-wait aria-disabled:opacity-60"
+          >
+            <KnownBox known={known} />
+            Known
+          </button>
+          {/* The live region stays in the panel, so a screen reader reads each new error text. */}
+          <div aria-live="polite" className="mt-2 empty:mt-0">
+            <ServerError message={knownError} />
+          </div>
+        </div>
+      )}
 
       {topic.description && <p>{topic.description}</p>}
 
