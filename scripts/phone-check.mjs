@@ -6,7 +6,8 @@
 // Run it against a live server: BASE_URL=http://localhost:4321 node scripts/phone-check.mjs
 // LOOKS selects the looks: empty means one pass with no look cookie, "all" means every look, and "calm,dock" means those looks.
 // For a look, the check sets the cookie "look". The server uses the cookie only when ALLOW_LOOK_OVERRIDE is true.
-// The course pages: the check loads one course once, then checks /dashboard/courses and the page of that course.
+// The course pages: the check loads one course once, then checks /dashboard/courses, the page of that course,
+// and the checklist page of that course (<course page>/known).
 // The load needs ALLOW_PRIVATE_COURSE_URLS=true on the server, because the course is the local fixture site.
 // Without the setting, the check skips the course page. FIXTURE_COURSE_URL overrides the start page of the course.
 // Run scripts/fixture-server.mjs and the worker to get a course with lessons. Without them, the course does not load,
@@ -369,14 +370,17 @@ async function checkSignedInPages(page, width) {
   // The job check page. Without ENABLE_JOB_CHECK on the server, it answers 404 and the check skips it.
   const jobCheck = "/dashboard/job-check";
   await guarded(jobCheck, width, () => checkPage(page, jobCheck, width, { expectBar: true }));
-  // The course pages. The first pass loads one course, and every pass checks the list and the page of that course,
-  // then the map pages of that course.
+  // The course pages. The first pass loads one course, and every pass checks the list, the page and the checklist
+  // page of that course, then the map pages of that course.
   if (await guarded(COURSES, width, () => checkPage(page, COURSES, width, { expectBar: true }))) {
     if (coursePath === undefined) {
       coursePath = (await guarded("load course", width, () => loadCourse(page, width))) || null;
     }
     if (coursePath) {
       await guarded(coursePath, width, () => checkPage(page, coursePath, width, { expectBar: true }));
+      // The checklist page. A course with no map shows the text for a course with no topics.
+      const knownPath = `${coursePath}/known`;
+      await guarded(knownPath, width, () => checkPage(page, knownPath, width, { expectBar: true }));
       await checkMapPages(page, width);
     }
   }

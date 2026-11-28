@@ -67,7 +67,7 @@ const TOPICS = TOPICS_REQUESTED && COURSES;
 const MAP_LESSON = 1;
 // The newest topic job that the course learner started with the start route.
 let topicJobId = null;
-// A topic of the open lesson. The mark steps mark it and remove the mark.
+// A topic of the open lesson. The mark steps mark it and remove the mark. The checklist steps mark it again.
 let markTopicId = null;
 
 function cookieHeader(cookies) {
@@ -433,6 +433,12 @@ function mapSummary(body) {
 // data-testid="topic-..." out of the match.
 const OUTLINE_TOPIC = /\sid="topic-([0-9a-f-]{36})"/;
 
+// The mark of one topic on the checklist page: "true", "false", or null when the page does not list the topic.
+// The topic element holds data-topic-id and then data-known. A topic id is a UUID, so it is safe in a RegExp.
+function knownState(body, topicId) {
+  return new RegExp(`data-topic-id="${topicId}"[^>]*data-known="(true|false)"`).exec(body)?.[1] ?? null;
+}
+
 // Starts a topic job of the course learner through the start route, and keeps the id of the job.
 // A failed start clears the id, so that a later step cannot wait for the job of an earlier step.
 async function startTopicJob(id) {
@@ -565,6 +571,45 @@ const topicMapSteps = TOPICS
             }),
           ),
         { status: 409, json: { error: "marks_stale" } },
+      ],
+      // The checklist steps. The mark steps above end with the mark removed, so the topic shows no mark.
+      [
+        "checklist lists the topics of the course",
+        () =>
+          withValue(courseId, "no course id from the course load", async (id) =>
+            summarize(await request(`/dashboard/courses/${id}/known`, { cookies: courseJar }), (body) => ({
+              topics: body.includes('data-testid="known-topic"'),
+              known: markTopicId ? knownState(body, markTopicId) : null,
+            })),
+          ),
+        { status: 200, json: { topics: true, known: "false" } },
+      ],
+      // A form post with no script. The route redirects back to the lesson, and the page shows the mark and the notice.
+      [
+        "a mark shows on the checklist",
+        () =>
+          withValue(markTopicId, "no topic id from the open lesson", async (topicId) => {
+            const mark = await request(`/api/courses/${courseId}/marks`, {
+              method: "POST",
+              form: { mark: topicId, lesson: String(MAP_LESSON) },
+              cookies: courseJar,
+            });
+            if (mark.status !== 302) return mark;
+            // A browser keeps the fragment of the redirect and does not send it.
+            const page = await request(mark.location.split("#")[0], { cookies: courseJar });
+            return summarize(page, (body) => ({
+              known: knownState(body, topicId),
+              notice: body.includes('data-testid="known-notice"'),
+            }));
+          }),
+        { status: 200, json: { known: "true", notice: true } },
+      ],
+      // The main smoke user is the second learner. The checklist page answers 404 for a course of another learner.
+      [
+        "second learner gets 404 for the checklist",
+        () =>
+          withValue(courseId, "no course id from the course load", (id) => request(`/dashboard/courses/${id}/known`)),
+        { status: 404, bodyExcludes: 'data-testid="known-page"' },
       ],
       // The main smoke user is the second learner. The map page answers 404 for a course of another learner.
       [

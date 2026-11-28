@@ -481,27 +481,27 @@ The migration adds one table, one trigger and two functions. It changes no exist
 
 #### Automated
 
-- [x] 2.1 The unit tests pass, the new tests included: `npm run test:unit`
-- [x] 2.2 Lint and types pass: `npm run lint` and `npx astro check`
-- [x] 2.3 The build passes: `npm run build`
-- [x] 2.4 The smoke test passes with the new route steps: `SMOKE_COURSES=1 SMOKE_TOPICS=1 npm run smoke`, with the setup of `AGENTS.md:81`
+- [x] 2.1 The unit tests pass, the new tests included: `npm run test:unit` — 55bcb99
+- [x] 2.2 Lint and types pass: `npm run lint` and `npx astro check` — 55bcb99
+- [x] 2.3 The build passes: `npm run build` — 55bcb99
+- [x] 2.4 The smoke test passes with the new route steps: `SMOKE_COURSES=1 SMOKE_TOPICS=1 npm run smoke`, with the setup of `AGENTS.md:81` — 55bcb99
 
 ### Phase 3: Checklist page and panel control
 
 #### Automated
 
-- [ ] 3.1 The unit tests pass: `npm run test:unit`
-- [ ] 3.2 Lint, types and the build pass: `npm run lint`, `npx astro check` and `npm run build`
-- [ ] 3.3 The phone check passes with the checklist page in all five looks: `LOOKS=all npm run phone-check`
-- [ ] 3.4 The smoke test passes with the page steps: `SMOKE_COURSES=1 SMOKE_TOPICS=1 npm run smoke`
+- [x] 3.1 The unit tests pass: `npm run test:unit`
+- [x] 3.2 Lint, types and the build pass: `npm run lint`, `npx astro check` and `npm run build`
+- [x] 3.3 The phone check passes with the checklist page in all five looks: `LOOKS=all npm run phone-check`
+- [x] 3.4 The smoke test passes with the page steps: `SMOKE_COURSES=1 SMOKE_TOPICS=1 npm run smoke`
 
 #### Manual
 
 - [ ] 3.5 On the local docs course, the owner marks the known topics with the checklist and the lesson buttons, and finds the marking quick
-- [ ] 3.6 "Undo" after "Mark all" brings back the marks of the lesson as they were
-- [ ] 3.7 The "Known" control in the panel saves a mark, and the checklist shows it after a reload
-- [ ] 3.8 With JavaScript off, a click on a toggle saves the mark, and the page comes back at the same lesson
-- [ ] 3.9 A mark on a parent leaves its children unchanged
+- [x] 3.6 "Undo" after "Mark all" brings back the marks of the lesson as they were
+- [x] 3.7 The "Known" control in the panel saves a mark, and the checklist shows it after a reload
+- [x] 3.8 With JavaScript off, a click on a toggle saves the mark, and the page comes back at the same lesson
+- [x] 3.9 A mark on a parent leaves its children unchanged
 
 ### Phase 4: Production and records
 
