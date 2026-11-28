@@ -1,10 +1,10 @@
 ---
 change_id: adjusted-lesson-list
 title: Adjusted lesson list
-status: impl_reviewed
+status: archived
 created: 2026-11-28
 updated: 2026-11-28
-archived_at: null
+archived_at: 2026-11-28T09:33:35Z
 ---
 
 ## Notes
