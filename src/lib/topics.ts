@@ -70,9 +70,13 @@ export function topicMapPath(courseId: string, position?: number): string {
   return position === undefined ? path : `${path}?lesson=${position}`;
 }
 
-/** The path of the checklist page, where the learner marks the topics of a course that they know. */
-export function knownTopicsPath(courseId: string): string {
-  return `/dashboard/courses/${courseId}/known`;
+/**
+ * The path of the checklist page, where the learner marks the topics of a course that they know, or of one lesson
+ * section of that page. The position is the course position of the lesson.
+ */
+export function knownTopicsPath(courseId: string, position?: number): string {
+  const path = `/dashboard/courses/${courseId}/known`;
+  return position === undefined ? path : `${path}#lesson-${position}`;
 }
 
 /** The date and the time of a build, in UTC, for example "2026-11-27 16:22 UTC". */

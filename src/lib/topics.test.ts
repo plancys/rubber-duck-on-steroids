@@ -140,7 +140,8 @@ test("topicParents keeps a parent of the same lesson and stops a parent loop", (
   assert.deepEqual(Object.fromEntries(topicParents(map)), { a: null, b: "a", c: "a", d: null });
 });
 
-test("knownTopicsPath gives the path of the checklist page", () => {
+test("knownTopicsPath gives the path of the checklist page, or of one lesson section with a position", () => {
   const id = "6f1c2a3b-0000-4000-8000-000000000001";
   assert.equal(knownTopicsPath(id), `/dashboard/courses/${id}/known`);
+  assert.equal(knownTopicsPath(id, 3), `/dashboard/courses/${id}/known#lesson-3`);
 });

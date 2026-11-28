@@ -412,23 +412,23 @@ The migration adds one function. It changes no table, no row and no other functi
 
 #### Automated
 
-- [x] 2.1 The unit tests pass, the new tests included: `npm run test:unit`
-- [x] 2.2 Lint and types pass: `npm run lint` and `npx astro check`
+- [x] 2.1 The unit tests pass, the new tests included: `npm run test:unit` — 963f774
+- [x] 2.2 Lint and types pass: `npm run lint` and `npx astro check` — 963f774
 
 ### Phase 3: Course page
 
 #### Automated
 
-- [ ] 3.1 The unit tests pass: `npm run test:unit`
-- [ ] 3.2 Lint, types and the build pass: `npm run lint`, `npx astro check` and `npm run build`
-- [ ] 3.3 The phone check passes with the adjusted list in all five looks: `LOOKS=all npm run phone-check`
-- [ ] 3.4 The smoke test passes with the lesson path steps: `SMOKE_COURSES=1 SMOKE_TOPICS=1 npm run smoke`
+- [x] 3.1 The unit tests pass: `npm run test:unit`
+- [x] 3.2 Lint, types and the build pass: `npm run lint`, `npx astro check` and `npm run build`
+- [x] 3.3 The phone check passes with the adjusted list in all five looks: `LOOKS=all npm run phone-check`
+- [x] 3.4 The smoke test passes with the lesson path steps: `SMOKE_COURSES=1 SMOKE_TOPICS=1 npm run smoke`
 
 #### Manual
 
-- [ ] 3.5 On the local docs course, a lesson whose explained topics are all marked shows "Skipped" at its place with the reason, and its link opens the original lesson
-- [ ] 3.6 A topic link of a skipped lesson opens its lesson section on the checklist, one click removes the mark, and a reload of the course page shows the lesson as not skipped
-- [ ] 3.7 With "MergeTree" and "Table parts" not marked, lesson 2 shows the gap note that names lesson 3, the list keeps the course order, and a mark on either topic removes the note after a reload
+- [x] 3.5 On the local docs course, a lesson whose explained topics are all marked shows "Skipped" at its place with the reason, and its link opens the original lesson
+- [x] 3.6 A topic link of a skipped lesson opens its lesson section on the checklist, one click removes the mark, and a reload of the course page shows the lesson as not skipped
+- [x] 3.7 With "MergeTree" and "Table parts" not marked, lesson 2 shows the gap note that names lesson 3, the list keeps the course order, and a mark on either topic removes the note after a reload
 - [ ] 3.8 The owner marks the topics that they know on the docs course, and agrees with the skipped lessons
 
 ### Phase 4: Production and records

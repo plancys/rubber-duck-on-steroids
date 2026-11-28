@@ -26,3 +26,20 @@ Roadmap item S-04 of milestone M-01 (FR-008, US-01), the north star of the miles
 
 - Mismatch: the snippet of the plan moved lesson 3 before lesson 2 when the two lessons need each other. The approved rule says that such lessons keep the course order. The agent took "Adapt and continue" toward the approved rule. Inside a loop, the walk drops each need of an earlier lesson on a later lesson. Tarjan's algorithm finds the loops. Each move still has a real topic pair as its reason.
 - Unit tests: 282, with 15 new. Break checks: a skip on one known topic made 2 tests fail, and a walk with no loop step made the loop test fail.
+
+### Phase 3: course page (2026-11-28)
+
+- Adaptations: the smoke steps use fixture lesson 3, not lesson 1. The checklist steps leave a mark on the only topic of lesson 1, so lesson 1 is already skipped when the new steps start. For one topic, the texts are "You know the 1 topic it explains." and "You know 0 of 1 topic it explains.".
+- Gates: 282 unit tests, lint, astro check and the build pass. `LOOKS=all npm run phone-check`: all 180 page checks passed. The "Mark all" click saved 1 mark on the course of the phone check, so each look showed a skipped lesson. Smoke: 91 steps passed, with 3 new lesson path steps, and 2 steps skipped by their flags.
+- Local setup, as in CI: `.dev.vars` got `ALLOW_LOOK_OVERRIDE`, `OAUTH_PROVIDERS` and `ALLOW_PRIVATE_COURSE_URLS` before the build. The agent kept a byte copy and put it back after the checks. The services were the fixture site on 8799, the engine with the fake model on 8792 and 8793, the worker on 8788, and the preview on 4322. No job waited before the worker started.
+- Manual checks in headless Chromium against the preview, on the local docs course "Get started with ClickHouse" (`560b7697`) of the test account `verify-map+1795799108339@example.com`:
+
+  | Row | Result |
+  | --- | --- |
+  | 3.5 | "Mark all" in the section of lesson 6 marked its topics. The course page showed lesson 6 with "Skipped" and "You know all 5 topics it explains.", and the summary "Adjusted to the topics you know: 1 of 16 lessons skipped, 0 moved up.". The link of lesson 6 opens `https://clickhouse.com/docs/get-started/use-cases/real-time-analytics` in a new tab. |
+  | 3.6 | The topic link "Real-time analytics" of lesson 6 opened `/known#lesson-6`. One click removed the mark, and after a reload lesson 6 showed "You know 4 of 5 topics it explains.". |
+  | 3.7 | With no marks, lesson 2 showed `"Table parts" needs "MergeTree". No lesson explains it. Lesson 3 mentions it.`, and the order was 1 to 16. A mark on "MergeTree" or on "Table parts" removed the note, and the order stayed the same. An unmark brought the note back. |
+  | 3.8 | This row needs the judgment of the owner, so it stays open. |
+
+- With no marks, the docs course shows 6 gap notes on lessons 1, 2, 3, 8 and 9. The plan says 2. The rule counts each prerequisite that no lesson explains, and the query behind the plan counted only the backward relations.
+- The first run of the browser script marked "Background merges" in place of "Table parts", because it picked the first checklist row with the text "Table parts". The second run picked the rows by topic id. The course ended with no mark.
