@@ -43,3 +43,13 @@ Roadmap item S-04 of milestone M-01 (FR-008, US-01), the north star of the miles
 
 - With no marks, the docs course shows 6 gap notes on lessons 1, 2, 3, 8 and 9. The plan says 2. The rule counts each prerequisite that no lesson explains, and the query behind the plan counted only the backward relations.
 - The first run of the browser script marked "Background merges" in place of "Table parts", because it picked the first checklist row with the text "Table parts". The second run picked the rows by topic id. The course ended with no mark.
+
+### Phase 4: production and records (2026-11-28)
+
+- The roadmap holds the S-04 records: the answer to the S-04 unknown, the S-04 part of Open Roadmap Question 1, and the note in the backlog row of S-04. The check of row 4.1 counts 3 records.
+- Rows 4.2 to 4.4 are human actions. The agent did not push the branch, did not run `npx supabase db push`, and did not merge.
+- The owner steps, in this order:
+  1. Review the branch `adjusted-lesson-list`. It starts from `origin/main` (`d8ef1fe`).
+  2. Apply the migration `20261128120000_create_course_lesson_map.sql` to production with `npx supabase db push`.
+  3. Push the branch, open the pull request, and merge it after CI passes.
+  4. Check row 4.2 with `gh run list --branch main --limit 1`. Then open a real course with marks in production (row 4.4).

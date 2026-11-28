@@ -144,7 +144,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Parallel with:** S-06, S-07, S-08
 - **Blockers:** —
 - **Unknowns:**
-  - When does a lesson count as already known, and when does the order change? This is part of the missing domain rule (Open Roadmap Question 1). — Owner: user. Block: yes.
+  - When does a lesson count as already known, and when does the order change? This is part of the missing domain rule (Open Roadmap Question 1). — Owner: user. Block: no. Answered for S-04: a lesson is skipped when the learner knows every topic that it explains. A lesson with no current analysis or no explained topic is never skipped. A later lesson that first explains a needed topic moves to the place right before the first lesson that needs it, when the learner knows neither topic. When no lesson explains the needed topic, the lesson that needs it gets a gap note. The plan of S-04 (`adjusted-lesson-list`) records the rule.
   - Which numbers stand for "nearly all" and "noticeably faster"? (Open Roadmap Question 12) — Owner: user. Block: no.
 - **Risk:** It is the north star, so it goes as early as its prerequisites allow. It uses claimed knowledge, and S-06 adds the check later. It cannot be planned before the domain rule exists.
 - **Status:** in-progress
@@ -238,7 +238,7 @@ Linear project: [Rubber-duck-on-steroids](https://linear.app/rubber-duck-on-ster
 | S-01       | RUB-8  | load-course-from-url            | Load a course from its URL and list its lessons         | no                    | Waits for F-01                                           |
 | S-02       | RUB-9  | course-topic-graph              | Show a loaded course as a graph of topics               | no                    | Waits for S-01                                           |
 | S-03       | RUB-10 | mark-known-topics               | Let the learner mark known topics                       | no                    | Waits for S-02                                           |
-| S-04       | RUB-11 | adjusted-lesson-list            | Give a lesson list adjusted to the learner's knowledge  | no                    | Blocked: the domain rule is missing (Question 1)         |
+| S-04       | RUB-11 | adjusted-lesson-list            | Give a lesson list adjusted to the learner's knowledge  | no                    | Planned: the plan of S-04 answers its part of Question 1 |
 | S-05       | RUB-12 | collapsed-known-passages        | Collapse the passages on known topics in a lesson       | no                    | Blocked: the domain rule is missing (Question 1)         |
 | S-06       | RUB-13 | double-check-questions          | Ask questions that double-check claimed knowledge       | no                    | Blocked: the domain rule is missing (Question 1)         |
 | S-07       | RUB-14 | knowledge-on-course-graph       | Show the learner's knowledge on the course graph        | no                    | Waits for S-03                                           |
@@ -250,7 +250,7 @@ Linear project: [Rubber-duck-on-steroids](https://linear.app/rubber-duck-on-ster
 
 Questions 1 to 16 are a copy of the open questions of the PRD. Questions 17 to 19 came from the stack selection and the baseline.
 
-1. **What is the one-sentence business rule?** — TBD by user. Block: yes (PRD is hollow until resolved). — Owner: user. Block: S-04, S-05, S-06.
+1. **What is the one-sentence business rule?** — TBD by user. Block: yes (PRD is hollow until resolved). — Owner: user. Block: S-05, S-06. S-04 answers its part in its plan (`adjusted-lesson-list`): a lesson is skipped when the learner knows every topic that it explains, and a later lesson that first explains a needed topic moves up when the learner knows neither topic. The parts of S-05 (which passages count as known) and S-06 (what a wrong answer does) stay open.
 2. **What are the non-functional requirements?** None were captured; shaping stopped before they were asked. — Owner: user. Block: none.
 3. **What is the first version explicitly not doing?** No non-goals were captured. The nice-to-have requirements FR-012, FR-013 and FR-014 sit outside the first version by their priority, and whether to list them as explicit non-goals is part of this question. So is whether "we do not build our own X" becomes a scope non-goal, which the user's preference for reusing existing open-source projects raised. — Owner: user. Block: none.
 4. **What kind of product is this (`product_type`)?** Not captured. — Owner: user. Block: none. The user answered "a web app" in the stack selection session. The PRD does not hold this answer.
